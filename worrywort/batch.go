@@ -1,48 +1,82 @@
-package worrywort;
+package worrywort
+
 // Models and functions for brew batch management
 
-import "time";
+import "time"
 
 type VolumeUnitType int32
+
 const (
-    GALLON VolumeType = iota
-    QUART VolumeType
+	GALLON VolumeUnitType = iota
+	QUART
 )
 
 type TemperatureUnitType int32
+
 const (
-    FAHRENHEIT TemperatureUnitType = iota
-    CELSIUS TemperatureUnitType
+	FAHRENHEIT TemperatureUnitType = iota
+	CELSIUS
 )
 
+type FermenterStyleType int32
+
+const (
+	BUCKET FermenterStyleType = iota
+	CARBOY
+	CONICAL
+)
 
 // Should these be exportable if I am going to use factory methods?  NewBatch() etc?
 // as long as I provide a Batcher interface or whatever?
 type batch struct {
-  name string
-  brew_notes string
-  tasting_notes string
-  brewed_date time.Date
-  bottled_date time.Date
+	id           int64
+	name         string
+	brewNotes    string
+	tastingNotes string
+	brewedDate   time.Time
+	bottledDate  time.Time
 
-  volume_boiled float32;
-  volume_in_fermenter float32
-  volume_units VolumeUnitType
+	volumeBoiled      float32
+	volumeInFermenter float32
+	volumeUnits       VolumeUnitType
 
-  original_gravity float32
-  final_gravity float32
+	originalGravity float32
+	finalGravity    float32
 
-  recipe_url string
+	recipeUrl string
 
-  created_at time.Date
-  updated_at time.Date
+	createdAt time.Time
+	updatedAt time.Time
 
-  created_by user;
+	createdBy user
+}
+
+func NewBatch(id int64, name string, brewedDate, bottledDate time.Time, volumeBoiled, volumeInFermenter float32,
+	volumeUnits VolumeUnitType, createdBy user, createdAt, updatedAt time.Time, brewNotes, tastingNotes,
+	recipeUrl string) batch {
+	return batch{id: id, name: name, brewedDate: brewedDate, bottledDate: bottledDate, volumeBoiled: volumeBoiled,
+		volumeInFermenter: volumeInFermenter, volumeUnits: volumeUnits, createdBy: createdBy, createdAt: createdAt,
+		updatedAt: updatedAt, brewNotes: brewNotes, tastingNotes: tastingNotes, recipeUrl: recipeUrl}
 }
 
 type fermenter struct {
-    name string;
-    description string;
-
+	// I could use name + user composite key for pk on these in the db, but I'm probably going to be lazy
+	// and take the standard ORM-ish route and use an int or uuid  Int for now.
+	id            int64
+	name          string
+	description   string
+	volume        float32
+	volumeUnits   VolumeUnitType
+	fermenterType FermenterStyleType
+	isActive      bool
+	isAvailable   bool
+	createdBy     user
 }
-type thermometer struct {}
+
+func NewFermenter(id int64, name, description string, volume float32, volumeUnits VolumeUnitType,
+	fermenterType FermenterStyleType, isActive, isAvailable bool, createdBy user) fermenter {
+	return fermenter{id: id, name: name, description: description, volume: volume, volumeUnits: volumeUnits,
+		fermenterType: fermenterType, isActive: isActive, isAvailable: isAvailable, createdBy: createdBy}
+}
+
+type thermometer struct{}
