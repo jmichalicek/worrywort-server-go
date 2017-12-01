@@ -13,7 +13,7 @@ type Userer interface {
 	UpdatedAt() time.Time
 }
 
-// Could call this Account and then interface would be a much nicer Accounter
+
 type user struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
 	id        int64
@@ -26,6 +26,7 @@ type user struct {
 	updatedAt time.Time
 }
 
+// Should this return user or Userer?
 func NewUser(id int64, email, firstName, lastName string, createdAt, updatedAt time.Time) user {
 	return user{id: id, email: email, firstName: firstName, lastName: lastName, createdAt: createdAt,
 		updatedAt: updatedAt}
