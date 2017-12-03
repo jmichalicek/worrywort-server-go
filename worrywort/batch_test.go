@@ -16,7 +16,7 @@ func TestNewBatch(t *testing.T) {
 	recipeURL, _ := url.Parse("http://example.org/beer")
 	u := NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 
-	expectedBatch := batch{id: 1, name: "Testing", brewedDate: brewedDate, bottledDate: bottledDate, volumeBoiled: 5,
+	expectedBatch := Batch{id: 1, name: "Testing", brewedDate: brewedDate, bottledDate: bottledDate, volumeBoiled: 5,
 		volumeInFermenter: 4.5, volumeUnits: GALLON, originalGravity: 1.060, finalGravity: 1.020, createdBy: u, createdAt: createdAt, updatedAt: updatedAt,
 		brewNotes: "Brew notes", tastingNotes: "Taste notes", recipeURL: *recipeURL}
 	b := NewBatch(1, "Testing", brewedDate, bottledDate, 5, 4.5, GALLON, 1.060, 1.020,u, createdAt, updatedAt,
@@ -24,12 +24,5 @@ func TestNewBatch(t *testing.T) {
 
 	if b != expectedBatch {
 		t.Errorf("Expected:\n\n%v\n\nGot:\n\n%v", expectedBatch, b)
-	}
-}
-
-func TestBatchImplementsBatcher(t *testing.T) {
-	batcherType := reflect.TypeOf((*Batcher)(nil)).Elem()
-	if !reflect.TypeOf(batch{}).Implements(batcherType) {
-		t.Error("worrywort.batch does not implement Interface worrywort.Batcher.")
 	}
 }
