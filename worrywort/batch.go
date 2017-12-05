@@ -3,7 +3,7 @@ package worrywort
 // Models and functions for brew batch management
 
 import (
-	"net/url"
+	// "net/url"
 	"time"
 )
 
@@ -46,9 +46,9 @@ type Batch struct {
 	originalGravity float32
 	finalGravity    float32
 
-	// keep this a url.URL or make it a string, which is simpler to pass around
-	// and can easily be made into a url.URL if/when needed?
-	recipeURL url.URL
+	// handle this as a string.  It makes nearly everything easier and can easily be run through
+	// url.Parse if needed
+	recipeURL string
 
 	createdAt time.Time
 	updatedAt time.Time
@@ -67,14 +67,14 @@ func (b Batch) VolumeInFermenter() float32  { return b.volumeInFermenter }
 func (b Batch) VolumeUnits() VolumeUnitType { return b.volumeUnits }
 func (b Batch) OriginalGravity() float32    { return b.originalGravity }
 func (b Batch) FinalGravity() float32       { return b.finalGravity }
-func (b Batch) RecipeURL() url.URL          { return b.recipeURL }
+func (b Batch) RecipeURL() string          { return b.recipeURL }  // this could even return a parsed URL object...
 func (b Batch) CreatedAt() time.Time        { return b.createdAt }
 func (b Batch) UpdatedAt() time.Time        { return b.updatedAt }
 func (b Batch) CreatedBy() User             { return b.createdBy }
 
 func NewBatch(id int64, name string, brewedDate, bottledDate time.Time, volumeBoiled, volumeInFermenter float32,
 	volumeUnits VolumeUnitType, originalGravity, finalGravity float32, createdBy User, createdAt, updatedAt time.Time,
-	brewNotes, tastingNotes string, recipeURL url.URL) Batch {
+	brewNotes, tastingNotes string, recipeURL string) Batch {
 	return Batch{id: id, name: name, brewedDate: brewedDate, bottledDate: bottledDate, volumeBoiled: volumeBoiled,
 		volumeInFermenter: volumeInFermenter, volumeUnits: volumeUnits, createdBy: createdBy, createdAt: createdAt,
 		updatedAt: updatedAt, brewNotes: brewNotes, tastingNotes: tastingNotes, recipeURL: recipeURL,
@@ -126,8 +126,9 @@ func NewThermometer(id int64, name string, createdBy User, createdAt, updatedAt 
 }
 
 // A single recorded temperature measurement from a thermometer
+// This may get some tweaking to play nicely with data stored in Postgres or Influxdb
 type TemperatureMeasurement struct {
-	id           int64
+	id           string // use a uuid
 	temperature  float64
 	units        TemperatureUnitType
 	timeRecorded time.Time // when the measurement was recorded
@@ -141,4 +142,10 @@ type TemperatureMeasurement struct {
 	// when the record was created
 	createdAt time.Time
 	updatedAt time.Time
+}
+
+func NewTemperatureMeasurement(id string, temperature float64, units TemperatureUnitType, batch Batch,
+	thermometer Thermometer, fermenter Fermenter, timeRecorded, createdAt, updatedAt time.Time, createdBy User) TemperatureMeasurement {
+	return TemperatureMeasurement{id: id, temperature: temperature, units: units, batch: batch, thermometer: thermometer,
+		fermenter: fermenter, timeRecorded: timeRecorded, createdAt: createdAt, updatedAt: updatedAt, createdBy: createdBy}
 }

@@ -1,7 +1,6 @@
 package worrywort
 
 import (
-	"reflect"
 	"testing"
 	"time"
 )
