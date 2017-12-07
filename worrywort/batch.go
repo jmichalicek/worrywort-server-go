@@ -98,6 +98,17 @@ type Fermenter struct {
 	updatedAt time.Time
 }
 
+func (f Fermenter) Id() int64 { return f.id }
+func (f Fermenter) Name() string { return f.name }
+func (f Fermenter) Description() string { return f.description }
+func (f Fermenter) VolumeUnits() VolumeUnitType { return f.volumeUnits }
+func (f Fermenter) FermenterType() FermenterStyleType { return f.fermenterType }
+func (f Fermenter) IsActive() bool { return f.isActive }
+func (f Fermenter) IsAvailable() bool { return f.isAvailable }
+func (f Fermenter) CreatedBy() User { return f.createdBy }
+func (f Fermenter) CreatedAt() time.Time { return f.createdAt }
+func (f Fermenter) UpdatedAt() time.Time { return f.updatedAt }
+
 func NewFermenter(id int64, name, description string, volume float32, volumeUnits VolumeUnitType,
 	fermenterType FermenterStyleType, isActive, isAvailable bool, createdBy User, createdAt, updatedAt time.Time) Fermenter {
 	return Fermenter{id: id, name: name, description: description, volume: volume, volumeUnits: volumeUnits,
@@ -119,6 +130,12 @@ type Thermometer struct {
 	createdAt time.Time
 	updatedAt time.Time
 }
+
+func (t Thermometer) Id() int64 { return t.id }
+func (t Thermometer) Name() string { return t.name }
+func (t Thermometer) CreatedBy() User { return t.createdBy }
+func (t Thermometer) CreatedAt() time.Time { return t.createdAt }
+func (t Thermometer) UpdatedAt() time.Time { return t.updatedAt }
 
 // Returns a new Thermometer
 func NewThermometer(id int64, name string, createdBy User, createdAt, updatedAt time.Time) Thermometer {
@@ -143,6 +160,17 @@ type TemperatureMeasurement struct {
 	createdAt time.Time
 	updatedAt time.Time
 }
+
+func (t TemperatureMeasurement) Id() int64 { return t.id }
+func (t TemperatureMeasurement) temperature() float64 { return t.temperature }
+func (t TemperatureMeasurement) Units() TemperatureUnitType { return t.units }
+func (t TemperatureMeasurement) TimeRecorded() time.Time { return t.timeRecorded }
+func (t TemperatureMeasurement) Batch() Batch { return t.batch }
+func (t TemperatureMeasurement) Thermometer() Thermometer { return t.thermometer }
+func (t TemperatureMeasurement) Fermenter() Fermenter { return t.fermenter }
+func (t TemperatureMeasurement) CreatedBy() User { return t.createdBy }
+func (t TemperatureMeasurement) CreatedAt() time.Time { return t.createdAt }
+func (t TemperatureMeasurement) UpdatedAt() time.Time { return t.updatedAt }
 
 func NewTemperatureMeasurement(id string, temperature float64, units TemperatureUnitType, batch Batch,
 	thermometer Thermometer, fermenter Fermenter, timeRecorded, createdAt, updatedAt time.Time, createdBy User) TemperatureMeasurement {
