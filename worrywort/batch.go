@@ -161,8 +161,8 @@ type TemperatureMeasurement struct {
 	updatedAt time.Time
 }
 
-func (t TemperatureMeasurement) Id() int64 { return t.id }
-func (t TemperatureMeasurement) temperature() float64 { return t.temperature }
+func (t TemperatureMeasurement) Id() string { return t.id }
+func (t TemperatureMeasurement) Temperature() float64 { return t.temperature }
 func (t TemperatureMeasurement) Units() TemperatureUnitType { return t.units }
 func (t TemperatureMeasurement) TimeRecorded() time.Time { return t.timeRecorded }
 func (t TemperatureMeasurement) Batch() Batch { return t.batch }
