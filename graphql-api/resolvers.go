@@ -32,7 +32,7 @@ type batchResolver struct {
 	b worrywort.Batch
 }
 
-func (r *batchResolver) ID() graphql.ID              { return graphql.ID(r.b.Id()) }
+func (r *batchResolver) ID() graphql.ID              { return graphql.ID(r.b.ID()) }
 func (r *batchResolver) Name() string                { return r.b.Name() }
 func (r *batchResolver) BrewNotes() string           { return r.b.BrewNotes() }
 func (r *batchResolver) TastingNotes() string        { return r.b.TastingNotes() }
@@ -40,10 +40,10 @@ func (r *batchResolver) BrewedDate() string          { return r.b.BrewedDate().F
 func (r *batchResolver) BottledDate() string         { return r.b.BottledDate().Format(time.RFC3339) }
 func (r *batchResolver) VolumeBoiled() float64       { return r.b.VolumeBoiled() }
 func (r *batchResolver) VolumeInFermenter() float64  { return r.b.VolumeInFermenter() }
-func (r *batchResolver) VolumeUnits() VolumeUnitType { return r.b.VolumeUnits() }
+func (r *batchResolver) VolumeUnits() worrywort.VolumeUnitType { return r.b.VolumeUnits() }
 func (r *batchResolver) OriginalGravity() float64    { return r.b.OriginalGravity() }
 func (r *batchResolver) FinalGravity() float64       { return r.b.FinalGravity() }
 func (r *batchResolver) RecipeURL() string           { return r.b.RecipeURL() } // this could even return a parsed URL object...
 func (r *batchResolver) CreatedAt() string           { return r.b.CreatedAt().Format(time.RFC3339) }
 func (r *batchResolver) UpdatedAt() string           { return r.b.UpdatedAt().Format(time.RFC3339) }
-func (r *batchResolver) CreatedBy() *UserResolver    { return userResolver{u: r.b.CreatedBy()} }
+func (r *batchResolver) CreatedBy() *userResolver    { return &userResolver{u: r.b.CreatedBy()} }
