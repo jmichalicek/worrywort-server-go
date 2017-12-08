@@ -3,7 +3,7 @@ package graphqlApi
 import (
 	graphql "github.com/neelance/graphql-go"
 	"time"
-	"worrywort"
+	"github.com/jmichalicek/worrywort-server-go/worrywort"
 )
 
 type Resolver struct{}
@@ -21,7 +21,7 @@ type userResolver struct {
 	// AppearsIn() []string
 }
 
-func (r *userResolver) ID() graphql.ID    { return graphql.ID(r.u.Id()) }
+func (r *userResolver) ID() graphql.ID    { return graphql.ID(r.u.ID()) }
 func (r *userResolver) FirstName() string { return r.u.FirstName() }
 func (r *userResolver) LastName() string  { return r.u.LastName() }
 func (r *userResolver) Email() string     { return r.u.Email() }
