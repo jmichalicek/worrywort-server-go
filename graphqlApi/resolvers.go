@@ -4,6 +4,8 @@ import (
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	graphql "github.com/neelance/graphql-go"
 	"time"
+	"fmt"
+	"strconv"
 )
 
 // Takes a time.Time and returns nil if the time is zero or pointer to the time string formatted as RFC3339
@@ -19,12 +21,14 @@ type Resolver struct{}
 
 func (r *Resolver) CurrentUser() *userResolver {
 	u := worrywort.NewUser(1, "jmichalicek@gmail.com", "Justin", "Michalicek", time.Now(), time.Now())
-	return &userResolver{u: u}
+	ur := userResolver{u: u}
+	fmt.Println(ur)
+	return &ur
 }
 
 func (r *Resolver) Batch(args struct{ ID graphql.ID }) *batchResolver {
 	brewedDate := time.Now()
-	bottledDate := time.Now()
+	bottledDate := time.Time{} // zero time
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
@@ -77,8 +81,7 @@ type userResolver struct {
 	// AppearsIn() []string
 }
 
-func (r *userResolver) ID() graphql.ID { return graphql.ID(r.u.ID()) }
-
+func (r *userResolver) ID() graphql.ID { return graphql.ID(strconv.FormatInt(r.u.ID(), 10)) }
 func (r *userResolver) FirstName() string { return r.u.FirstName() }
 func (r *userResolver) LastName() string  { return r.u.LastName() }
 func (r *userResolver) Email() string     { return r.u.Email() }
@@ -91,7 +94,7 @@ type batchResolver struct {
 	b worrywort.Batch
 }
 
-func (r *batchResolver) ID() graphql.ID       { return graphql.ID(r.b.ID()) }
+func (r *batchResolver) ID() graphql.ID { return graphql.ID(strconv.FormatInt(r.b.ID(), 10)) }
 func (r *batchResolver) Name() string         { return r.b.Name() }
 func (r *batchResolver) BrewNotes() string    { return r.b.BrewNotes() }
 func (r *batchResolver) TastingNotes() string { return r.b.TastingNotes() }

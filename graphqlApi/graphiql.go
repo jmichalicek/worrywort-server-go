@@ -4,11 +4,11 @@ var Graphiql = []byte(`
 <!DOCTYPE html>
 <html>
 	<head>
-		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/graphiql/0.11.10/graphiql.min.css" />
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.3/fetch.min.js"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/react/16.2.0/umd/react.production.min.js"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/16.2.0/umd/react-dom.production.min.js"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/graphiql/0.11.10/graphiql.min.js"></script>
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/graphiql/0.11.10/graphiql.min.css" integrity="sha256-eZFmmNs6tLlAj/NAXUBS0X0Lhnnynu0OrQFe/u0aNck=" crossorigin="anonymous" />
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.3/fetch.js" integrity="sha256-/jZqCQrAZxcboc/rOOI54YFU6KVLAi/Zvs6IG0xVXyk=" crossorigin="anonymous"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/react/16.2.0/umd/react.production.min.js" integrity="sha256-wouRkivKKXA3y6AuyFwcDcF50alCNV8LbghfYCH6Z98=" crossorigin="anonymous"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/16.2.0/umd/react-dom.production.min.js" integrity="sha256-9hrJxD4IQsWHdNpzLkJKYGiY/SEZFJJSUqyeZPNKd8g=" crossorigin="anonymous"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/graphiql/0.11.10/graphiql.min.js" integrity="sha256-Hv3SPN+aoal1p1nb80eAUrlwvKJckAu3fvF63pfXpe8=" crossorigin="anonymous"></script>
 	</head>
 	<body style="width: 100%; height: 100%; margin: 0; overflow: hidden;">
 		<div id="graphiql" style="height: 100vh;">Loading...</div>

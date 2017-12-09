@@ -4,10 +4,15 @@ package graphqlApi
 // fermenter(id: ID!): Fermenter
 // thermometer(id: ID!): Thermometer
 // temperatureMeasurement(id: ID!): TemperatureMeasurement
+
+// part of schema section
+// mutation: Mutation
+//Below type Query once there is a Mutation
+// type Mutation {}
 var Schema = `
 	schema {
 		query: Query
-		mutation: Mutation
+
 	}
 
 	type Query {
@@ -15,8 +20,6 @@ var Schema = `
 		batch(id: ID!): Batch
 
 	}
-
-	type Mutation {}
 
 	enum VolumeUnit {
 		GALLON
