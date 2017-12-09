@@ -1,5 +1,9 @@
 package graphqlApi
 
+
+// fermenter(id: ID!): Fermenter
+// thermometer(id: ID!): Thermometer
+// temperatureMeasurement(id: ID!): TemperatureMeasurement
 var Schema = `
 	schema {
 		query: Query
@@ -9,9 +13,7 @@ var Schema = `
 	type Query {
 		currentUser(): User
 		batch(id: ID!): Batch
-		fermenter(id: ID!): Fermenter
-		thermometer(id: ID!): Thermometer
-		temperatureMeasurement(id: ID!): TemperatureMeasurement
+
 	}
 
 	type Mutation {}
@@ -34,26 +36,26 @@ var Schema = `
 
 	type User {
 		id: ID!
-		firstName: String
-		lastName: String
-		email: String
+		firstName: String!
+		lastName: String!
+		email: String!
 		createdAt: String
 		updatedAt: String
 	}
 
 	type Batch {
 		id: ID!
-		name: String
-		brewNotes: String
-		tastingNotes: String
+		name: String!
+		brewNotes: String!
+		tastingNotes: String!
 		brewedDate: String
 		bottledDate: String
 		volumeBoiled: Float
 		volumeInFermenter: Float
-		volumeUnits: VolumeUnit
+		volumeUnits: VolumeUnit!
 		originalGravity: Float
 		finalGravity: Float
-		recipeURL: String
+		recipeURL: String!
 		createdAt: String
 		updatedAt: String
 		createdBy: User
