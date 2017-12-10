@@ -1,20 +1,24 @@
 package graphqlApi
 
 import (
+	"fmt"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	graphql "github.com/neelance/graphql-go"
-	"time"
-	"fmt"
 	"strconv"
+	"time"
 )
 
 // Takes a time.Time and returns nil if the time is zero or pointer to the time string formatted as RFC3339
-func dateString(dt time.Time) *string {
+func nullableDateString(dt time.Time) *string {
 	if dt.IsZero() {
 		return nil
 	}
 	dtString := dt.Format(time.RFC3339)
 	return &dtString
+}
+
+func dateString(dt time.Time) string {
+	return dt.Format(time.RFC3339)
 }
 
 type Resolver struct{}
@@ -81,25 +85,25 @@ type userResolver struct {
 	// AppearsIn() []string
 }
 
-func (r *userResolver) ID() graphql.ID { return graphql.ID(strconv.FormatInt(r.u.ID(), 10)) }
+func (r *userResolver) ID() graphql.ID    { return graphql.ID(strconv.FormatInt(r.u.ID(), 10)) }
 func (r *userResolver) FirstName() string { return r.u.FirstName() }
 func (r *userResolver) LastName() string  { return r.u.LastName() }
 func (r *userResolver) Email() string     { return r.u.Email() }
-
-// TODO: I should make an actual DateTime type which can be null or a valid datetime string
-func (r *userResolver) CreatedAt() *string { return dateString(r.u.CreatedAt()) }
-func (r *userResolver) UpdatedAt() *string { return dateString(r.u.UpdatedAt()) }
+func (r *userResolver) CreatedAt() string { return dateString(r.u.CreatedAt()) }
+func (r *userResolver) UpdatedAt() string { return dateString(r.u.UpdatedAt()) }
 
 type batchResolver struct {
 	b worrywort.Batch
 }
 
-func (r *batchResolver) ID() graphql.ID { return graphql.ID(strconv.FormatInt(r.b.ID(), 10)) }
+func (r *batchResolver) ID() graphql.ID       { return graphql.ID(strconv.FormatInt(r.b.ID(), 10)) }
 func (r *batchResolver) Name() string         { return r.b.Name() }
 func (r *batchResolver) BrewNotes() string    { return r.b.BrewNotes() }
 func (r *batchResolver) TastingNotes() string { return r.b.TastingNotes() }
-func (r *batchResolver) BrewedDate() *string  { return dateString(r.b.BrewedDate()) }
-func (r *batchResolver) BottledDate() *string { return dateString(r.b.BottledDate()) }
+
+// TODO: I should make an actual DateTime type which can be null or a valid datetime string
+func (r *batchResolver) BrewedDate() *string  { return nullableDateString(r.b.BrewedDate()) }
+func (r *batchResolver) BottledDate() *string { return nullableDateString(r.b.BottledDate()) }
 func (r *batchResolver) VolumeBoiled() *float64 {
 	// If the value is optional/nullable in the GraphQL schema then we must return a pointer
 	// to it.
@@ -109,6 +113,7 @@ func (r *batchResolver) VolumeBoiled() *float64 {
 	}
 	return &vol
 }
+
 func (r *batchResolver) VolumeInFermenter() *float64 {
 	vol := r.b.VolumeInFermenter()
 	if vol == 0 {
@@ -116,6 +121,7 @@ func (r *batchResolver) VolumeInFermenter() *float64 {
 	}
 	return &vol
 }
+
 func (r *batchResolver) VolumeUnits() worrywort.VolumeUnitType { return r.b.VolumeUnits() }
 func (r *batchResolver) OriginalGravity() *float64 {
 	// TODO: not sure I like this... maybe it really was 0.  Not likely with OG, of course.
@@ -125,6 +131,7 @@ func (r *batchResolver) OriginalGravity() *float64 {
 	}
 	return &og
 }
+
 func (r *batchResolver) FinalGravity() *float64 {
 	fg := r.b.FinalGravity()
 	if fg == 0 {
@@ -132,9 +139,10 @@ func (r *batchResolver) FinalGravity() *float64 {
 	}
 	return &fg
 }
-func (r *batchResolver) RecipeURL() string  { return r.b.RecipeURL() } // this could even return a parsed URL object...
-func (r *batchResolver) CreatedAt() *string { return dateString(r.b.CreatedAt()) }
-func (r *batchResolver) UpdatedAt() *string { return dateString(r.b.UpdatedAt()) }
+
+func (r *batchResolver) RecipeURL() string { return r.b.RecipeURL() } // this could even return a parsed URL object...
+func (r *batchResolver) CreatedAt() string { return dateString(r.b.CreatedAt()) }
+func (r *batchResolver) UpdatedAt() string { return dateString(r.b.UpdatedAt()) }
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
 func (r *batchResolver) CreatedBy() *userResolver { return &userResolver{u: r.b.CreatedBy()} }

@@ -42,8 +42,8 @@ var Schema = `
 		firstName: String!
 		lastName: String!
 		email: String!
-		createdAt: String
-		updatedAt: String
+		createdAt: String!
+		updatedAt: String!
 	}
 
 	type Batch {
@@ -59,8 +59,8 @@ var Schema = `
 		originalGravity: Float
 		finalGravity: Float
 		recipeURL: String!
-		createdAt: String
-		updatedAt: String
+		createdAt: String!
+		updatedAt: String!
 		createdBy: User
 	}
 	`
