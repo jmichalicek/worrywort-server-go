@@ -147,14 +147,33 @@ func (r *batchResolver) UpdatedAt() string { return dateString(r.b.UpdatedAt()) 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
 func (r *batchResolver) CreatedBy() *userResolver { return &userResolver{u: r.b.CreatedBy()} }
 
+// Resolve a worrywort.Fermenter
 type fermenterResolver struct {
 	f worrywort.Fermenter
 }
+func (r *fermenterResolver) ID() graphql.ID       { return graphql.ID(strconv.FormatInt(r.f.ID(), 10)) }
+func (r *fermenterResolver) CreatedAt() string { return dateString(r.f.CreatedAt()) }
+func (r *fermenterResolver) UpdatedAt() string { return dateString(r.f.UpdatedAt()) }
+// TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
+func (r *fermenterResolver) CreatedBy() *userResolver { return &userResolver{u: r.f.CreatedBy()} }
 
+// Resolve a worrywort.Thermometer
 type thermometerResolver struct {
 	t worrywort.Thermometer
 }
+func (r *thermometerResolver) ID() graphql.ID       { return graphql.ID(strconv.FormatInt(r.t.ID(), 10)) }
+func (r *thermometerResolver) CreatedAt() string { return dateString(r.t.CreatedAt()) }
+func (r *thermometerResolver) UpdatedAt() string { return dateString(r.t.UpdatedAt()) }
+// TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
+func (r *thermometerResolver) CreatedBy() *userResolver { return &userResolver{u: r.t.CreatedBy()} }
 
+// Resolve a worrywort.TemperatureMeasurement
 type temperatureMeasurementResolver struct {
+	// m for measurement
 	m worrywort.TemperatureMeasurement
 }
+func (r *temperatureMeasurementResolver) ID() graphql.ID       { return graphql.ID(r.m.ID()) }
+func (r *temperatureMeasurementResolver) CreatedAt() string { return dateString(r.m.CreatedAt()) }
+func (r *temperatureMeasurementResolver) UpdatedAt() string { return dateString(r.m.UpdatedAt()) }
+// TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
+func (r *temperatureMeasurementResolver) CreatedBy() *userResolver { return &userResolver{u: r.m.CreatedBy()} }
