@@ -3,7 +3,7 @@ sudo: false
 go:
   - 1.9.x
 before_install:
-  wget https://github.com/golang/dep/releases/download/v0.3.2/dep-linux-amd64
+  - wget https://github.com/golang/dep/releases/download/v0.3.2/dep-linux-amd64 -O $HOME/gopath/bin/dep
 before_script:
   - go vet ./...
 install:
@@ -12,5 +12,5 @@ install:
 #   - export GOPATH="${TRAVIS_BUILD_DIR}/Godeps/_workspace:$GOPATH"
 #   - export PATH="${TRAVIS_BUILD_DIR}/Godeps/_workspace/bin:$PATH"
 script:
-  - go test -v ./...
+  - go test -v -cover ./...
   - dep status
