@@ -60,7 +60,7 @@ func TestUserResolver(t *testing.T) {
 		var dt string = r.UpdatedAt()
 		expected := u.UpdatedAt().Format(time.RFC3339)
 		if dt != expected {
-			t.Error("Expected: %v, got %v", expected, dt)
+			t.Errorf("Expected: %v, got %v", expected, dt)
 		}
 	})
 }
@@ -146,7 +146,7 @@ func TestBatchResolver(t *testing.T) {
 		var dt string = br.UpdatedAt()
 		expected := brewed.UpdatedAt().Format(time.RFC3339)
 		if dt != expected {
-			t.Error("Expected: %v, got %v", expected, dt)
+			t.Errorf("Expected: %v, got %v", expected, dt)
 		}
 	})
 
@@ -157,7 +157,7 @@ func TestBatchResolver(t *testing.T) {
 		// but may be better to do like this:
 		// if math.Abs(*boiled - expected) > .0000000001 {
 		if *actual != expected {
-			t.Error("Expected: %v, got %v", expected, actual)
+			t.Errorf("Expected: %v, got %v", expected, actual)
 		}
 	})
 
@@ -168,7 +168,7 @@ func TestBatchResolver(t *testing.T) {
 		// but may be better to do like this:
 		// if math.Abs(*boiled - expected) > .0000000001 {
 		if *actual != expected {
-			t.Error("Expected: %v, got %v", expected, actual)
+			t.Errorf("Expected: %v, got %v", expected, actual)
 		}
 	})
 
@@ -179,7 +179,7 @@ func TestBatchResolver(t *testing.T) {
 		// but may be better to do like this:
 		// if math.Abs(*boiled - expected) > .0000000001 {
 		if *actual != expected {
-			t.Error("Expected: %v, got %v", expected, actual)
+			t.Errorf("Expected: %v, got %v", expected, actual)
 		}
 	})
 
@@ -190,7 +190,7 @@ func TestBatchResolver(t *testing.T) {
 		// but may be better to do like this:
 		// if math.Abs(*boiled - expected) > .0000000001 {
 		if *actual != expected {
-			t.Error("Expected: %v, got %v", expected, actual)
+			t.Errorf("Expected: %v, got %v", expected, actual)
 		}
 	})
 
@@ -199,7 +199,7 @@ func TestBatchResolver(t *testing.T) {
 		expected := brewed.VolumeUnits()
 
 		if actual != expected {
-			t.Error("Expected: %v, got %v", expected, actual)
+			t.Errorf("Expected: %v, got %v", expected, actual)
 		}
 	})
 
@@ -208,7 +208,7 @@ func TestBatchResolver(t *testing.T) {
 		expected := brewed.RecipeURL()
 
 		if actual != expected {
-			t.Error("Expected: %v, got %v", expected, actual)
+			t.Errorf("Expected: %v, got %v", expected, actual)
 		}
 	})
 
@@ -216,7 +216,7 @@ func TestBatchResolver(t *testing.T) {
 		var actual *userResolver = br.CreatedBy()
 		expected := userResolver{u: brewed.CreatedBy()}
 		if *actual != expected {
-			t.Error("Expected: %v, got %v", expected, actual)
+			t.Errorf("Expected: %v, got %v", expected, actual)
 		}
 	})
 }
@@ -247,7 +247,7 @@ func TestFermenterResolver(t *testing.T) {
 		var dt string = r.UpdatedAt()
 		expected := f.UpdatedAt().Format(time.RFC3339)
 		if dt != expected {
-			t.Error("Expected: %v, got %v", expected, dt)
+			t.Errorf("Expected: %v, got %v", expected, dt)
 		}
 	})
 
@@ -255,7 +255,7 @@ func TestFermenterResolver(t *testing.T) {
 		var actual *userResolver = r.CreatedBy()
 		expected := userResolver{u: f.CreatedBy()}
 		if *actual != expected {
-			t.Error("Expected: %v, got %v", expected, actual)
+			t.Errorf("Expected: %v, got %v", expected, actual)
 		}
 	})
 }
@@ -285,7 +285,7 @@ func TestThermometerResolver(t *testing.T) {
 		var dt string = r.UpdatedAt()
 		expected := therm.UpdatedAt().Format(time.RFC3339)
 		if dt != expected {
-			t.Error("Expected: %v, got %v", expected, dt)
+			t.Errorf("Expected: %v, got %v", expected, dt)
 		}
 	})
 
@@ -293,7 +293,7 @@ func TestThermometerResolver(t *testing.T) {
 		var actual *userResolver = r.CreatedBy()
 		expected := userResolver{u: therm.CreatedBy()}
 		if *actual != expected {
-			t.Error("Expected: %v, got %v", expected, actual)
+			t.Errorf("Expected: %v, got %v", expected, actual)
 		}
 	})
 }
@@ -330,7 +330,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 		var dt string = r.UpdatedAt()
 		expected := m.UpdatedAt().Format(time.RFC3339)
 		if dt != expected {
-			t.Error("Expected: %v, got %v", expected, dt)
+			t.Errorf("Expected: %v, got %v", expected, dt)
 		}
 	})
 
@@ -338,7 +338,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 		var actual *userResolver = r.CreatedBy()
 		expected := userResolver{u: b.CreatedBy()}
 		if *actual != expected {
-			t.Error("Expected: %v, got %v", expected, actual)
+			t.Errorf("Expected: %v, got %v", expected, actual)
 		}
 	})
 }

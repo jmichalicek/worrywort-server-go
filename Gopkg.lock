@@ -4,7 +4,7 @@
 [[projects]]
   branch = "master"
   name = "github.com/neelance/graphql-go"
-  packages = [".","errors","internal/common","internal/exec","internal/exec/packer","internal/exec/resolvable","internal/exec/selected","internal/query","internal/schema","internal/validation","introspection","log","trace"]
+  packages = [".","errors","internal/common","internal/exec","internal/exec/packer","internal/exec/resolvable","internal/exec/selected","internal/query","internal/schema","internal/validation","introspection","log","relay","trace"]
   revision = "beff08417b04a91f0a7618b55786d63eec833b9f"
 
 [[projects]]
@@ -22,6 +22,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "00039c600da3a94decc1edcd1901e543541038d846f22f0b60ec7b8f9e45375b"
+  inputs-digest = "9b94db6cafffa36119ac4dd4e8012652fff549dcd394596980743df85e5c7484"
   solver-name = "gps-cdcl"
   solver-version = 1

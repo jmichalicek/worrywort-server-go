@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/jmichalicek/worrywort-server-go.svg?branch=master)](https://travis-ci.org/jmichalicek/worrywort-server-go)
+
 # WorryWort
 
 This is an experiment in rewriting the current WorryWort server Elixir/Phoenix codebase in go.
