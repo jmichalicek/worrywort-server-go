@@ -78,11 +78,6 @@ func (r *Resolver) TemperatureMeasurement(args struct{ ID graphql.ID }) *tempera
 // TODO: Do these resolver receivers need to receive a pointer?
 type userResolver struct {
 	u worrywort.User
-	// 	ID() graphql.ID
-	// Name() string
-	// Friends() *[]*characterResolver
-	// FriendsConnection(friendsConnectionArgs) (*friendsConnectionResolver, error)
-	// AppearsIn() []string
 }
 
 func (r *userResolver) ID() graphql.ID    { return graphql.ID(strconv.FormatInt(r.u.ID(), 10)) }
