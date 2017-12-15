@@ -5,6 +5,10 @@
 This is an experiment in rewriting the current WorryWort server Elixir/Phoenix codebase in go.
 
 
+# Testing/Development
+
+* Install GraphiQL app from https://github.com/skevy/graphiql-app/ for easy testing
+
 ### TODO:
 
 * The rest of the GraphQL types
