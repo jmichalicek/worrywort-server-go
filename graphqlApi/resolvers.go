@@ -1,8 +1,9 @@
 package graphqlApi
 
 import (
-	"fmt"
+	"context"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
+	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	graphql "github.com/neelance/graphql-go"
 	"strconv"
 	"time"
@@ -23,14 +24,23 @@ func dateString(dt time.Time) string {
 
 type Resolver struct{}
 
-func (r *Resolver) CurrentUser() *userResolver {
-	u := worrywort.NewUser(1, "jmichalicek@gmail.com", "Justin", "Michalicek", time.Now(), time.Now())
+func (r *Resolver) CurrentUser(ctx context.Context) *userResolver {
+	// This ensures we have the right type from the context
+	// may change to just "authMiddleware" or something though so that
+	// a single function can exist to get user from any of the auth methods
+	// or just write a separate function for that here instead of using it from authMiddleware.
+	u, _ := authMiddleware.UserFromContext(ctx)
+	// TODO:  panic if error is returned?
 	ur := userResolver{u: u}
-	fmt.Println(ur)
 	return &ur
 }
 
-func (r *Resolver) Batch(args struct{ ID graphql.ID }) *batchResolver {
+// handle errors by returning error with 403?
+// func sig: func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*batchResolver, error) {
+func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) *batchResolver {
+	// authUser, _ := authMiddleware.UserFromContext(ctx)
+	// TODO: panic on error, no user, etc.
+
 	brewedDate := time.Now()
 	bottledDate := time.Time{} // zero time
 	createdAt := time.Now()
@@ -41,7 +51,10 @@ func (r *Resolver) Batch(args struct{ ID graphql.ID }) *batchResolver {
 	return &batchResolver{b: batch}
 }
 
-func (r *Resolver) Fermenter(args struct{ ID graphql.ID }) *fermenterResolver {
+func (r *Resolver) Fermenter(ctx context.Context, args struct{ ID graphql.ID }) *fermenterResolver {
+	// authUser, _ := authMiddleware.UserFromContext(ctx)
+	// TODO: panic on error, no user, etc.
+
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
@@ -50,7 +63,10 @@ func (r *Resolver) Fermenter(args struct{ ID graphql.ID }) *fermenterResolver {
 	return &fermenterResolver{f: f}
 }
 
-func (r *Resolver) Thermometer(args struct{ ID graphql.ID }) *thermometerResolver {
+func (r *Resolver) Thermometer(ctx context.Context, args struct{ ID graphql.ID }) *thermometerResolver {
+	// authUser, _ := authMiddleware.UserFromContext(ctx)
+	// TODO: panic on error, no user, etc.
+
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
@@ -58,7 +74,10 @@ func (r *Resolver) Thermometer(args struct{ ID graphql.ID }) *thermometerResolve
 	return &thermometerResolver{t: therm}
 }
 
-func (r *Resolver) TemperatureMeasurement(args struct{ ID graphql.ID }) *temperatureMeasurementResolver {
+func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID graphql.ID }) *temperatureMeasurementResolver {
+	// authUser, _ := authMiddleware.UserFromContext(ctx)
+	// TODO: panic on error, no user, etc.
+
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	b := worrywort.NewBatch(1, "Testing", time.Now(), time.Now(), 5, 4.5, worrywort.GALLON, 1.060, 1.020, u, time.Now(), time.Now(),
 		"Brew notes", "Taste notes", "http://example.org/beer")
@@ -146,9 +165,11 @@ func (r *batchResolver) CreatedBy() *userResolver { return &userResolver{u: r.b.
 type fermenterResolver struct {
 	f worrywort.Fermenter
 }
-func (r *fermenterResolver) ID() graphql.ID       { return graphql.ID(strconv.FormatInt(r.f.ID(), 10)) }
+
+func (r *fermenterResolver) ID() graphql.ID    { return graphql.ID(strconv.FormatInt(r.f.ID(), 10)) }
 func (r *fermenterResolver) CreatedAt() string { return dateString(r.f.CreatedAt()) }
 func (r *fermenterResolver) UpdatedAt() string { return dateString(r.f.UpdatedAt()) }
+
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
 func (r *fermenterResolver) CreatedBy() *userResolver { return &userResolver{u: r.f.CreatedBy()} }
 
@@ -156,9 +177,11 @@ func (r *fermenterResolver) CreatedBy() *userResolver { return &userResolver{u: 
 type thermometerResolver struct {
 	t worrywort.Thermometer
 }
-func (r *thermometerResolver) ID() graphql.ID       { return graphql.ID(strconv.FormatInt(r.t.ID(), 10)) }
+
+func (r *thermometerResolver) ID() graphql.ID    { return graphql.ID(strconv.FormatInt(r.t.ID(), 10)) }
 func (r *thermometerResolver) CreatedAt() string { return dateString(r.t.CreatedAt()) }
 func (r *thermometerResolver) UpdatedAt() string { return dateString(r.t.UpdatedAt()) }
+
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
 func (r *thermometerResolver) CreatedBy() *userResolver { return &userResolver{u: r.t.CreatedBy()} }
 
@@ -167,8 +190,12 @@ type temperatureMeasurementResolver struct {
 	// m for measurement
 	m worrywort.TemperatureMeasurement
 }
-func (r *temperatureMeasurementResolver) ID() graphql.ID       { return graphql.ID(r.m.ID()) }
+
+func (r *temperatureMeasurementResolver) ID() graphql.ID    { return graphql.ID(r.m.ID()) }
 func (r *temperatureMeasurementResolver) CreatedAt() string { return dateString(r.m.CreatedAt()) }
 func (r *temperatureMeasurementResolver) UpdatedAt() string { return dateString(r.m.UpdatedAt()) }
+
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
-func (r *temperatureMeasurementResolver) CreatedBy() *userResolver { return &userResolver{u: r.m.CreatedBy()} }
+func (r *temperatureMeasurementResolver) CreatedBy() *userResolver {
+	return &userResolver{u: r.m.CreatedBy()}
+}
