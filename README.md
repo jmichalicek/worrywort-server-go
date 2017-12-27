@@ -15,6 +15,7 @@ This is an experiment in rewriting the current WorryWort server Elixir/Phoenix c
   * Mutations - login, put batches, put fermenter, put measurement, etc.
   * Batches list, fermenter list, etc.
 * Custom DateTime type in the GraphQL Schema rather than String
-* Auth stuff
-* DB stuff - github.com/mgutz/dat ?
+* DB stuff - github.com/mgutz/dat or just sqlx?
 * Actual http interface - chi or echo?
+* Password reset mutation/grapql flow and then web views somewhere, change password mutation,
+* Helper command line stuff to create user, manage initial data, etc.
