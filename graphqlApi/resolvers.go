@@ -2,8 +2,8 @@ package graphqlApi
 
 import (
 	"context"
-	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
+	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	graphql "github.com/neelance/graphql-go"
 	"strconv"
 	"time"

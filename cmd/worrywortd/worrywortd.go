@@ -8,8 +8,8 @@ import (
 	"github.com/neelance/graphql-go/relay"
 	"log"
 	"net/http"
-	"time"
 	"os"
+	"time"
 )
 
 var schema *graphql.Schema
