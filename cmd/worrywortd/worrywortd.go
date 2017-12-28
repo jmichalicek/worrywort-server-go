@@ -26,10 +26,6 @@ func tokenAuthUserLookup(token string) worrywort.User {
 
 func main() {
 	tokenAuthHandler := authMiddleware.NewTokenAuthHandler(tokenAuthUserLookup)
-	http.Handle("/", tokenAuthHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(graphqlApi.Graphiql)
-	})))
-
 	// Does this need a Schema pointer?
 	// can we do non-relay
 	http.Handle("/graphql", tokenAuthHandler(&relay.Handler{Schema: schema}))
