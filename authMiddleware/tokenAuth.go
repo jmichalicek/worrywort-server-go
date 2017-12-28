@@ -48,5 +48,6 @@ func NewTokenAuthHandler(lookupFn func(string) worrywort.User) func(http.Handler
 				ctx = newContextWithUser(ctx, req, lookupFn)
 			}
 			next.ServeHTTP(rw, req.WithContext(ctx))
-		})}
+		})
+	}
 }
