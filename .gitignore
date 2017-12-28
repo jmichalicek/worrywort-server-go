@@ -3,6 +3,7 @@
 *.dll
 *.so
 *.dylib
+/worrywortd
 
 # Test binary, build with `go test -c`
 *.test
