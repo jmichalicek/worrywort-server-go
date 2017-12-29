@@ -9,6 +9,18 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/jmoiron/sqlx"
+  packages = [".","reflectx"]
+  revision = "de8647470aafe4854c976707c431dbe1eb2822c6"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/lib/pq"
+  packages = [".","oid"]
+  revision = "83612a56d3dd153a94a629cd64925371c9adad78"
+
+[[projects]]
+  branch = "master"
   name = "github.com/neelance/graphql-go"
   packages = [".","errors","internal/common","internal/exec","internal/exec/packer","internal/exec/resolvable","internal/exec/selected","internal/query","internal/schema","internal/validation","introspection","log","relay","trace"]
   revision = "beff08417b04a91f0a7618b55786d63eec833b9f"
@@ -28,6 +40,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "6adbd4e844fbaa1e71c30dacad45f4e5d775d4b439482f83cd6b0e43db9fa364"
+  inputs-digest = "21776bfff5980c1081942efd85377af39172f783b0db551432c6dd4871d145de"
   solver-name = "gps-cdcl"
   solver-version = 1

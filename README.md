@@ -8,6 +8,8 @@ This is an experiment in rewriting the current WorryWort server Elixir/Phoenix c
 # Testing/Development
 
 * Install GraphiQL app from https://github.com/skevy/graphiql-app/ for easy testing
+* Use github.com/mattes/migrate for db migrations.  The dev dockerfile installs this into /go/bin/.
+  * May test out pressly/goose as well
 
 ### TODO:
 

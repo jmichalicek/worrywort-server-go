@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
+	"github.com/jmoiron/sqlx"
 	graphql "github.com/neelance/graphql-go"
 	"strconv"
 	"time"
@@ -22,7 +23,13 @@ func dateString(dt time.Time) string {
 	return dt.Format(time.RFC3339)
 }
 
-type Resolver struct{}
+type Resolver struct {
+	db *sqlx.DB
+}
+
+func NewResolver(db *sqlx.DB) *Resolver {
+	return &Resolver{db: db}
+}
 
 func (r *Resolver) CurrentUser(ctx context.Context) *userResolver {
 	// This ensures we have the right type from the context

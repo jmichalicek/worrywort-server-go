@@ -1,6 +1,9 @@
 package worrywort
 
 import (
+	"fmt"
+	sqlmock "github.com/DATA-DOG/go-sqlmock"
+	"github.com/jmoiron/sqlx"
 	"testing"
 	"time"
 )
@@ -69,4 +72,13 @@ func TestUserStruct(t *testing.T) {
 			t.Errorf("Expected: %v, got: %v", expected, actual)
 		}
 	})
+}
+
+func TestLookupUser(t *testing.T) {
+	mockDB, mock, err := sqlmock.New()
+	defer mockDB.Close()
+	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+	fmt.Sprintf("%v %v %v %v", mockDB, mock, err, sqlxDB)
+
+	// refer to https://github.com/jmoiron/sqlx/issues/204 for how to do this
 }
