@@ -12,7 +12,7 @@ import (
 func TestTokenMiddleware(t *testing.T) {
 	// Handler
 	expectedUser := worrywort.NewUser(1, "jmichalicek@gmail.com", "Justin", "Michalicek", time.Now(), time.Now())
-	getUser := func(token string) worrywort.User { return expectedUser }
+	getUser := func(token string) (worrywort.User, error) { return expectedUser, nil }
 	tokenAuthHandler := NewTokenAuthHandler(getUser)
 
 	t.Run("Valid token header with no user should set user in context", func(t *testing.T) {

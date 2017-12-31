@@ -11,7 +11,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	_ "github.com/lib/pq"
 )
@@ -24,14 +23,18 @@ var schema *graphql.Schema
 
 // TODO: Make this REALLY look up user in db after db layer is added
 // Looks up the user based on a token
-func tokenAuthUserLookup(token string) worrywort.User {
-	return worrywort.NewUser(1, "jmichalicek@gmail.com", "Justin", "Michalicek", time.Now(), time.Now())
-}
+// func tokenAuthUserLookup(token string) (worrywort.User, error) {
+// 	return worrywort.NewUser(1, "jmichalicek@gmail.com", "Justin", "Michalicek", time.Now(), time.Now()), nil
+// }
 
-func newTokenAuthLookup(db *sqlx.DB) func(token string) worrywort.User {
-	return func(token string) worrywort.User {
+
+// Returns a function for looking up a user by token for authMiddleware.NewTokenAuthHandler()
+// which closes over the db needed to look up the user
+func newTokenAuthLookup(db *sqlx.DB) func(token string) (worrywort.User, error) {
+	return func(token string) (worrywort.User, error) {
 		// use token to get the user.
-		return worrywort.NewUser(1, "jmichalicek@gmail.com", "Justin", "Michalicek", time.Now(), time.Now())
+		// return worrywort.NewUser(1, "jmichalicek@gmail.com", "Justin", "Michalicek", time.Now(), time.Now())
+		return worrywort.LookupUserByToken(token, db)
 	}
 }
 
@@ -39,21 +42,22 @@ func main() {
 
 	// For now, force postgres
 	// TODO: write something to parse db uri?
-	dbUser, _ := os.LookupEnv("DATABASE_USER")
+	// Using LookupEnv because I will probably add some sane defaults... such as localhost for
 	dbName, _ := os.LookupEnv("DATABASE_NAME")
+	dbUser, _ := os.LookupEnv("DATABASE_USER")
 	dbPassword, _ := os.LookupEnv("DATABASE_PASSWORD")
 	dbHost, _ := os.LookupEnv("DATABASE_HOST")
 	dbPort, dbPortSet := os.LookupEnv("DATABASE_PORT")
 	if !dbPortSet {
 		dbPort = "5432" // again, assume postgres
 	}
-	connectionString := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+	connectionString := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		dbHost, dbPort, dbUser, dbPassword, dbName)
 	db, _ := sqlx.Connect("postgres", connectionString)
 
 	schema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
 
-	tokenAuthHandler := authMiddleware.NewTokenAuthHandler(tokenAuthUserLookup)
+	tokenAuthHandler := authMiddleware.NewTokenAuthHandler(newTokenAuthLookup(db))
 	// Does this need a Schema pointer?
 	// can we do non-relay
 	http.Handle("/graphql", tokenAuthHandler(&relay.Handler{Schema: schema}))

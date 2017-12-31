@@ -22,7 +22,7 @@ type User struct {
 	user
 }
 
-// Should this return user or Userer?
+// Returns a new user
 func NewUser(id int64, email, firstName, lastName string, createdAt, updatedAt time.Time) User {
 	return User{user{ID: id, Email: email, FirstName: firstName, LastName: lastName, CreatedAt: createdAt,
 		UpdatedAt: updatedAt}}
@@ -37,12 +37,28 @@ func (u User) UpdatedAt() time.Time { return u.user.UpdatedAt }
 
 // Looks up the user by id in the database and returns a new User
 func LookupUser(id int64, db *sqlx.DB) (User, error) {
-	// TODO: Test cases for LookupNewUser
 	u := user{}
-	err := db.Get(&u, "SELECT id, first_name, last_name, email, created_at, updated_at FROM users WHERE id=$1", id)
-	if err == nil {
+	// if I have understood correctly, different DBs use a different parameterization token (the ? below).
+	// By default sqlx just passes whatever you type and you need to manually use the correct token...
+	// ? for mysql, $1..$N for postgres, etc.
+	// db.Rebind() will update the string to use the correct bind.
+	query := db.Rebind("SELECT id, first_name, last_name, email, created_at, updated_at FROM users WHERE id=?")
+	err := db.Get(&u, query, id)
+	if err != nil {
 		return User{}, err
 	}
 	// this seems dumb, but it ensures correctness by using the standard NewUser interface
-	return NewUser(u.ID, u.FirstName, u.LastName, u.Email, u.CreatedAt, u.UpdatedAt), nil
+	return NewUser(u.ID, u.Email, u.FirstName, u.LastName, u.CreatedAt, u.UpdatedAt), nil
+}
+
+func LookupUserByToken(token string, db *sqlx.DB) (User, error) {
+	u := user{}
+	query := db.Rebind("SELECT u.id, u.first_name, u.last_name, u.email, u.created_at, u.updated_at " +
+		"FROM auth_tokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token=?")
+	err := db.Get(&u, query, token)
+	if err != nil {
+		return User{}, err
+	}
+	// this seems dumb, but it ensures correctness by using the standard NewUser interface
+	return NewUser(u.ID, u.Email, u.FirstName, u.LastName, u.CreatedAt, u.UpdatedAt), nil
 }
