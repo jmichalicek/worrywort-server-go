@@ -1,6 +1,5 @@
 package graphqlApi
 
-
 // fermenter(id: ID!): Fermenter
 // thermometer(id: ID!): Thermometer
 // temperatureMeasurement(id: ID!): TemperatureMeasurement

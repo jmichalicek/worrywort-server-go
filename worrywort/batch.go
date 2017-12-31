@@ -32,17 +32,17 @@ const (
 // Should these be exportable if I am going to use factory methods?  NewBatch() etc?
 // as long as I provide a Batcher interface or whatever?
 type batch struct {
-	ID           int64
-	Name         string
-	BrewNotes    string
-	TastingNotes string
-	BrewedDate   time.Time
-	BottledDate  time.Time
+	ID                int64
+	Name              string
+	BrewNotes         string
+	TastingNotes      string
+	BrewedDate        time.Time
+	BottledDate       time.Time
 	VolumeBoiled      float64
 	VolumeInFermenter float64
 	VolumeUnits       VolumeUnitType
-	OriginalGravity float64
-	FinalGravity    float64
+	OriginalGravity   float64
+	FinalGravity      float64
 
 	// handle this as a string.  It makes nearly everything easier and can easily be run through
 	// url.Parse if needed

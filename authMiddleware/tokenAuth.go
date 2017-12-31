@@ -26,18 +26,21 @@ func UserFromContext(ctx context.Context) (worrywort.User, error) {
 	return u, nil
 }
 
-func newContextWithUser(ctx context.Context, req *http.Request, lookupFn func(string) worrywort.User) context.Context {
+func newContextWithUser(ctx context.Context, req *http.Request, lookupFn func(string) (worrywort.User, error)) context.Context {
 	authHeader := req.Header.Get("Authorization")
 	headerParts := strings.Fields(authHeader)
 	if len(headerParts) > 1 {
 		if strings.ToLower(headerParts[0]) == "token" {
-			return context.WithValue(ctx, DefaultUserKey, lookupFn(headerParts[1]))
+			// TODO: Handle error here.  If it's no rows returned, then no big deal
+			// but anything else may need handled or logged
+			user, _ := lookupFn(headerParts[1])
+			return context.WithValue(ctx, DefaultUserKey, user)
 		}
 	}
 	return ctx
 }
 
-func NewTokenAuthHandler(lookupFn func(string) worrywort.User) func(http.Handler) http.Handler {
+func NewTokenAuthHandler(lookupFn func(string) (worrywort.User, error)) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 			ctx := req.Context()
