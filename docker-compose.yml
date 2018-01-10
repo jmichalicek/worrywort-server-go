@@ -5,7 +5,7 @@ services:
     environment:
         - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-developer}
         - POSTGRES_USER=${POSTGRES_USER:-developer}
-        - POSTGRES_DB=${POSTGRES_DB:-bash_shell_net}
+        - POSTGRES_DB=${POSTGRES_DB:-worrywort}
         - PGDATA=${PGDATA:-/var/lib/postgresql/data/pgdata}
     privileged: true
     volumes:
@@ -37,5 +37,8 @@ services:
     restart: on-failure
     volumes:
       - ${PWD}:/go/src/github.com/jmichalicek/worrywort-server-go/
+      - $HOME/.gitconfig:/home/developer/.gitconfig:ro  # being weird on windows/wsl
+      - $HOME/.git-hooks:/home/developer/.git-hooks:ro
+      - $HOME/.ssh:/home/developer/.ssh:ro
 volumes:
   worrywort_db:
