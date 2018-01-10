@@ -54,7 +54,7 @@ func LookupUser(id int64, db *sqlx.DB) (User, error) {
 func LookupUserByToken(token string, db *sqlx.DB) (User, error) {
 	u := user{}
 	query := db.Rebind("SELECT u.id, u.first_name, u.last_name, u.email, u.created_at, u.updated_at " +
-		"FROM auth_tokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token=?")
+		"FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token=?")
 	err := db.Get(&u, query, token)
 	if err != nil {
 		return User{}, err
