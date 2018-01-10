@@ -32,7 +32,7 @@ Optional pre-made database migrations for use with github.com/mattes/migrate and
 
 I may try to automate the postgres connection string a bit since the required data should already mostly be in environment variables.
 
-* migrate -source file://./_migrations -database <postgres connection string> up
+* migrate -source file://./_migrations -database postgres://$DB_USER:$DB_PASSWORD@$DB_HOST:5432/$DB_NAME?sslmode=disable up
 
 ### TODO:
 
