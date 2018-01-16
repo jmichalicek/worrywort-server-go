@@ -13,6 +13,8 @@ services:
   redis:
     image: 'redis:latest'
     restart: on-failure
+    volumes:
+        - worrywort_redis:/data
   worrywortd:
     image: worrywort-server:dev
     command: /bin/bash
@@ -42,3 +44,4 @@ services:
       - $HOME/.ssh:/home/developer/.ssh:ro
 volumes:
   worrywort_db:
+  worrywort_redis:
