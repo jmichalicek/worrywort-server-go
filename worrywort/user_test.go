@@ -72,6 +72,19 @@ func TestUserStruct(t *testing.T) {
 			t.Errorf("Expected: %v, got: %v", expected, actual)
 		}
 	})
+
+	t.Run("SetPassword()", func(t *testing.T) {
+		// I believe the password hashing makes this test slow.  Should do like Django
+		// and use faster hashing for tests, perhaps, or reduce bcrypt cost at least
+		mockDB, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		}
+		defer mockDB.Close()
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		u.SetPassword("password", sqlxDB)
+		mock.ExpectQuery(`^INSERT INTO users ?`) //.WithArgs(user.ID()).WillReturnRows(rows)
+	})
 }
 
 func TestLookupUser(t *testing.T) {
