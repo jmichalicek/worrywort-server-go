@@ -39,9 +39,10 @@ services:
     restart: on-failure
     volumes:
       - ${PWD}:/go/src/github.com/jmichalicek/worrywort-server-go/
-      - $HOME/.gitconfig:/home/developer/.gitconfig:ro  # being weird on windows/wsl
-      - $HOME/.git-hooks:/home/developer/.git-hooks:ro
-      - $HOME/.ssh:/home/developer/.ssh:ro
+      # this is a workaround for dealing with how wsl + docker for windows can see paths
+      - ${GITCONFIG_PATH:-$HOME/.gitconfig}:/home/developer/.gitconfig:ro  # being weird on windows/wsl
+      - ${GITHOOKS_PATH:-$HOME/.git-hooks}:/home/developer/.git-hooks:ro
+      - ${SSH_PATH:-$HOME/.ssh}:/home/developer/.ssh:ro
 volumes:
   worrywort_db:
   worrywort_redis:
