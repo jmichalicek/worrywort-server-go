@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS users(
   first_name text DEFAULT '',
   last_name text DEFAULT '',
   email text DEFAULT '',
+  password text DEFAULT '',
   is_active boolean DEFAULT FALSE,
   is_admin boolean DEFAULT FALSE,
 
