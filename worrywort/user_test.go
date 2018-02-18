@@ -154,14 +154,30 @@ func TestLookupUserByToken(t *testing.T) {
 	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
 
 	user := NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	token, _ := NewToken("tokenid", "tokenstr", user, 0)
 
 	t.Run("Test valid token returns user", func(t *testing.T) {
-		token := "tokenid:asdf1234"
+		tokenStr := "tokenid:tokenstr"
+
+		tokenRows := sqlmock.NewRows([]string{"token_id", "token", "user_id", "scope", "expires_at", "created_at", "updated_at"}).
+			AddRow(token.TokenId, token.Token, user.ID(), token.Scope, token.ExpiresAt, token.CreatedAt, token.UpdatedAt)
+		mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t WHERE t.token_id = \? AND \(t.expires_at < \? OR t.expires_at IS NULL\)`).
+			WithArgs("tokenid", AnyTime{}).WillReturnRows(tokenRows)
+
 		rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at"}).
 			AddRow(user.ID(), user.Email(), user.FirstName(), user.LastName(), user.CreatedAt(), user.UpdatedAt())
-		mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token=? and t.expires_at < ?`).
-			WithArgs(token, AnyTime{}).WillReturnRows(rows)
-		actual, err := LookupUserByToken(token, sqlxDB)
+		mock.ExpectQuery(`^SELECT (.+) FROM users u WHERE u.id = \?`).
+			WithArgs(user.ID()).WillReturnRows(rows)
+
+		// approximately correct with join for single query but need to figure out how to make sqlx handle This
+		// looks like it should at https://github.com/jmoiron/sqlx/issues/131
+		// rows := sqlmock.NewRows([]string{"t.token_id", "t.token", "t.scope", "t.expires_at", "t.created_at", "t.updated_at", "u.id", "u.email", "u.first_name", "u.last_name", "u.created_at", "u.updated_at"}).
+		// 	AddRow(token.TokenId, token.Token, token.Scope, token.ExpiresAt, token.CreatedAt, token.UpdatedAt, user.ID(), user.Email(), user.FirstName(), user.LastName(), user.CreatedAt(), user.UpdatedAt())
+		// // mock.ExpectEquery(`SELECT t.token_id, t.token, t.user_id, t.scope, t.expires_at, t.created_at, t.updated_at u.id, u.first_name, u.last_name, u.email, u.created_at, u.updated_at FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token_id = ? and (t.expires_at IS NULL OR t.expires_at < ?)`)
+		// mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token_id = ? AND \(t.expires_at IS NULL OR t.expires_at < ?\)`).
+		// 	WithArgs(token, AnyTime{}).WillReturnRows(rows)
+
+		actual, err := LookupUserByToken(tokenStr, sqlxDB)
 
 		if err != nil {
 			t.Errorf("TestLookupUserByToken() returned error %v", err)
@@ -173,10 +189,18 @@ func TestLookupUserByToken(t *testing.T) {
 	})
 
 	t.Run("Test invalid token returns empty user", func(t *testing.T) {
-		rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at"})
-		mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token=? and t.expires_at < ?`).
-			WithArgs("", AnyTime{}).WillReturnRows(rows)
-		actual, err := LookupUserByToken("", sqlxDB)
+
+		tokenStr := "tokenid:tokenstr"
+
+		tokenRows := sqlmock.NewRows([]string{"token_id", "token", "user_id", "scope", "expires_at", "created_at", "updated_at"})
+		mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t WHERE t.token_id = \? AND \(t.expires_at < \? OR t.expires_at IS NULL\)`).
+			WithArgs("tokenid", AnyTime{}).WillReturnRows(tokenRows)
+
+		// rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at"})
+		// mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token=? and t.expires_at < ?`).
+		// 	WithArgs("", AnyTime{}).WillReturnRows(rows)
+
+		actual, err := LookupUserByToken(tokenStr, sqlxDB)
 		expected := User{}
 
 		if err != sql.ErrNoRows {

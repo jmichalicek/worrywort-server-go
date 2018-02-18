@@ -21,9 +21,10 @@ const (
 // Simplified auth tokens.  May eventually be replaced with proper OAuth 2.
 type authToken struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
-	TokenId   string             `db:"key"`
+	TokenId   string             `db:"token_id"`
 	Token     string             `db:"token"`
-	User      User               // `db:"user_id"`
+	UserId		int64							 `db:"user_id"`
+	User      User               `db:",prefix=u."`
 	ExpiresAt time.Time          `db:"expires_at"`
 	CreatedAt time.Time          `db:"created_at"`
 	UpdatedAt time.Time          `db:"updated_at"`
