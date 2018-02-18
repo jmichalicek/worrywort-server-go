@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS user_authtokens(
   token text DEFAULT '',
   is_active boolean DEFAULT TRUE,
   user_id integer REFERENCES users (id) ON DELETE CASCADE,
+  scope integer,
 
   created_at timestamp with time zone DEFAULT current_timestamp,
   updated_at timestamp with time zone

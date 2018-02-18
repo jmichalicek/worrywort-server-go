@@ -159,7 +159,7 @@ func TestLookupUserByToken(t *testing.T) {
 		token := "tokenid:asdf1234"
 		rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at"}).
 			AddRow(user.ID(), user.Email(), user.FirstName(), user.LastName(), user.CreatedAt(), user.UpdatedAt())
-		mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token=? and t.is_active=True and t.expires_at < ?`).
+		mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token=? and t.expires_at < ?`).
 			WithArgs(token, AnyTime{}).WillReturnRows(rows)
 		actual, err := LookupUserByToken(token, sqlxDB)
 
@@ -174,7 +174,7 @@ func TestLookupUserByToken(t *testing.T) {
 
 	t.Run("Test invalid token returns empty user", func(t *testing.T) {
 		rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at"})
-		mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token=? and t.is_active=True and t.expires_at < ?`).
+		mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token=? and t.expires_at < ?`).
 			WithArgs("", AnyTime{}).WillReturnRows(rows)
 		actual, err := LookupUserByToken("", sqlxDB)
 		expected := User{}
