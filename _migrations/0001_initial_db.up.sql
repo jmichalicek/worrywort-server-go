@@ -20,17 +20,18 @@ CREATE TABLE IF NOT EXISTS users(
   is_active boolean DEFAULT FALSE,
   is_admin boolean DEFAULT FALSE,
 
-  created_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT current_timestamp,
   updated_at timestamp with time zone
 );
 CREATE INDEX IF NOT EXISTS users_email_lower_idx ON users ((lower(email)));
 
 CREATE TABLE IF NOT EXISTS user_authtokens(
-  token text PRIMARY KEY,
+  token_id text PRIMARY KEY,
+  token text DEFAULT '',
   is_active boolean DEFAULT TRUE,
   user_id integer REFERENCES users (id) ON DELETE CASCADE,
 
-  created_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT current_timestamp,
   updated_at timestamp with time zone
 );
 
@@ -60,7 +61,7 @@ CREATE TABLE IF NOT EXISTS batches(
   min_temperature double precision NOT NULL DEFAULT 0.0,
   average_temperature double precision NOT NULL DEFAULT 0.0,
 
-  created_at timestamp with time zone,
+  created_at timestamp with time zone  DEFAULT current_timestamp,
   updated_at timestamp with time zone
 );
 
@@ -75,7 +76,7 @@ CREATE TABLE IF NOT EXISTS fermenters(
   is_active boolean DEFAULT FALSE,
   is_available boolean DEFAULT TRUE,
 
-  created_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT current_timestamp,
   updated_at timestamp with time zone
 );
 
@@ -84,7 +85,8 @@ CREATE TABLE IF NOT EXISTS thermometers(
   created_by_user_id integer REFERENCES users (id) ON DELETE SET NULL,
   name text NOT NULL DEFAULT '',
   description text NOT NULL DEFAULT '',
-  created_at timestamp with time zone,
+
+  created_at timestamp with time zone DEFAULT current_timestamp,
   updated_at timestamp with time zone
 );
 
@@ -99,7 +101,8 @@ CREATE TABLE IF NOT EXISTS temperature_measurements(
   temperature double precision NOT NULL DEFAULT 0.0,
   units integer NOT NULL DEFAULT 0,
   recorded_at timestamp with time zone,
-  created_at timestamp with time zone,
+
+  created_at timestamp with time zone DEFAULT current_timestamp,
   updated_at timestamp with time zone
 );
 CREATE INDEX IF NOT EXISTS temperature_measurements_recorded_index ON temperature_measurements (recorded_at);
