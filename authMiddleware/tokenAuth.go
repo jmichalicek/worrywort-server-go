@@ -40,6 +40,10 @@ func newContextWithUser(ctx context.Context, req *http.Request, lookupFn func(st
 	return ctx
 }
 
+// a middleware to handle token auth
+// This is really overkill - the injected function could just live here since this is not really intended
+// to be a generic, reusable thing.  This does make testing easier, though, since I can inject a function which
+// just returns what I need and not mock out a db connection.
 func NewTokenAuthHandler(lookupFn func(string) (worrywort.User, error)) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {

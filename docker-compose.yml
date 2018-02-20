@@ -2,6 +2,10 @@ version: '3'
 services:
   database:
     image: "postgres:9.6.2"
+    # image: "worrywort_postgres"
+    # build:
+    #   context: .
+    #   dockerfile: ./Dockerfile.postgres
     environment:
         - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-developer}
         - POSTGRES_USER=${POSTGRES_USER:-developer}
@@ -23,6 +27,7 @@ services:
     depends_on:
       - database
       - redis
+      # - hydra
     working_dir: /go/src/github.com/jmichalicek/worrywort-server-go
     # command: /home/developer/docker_entrypoints/dev_entrypoint.sh
     build:
@@ -43,6 +48,25 @@ services:
       - ${GITCONFIG_PATH:-$HOME/.gitconfig}:/home/developer/.gitconfig:ro  # being weird on windows/wsl
       - ${GITHOOKS_PATH:-$HOME/.git-hooks}:/home/developer/.git-hooks:ro
       - ${SSH_PATH:-$HOME/.ssh}:/home/developer/.ssh:ro
+  # hydra:
+  # Hydra may return, but removing for now for simplicity
+  #   # Basing this on https://ory.gitbooks.io/hydra/content/install.html#install-and-run-ory-hydra
+  #   image: oryd/hydra:v0.11.6
+  #   depends_on:
+  #     - database
+  #   ports:
+  #     # will figure out if I really need to do this.
+  #     - "9000:4444"
+  #   environment:
+  #     SYSTEM_SECRET: ${HYDRA_SYSTEM_SECRET:-asecretwhichmustbeatleast32characterslongsomakeitlong}
+  #     DATABASE_URL: postgres://developer:developer@database:5432/hydra?sslmode=disable
+  #     ISSUER: https://localhost:9000
+  #     # Not sure this is needed for what we are doing, but if consent app is needed
+  #     # a simple nodejs for demo with Dockerfile is at https://github.com/ory/hydra-consent-app-express
+  #     # and a sample Golang one, which would probably need to have similar code implemented by worrywort maybe
+  #     # is at https://github.com/ory/hydra-consent-app-go
+  #     CONSENT_URL: http://localhost:9020/consent
+  #     FORCE_ROOT_CLIENT_CREDENTIALS: admin:demo-password
 volumes:
   worrywort_db:
   worrywort_redis:

@@ -8,6 +8,12 @@
   version = "v1.3.0"
 
 [[projects]]
+  name = "github.com/google/uuid"
+  packages = ["."]
+  revision = "064e2069ce9c359c118179501254f67d7d37ba24"
+  version = "0.2"
+
+[[projects]]
   branch = "master"
   name = "github.com/jmoiron/sqlx"
   packages = [".","reflectx"]
@@ -33,6 +39,12 @@
 
 [[projects]]
   branch = "master"
+  name = "golang.org/x/crypto"
+  packages = ["bcrypt","blowfish"]
+  revision = "650f4a345ab4e5b245a3034b110ebc7299e68186"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/net"
   packages = ["context"]
   revision = "a8b9294777976932365dabb6640cf1468d95c70f"
@@ -40,6 +52,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "21776bfff5980c1081942efd85377af39172f783b0db551432c6dd4871d145de"
+  inputs-digest = "dcbf36c62984e036a818d09c1bf697fba0f7aa42ede6d97c1b9fc124663514a1"
   solver-name = "gps-cdcl"
   solver-version = 1

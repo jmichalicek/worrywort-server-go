@@ -2,11 +2,22 @@ package worrywort
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/jmoiron/sqlx"
 	"testing"
 	"time"
 )
+
+// from https://github.com/DATA-DOG/go-sqlmock#matching-arguments-like-timetime
+// stuff for matching times.  Need to improve this to match now-ish times
+type AnyTime struct{}
+
+// Match satisfies sqlmock.Argument interface
+func (a AnyTime) Match(v driver.Value) bool {
+	_, ok := v.(time.Time)
+	return ok
+}
 
 func TestNewUser(t *testing.T) {
 	createdAt := time.Now()
@@ -72,6 +83,19 @@ func TestUserStruct(t *testing.T) {
 			t.Errorf("Expected: %v, got: %v", expected, actual)
 		}
 	})
+
+	t.Run("SetPassword()", func(t *testing.T) {
+		// I believe the password hashing makes this test slow.  Should do like Django
+		// and use faster hashing for tests, perhaps, or reduce bcrypt cost at least
+		mockDB, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		}
+		defer mockDB.Close()
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		u.SetPassword("password", sqlxDB)
+		mock.ExpectQuery(`^INSERT INTO users \?`) //.WithArgs(user.ID()).WillReturnRows(rows)
+	})
 }
 
 func TestLookupUser(t *testing.T) {
@@ -90,7 +114,7 @@ func TestLookupUser(t *testing.T) {
 	t.Run("Test valid user id returns user", func(t *testing.T) {
 		rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at"}).
 			AddRow(user.ID(), user.Email(), user.FirstName(), user.LastName(), user.CreatedAt(), user.UpdatedAt())
-		mock.ExpectQuery(`^SELECT (.+) FROM users WHERE id=?`).WithArgs(user.ID()).WillReturnRows(rows)
+		mock.ExpectQuery(`^SELECT (.+) FROM users WHERE id=\?`).WithArgs(user.ID()).WillReturnRows(rows)
 		actual, err := LookupUser(1, sqlxDB)
 
 		if err != nil {
@@ -130,14 +154,24 @@ func TestLookupUserByToken(t *testing.T) {
 	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
 
 	user := NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	tokenId := "tokenid"
+	tokenKey := "secret"
+	token, _ := NewToken(tokenId, tokenKey, user, 0, 10)
 
 	t.Run("Test valid token returns user", func(t *testing.T) {
-		token := "asdf1234"
-		rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at"}).
-			AddRow(user.ID(), user.Email(), user.FirstName(), user.LastName(), user.CreatedAt(), user.UpdatedAt())
-		mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token=?`).
-			WithArgs(token).WillReturnRows(rows)
-		actual, err := LookupUserByToken(token, sqlxDB)
+		tokenStr := tokenId + ":" + tokenKey
+
+		// approximately correct with join for single query but need to figure out how to make sqlx handle This
+		// looks like it should at https://github.com/jmoiron/sqlx/issues/131
+		rows := sqlmock.NewRows(
+			[]string{"token_id", "token", "scope", "expires_at", "created_at", "updated_at", "id", "email",
+				"first_name", "last_name", "created_at", "updated_at"}).
+			AddRow(token.TokenId, token.Token, token.Scope, token.ExpiresAt, token.CreatedAt, token.UpdatedAt, user.ID(),
+				user.Email(), user.FirstName(), user.LastName(), user.CreatedAt(), user.UpdatedAt())
+		mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token_id = \? AND \(t.expires_at IS NULL OR t.expires_at < \?\)`).
+			WithArgs(tokenId, AnyTime{}).WillReturnRows(rows)
+
+		actual, err := LookupUserByToken(tokenStr, sqlxDB)
 
 		if err != nil {
 			t.Errorf("TestLookupUserByToken() returned error %v", err)
@@ -149,10 +183,15 @@ func TestLookupUserByToken(t *testing.T) {
 	})
 
 	t.Run("Test invalid token returns empty user", func(t *testing.T) {
-		rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at"})
-		mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token=?`).
-			WithArgs("").WillReturnRows(rows)
-		actual, err := LookupUserByToken("", sqlxDB)
+
+		tokenStr := "tokenid:tokenstr"
+
+		tokenRows := sqlmock.NewRows([]string{"token_id", "token", "scope", "expires_at", "created_at", "updated_at", "id",
+			"email", "first_name", "last_name", "created_at", "updated_at"})
+		mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token_id = \? AND \(t.expires_at IS NULL OR t.expires_at < \?\)`).
+			WithArgs(tokenId, AnyTime{}).WillReturnRows(tokenRows)
+
+		actual, err := LookupUserByToken(tokenStr, sqlxDB)
 		expected := User{}
 
 		if err != sql.ErrNoRows {

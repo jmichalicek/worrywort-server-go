@@ -17,9 +17,10 @@ For easy development, use `docker-compose run` to get an active shell in a golan
 
 To start development:
 
-* docker-compose pull
-* docker-compose build
-* docker-compse run --service-ports worrywortd
+* `docker-compose pull`
+* `docker-compose build`
+* `make hydra-migrate`
+* `docker-compose run --service-ports worrywortd`
 
 To stop:
 * docker-compose down
@@ -36,6 +37,9 @@ I may try to automate the postgres connection string a bit since the required da
 
 ### TODO:
 
+* Auth integration with ory hydra
+  * Started but need to do it.  Make some middleware like this https://github.com/janekolszak/gin-hydra/blob/master/ginhydra.go
+  * Pluggable auth so that auth0 could be used?
 * The rest of the GraphQL types
   * Mutations - login, put batches, put fermenter, put measurement, etc.
   * Batches list, fermenter list, etc.
