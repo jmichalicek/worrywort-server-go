@@ -7,7 +7,9 @@ import (
 	"time"
 )
 
-const EXPIRED_TOKEN_ERROR = "Token has expired"
+const InvalidTokenError = "Invalid token.  Not found."
+const TokenFormatError = "Token should be formatted as `tokenId:secret` but was not"
+const DefaultTokenHashCost int = 10  // to be faster than password hash cost because this will be calculated frequently
 
 type AuthTokenScopeType int32
 
@@ -23,7 +25,6 @@ type authToken struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
 	TokenId   string             `db:"token_id"`
 	Token     string             `db:"token"`
-	UserId		int64							 `db:"user_id"`
 	User      User               `db:",prefix=u."`
 	ExpiresAt time.Time          `db:"expires_at"`
 	CreatedAt time.Time          `db:"created_at"`
@@ -37,10 +38,10 @@ func (t authToken) Save() error {
 	return nil
 }
 
-func NewToken(tokenId, token string, user User, scope AuthTokenScopeType) (authToken, error) {
+func NewToken(tokenId, token string, user User, scope AuthTokenScopeType, hashCost int) (authToken, error) {
 	// use https://github.com/google/uuid
 	// to make uuid NewRandom() function
-	passwdBytes, err := bcrypt.GenerateFromPassword([]byte(token), passwordHashCost)
+	passwdBytes, err := bcrypt.GenerateFromPassword([]byte(token), hashCost)
 	if err != nil {
 		return authToken{}, err
 	}
@@ -60,5 +61,5 @@ func GenerateTokenForUser(user User, scope AuthTokenScopeType) (authToken, error
 		return authToken{}, err
 	}
 
-	return NewToken(tokenId.String(), token.String(), user, scope)
+	return NewToken(tokenId.String(), token.String(), user, scope, DefaultTokenHashCost)
 }
