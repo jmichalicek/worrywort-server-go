@@ -206,3 +206,24 @@ func (r *temperatureMeasurementResolver) UpdatedAt() string { return dateString(
 func (r *temperatureMeasurementResolver) CreatedBy() *userResolver {
 	return &userResolver{u: r.m.CreatedBy()}
 }
+
+// An auth token returned after logging in to use in Authentication headers
+type authTokenResolver struct {
+	token string
+	// return a status such as ok or error?
+}
+
+// Mutation Resolvers
+
+// func (r *Resolver) Login(args *struct {
+// 	Username string
+// 	Password string
+// }) *authTokenResolver {
+//
+// 	review := &review{
+// 		stars:      args.Review.Stars,
+// 		commentary: args.Review.Commentary,
+// 	}
+// 	reviews[args.Episode] = append(reviews[args.Episode], review)
+// 	return &reviewResolver{review}
+// }

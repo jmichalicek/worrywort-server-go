@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/jmoiron/sqlx"
+	"golang.org/x/crypto/bcrypt"
 	"testing"
 	"time"
 )
@@ -84,17 +85,34 @@ func TestUserStruct(t *testing.T) {
 		}
 	})
 
-	t.Run("SetPassword()", func(t *testing.T) {
+	t.Run("SetUserPassword()", func(t *testing.T) {
+		password := "password"
+		// Not really part of User, but whatever for now.
 		// I believe the password hashing makes this test slow.  Should do like Django
 		// and use faster hashing for tests, perhaps, or reduce bcrypt cost at least
-		mockDB, mock, err := sqlmock.New()
+		expected, err := bcrypt.GenerateFromPassword([]byte(password), DefaultPasswordHashCost)
 		if err != nil {
-			t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+			t.Fatalf("Unexpected error hashing password for test setup: %v", err)
 		}
-		defer mockDB.Close()
-		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
-		u.SetPassword("password", sqlxDB)
-		mock.ExpectQuery(`^INSERT INTO users \?`) //.WithArgs(user.ID()).WillReturnRows(rows)
+
+		updatedUser, err := SetUserPassword(u, "password")
+		if err != nil {
+			t.Errorf("Unexpected error hashing password: %v", err)
+		}
+
+		if updatedUser.Password() != string(expected) {
+			t.Errorf("SetUserPassword() did not hash and set the password as expected")
+		}
+
+		// Everything below here should go, this is all handled by User.Save() now
+		// mockDB, mock, err := sqlmock.New()
+		// if err != nil {
+		// 	t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		// }
+		// defer mockDB.Close()
+		// sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		// u.SetPassword("password", sqlxDB)
+		// mock.ExpectQuery(`^INSERT INTO users \?`) //.WithArgs(user.ID()).WillReturnRows(rows)
 	})
 }
 
@@ -144,7 +162,8 @@ func TestLookupUser(t *testing.T) {
 
 func TestLookupUserByToken(t *testing.T) {
 	// TODO: Consider using DATA-DOG/txdb to use a real db, which could matter when doing things
-	// using postgres specific functionality, etc.
+	// using postgres specific functionality, etc. and allows testing to ensure that the query
+	// returns expected data rather than this where we force expected returned rows, assuming that the sql is correct.
 	// final return is err... might want to deal with that?
 	mockDB, mock, err := sqlmock.New()
 	if err != nil {
@@ -202,4 +221,34 @@ func TestLookupUserByToken(t *testing.T) {
 			t.Errorf("Expected: %v, got: %v", expected, actual)
 		}
 	})
+}
+
+func TestAuthenticateLogin(t *testing.T) {
+	// back to this once the query is tested
+	// mockDB, mock, err := sqlmock.New()
+	mockDB, _, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mockDB.Close()
+	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+
+	user := NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	password := "password"
+	passwdBytes, err := bcrypt.GenerateFromPassword([]byte(password), DefaultPasswordHashCost)
+	if err != nil {
+		t.Fatalf("Error hashing password for test: %v", err)
+	}
+
+	t.Run("Test valid username and password returns User", func(t *testing.T) {
+		u, err := AuthenticateLogin(user.Email(), password, sqlxDB)
+		if err != nil {
+			t.Errorf("Got unexpected error: %v", err)
+		}
+
+		if u != user {
+			t.Errorf("Expected user: %v, got: %v", user, u)
+		}
+	})
+
 }

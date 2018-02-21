@@ -13,13 +13,16 @@ import (
 // The bcrypt cost to use for hashing the password
 // good info on cost here https://security.stackexchange.com/a/83382
 const DefaultPasswordHashCost int = 13
+const UserNotFoundError = "User not found"
 
 type user struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
+	// TODO: Considering having a separate username from the email
 	ID        int64  `db:"id"`
 	FirstName string `db:"first_name"`
 	LastName  string `db:"last_name"`
 	Email     string `db:"email"`
+	Password  string `db:"password"`
 
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
@@ -41,25 +44,43 @@ func (u User) LastName() string     { return u.user.LastName }
 func (u User) Email() string        { return u.user.Email }
 func (u User) CreatedAt() time.Time { return u.user.CreatedAt }
 func (u User) UpdatedAt() time.Time { return u.user.UpdatedAt }
-func (u User) SetPassword(password string, db *sqlx.DB) error {
+func (u User) Password() string { return u.user.Password }
+
+func SetUserPassword(u User, password string) (User, error) {
 	// Sets the hashed user password in the database
 
 	// TODO: abstract this out to allow for easily using a different hashing algorithm
 	// or changing the hash cost, such as to something very low for tests?
 	passwdBytes, err := bcrypt.GenerateFromPassword([]byte(password), DefaultPasswordHashCost)
 	if err != nil {
-		return err
+		return u, err
 	}
+	u.user.Password = string(passwdBytes)
+	return u, nil
+}
 
-	// TODO: Now set the password.  Just save here or set it on the user and have a separate save?
-	// I think for now just save here
-	setPass := `INSERT INTO users (password) VALUES (?)`
+// super incomplete
+func (u User) Save(db *sqlx.DB) error {
+	var query string
+	var createdAt time.Time
+	if u.ID() != 0 {
+		query = `UPDATE users SET email = ?, first_name = ?, last_name = ?, password = ?, updated_at = ? WHERE id = ?)`
+		createdAt = u.CreatedAt()
+	} else {
+		query = `INSERT INTO users (email, first_name, last_name, password, created_at, updated_at)`
+		createdAt = time.Now()
+	}
 	// db.MustExec(setPass, string(passwdBytes))
-	_, err = db.Exec(setPass, string(passwdBytes))
+	_, err := db.Exec(query, u.Email, u.FirstName(), u.LastName(), u.Password(), createdAt, time.Now())
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+// TODO: Needs to accept set of changes somehow
+func UpdateUser(user User) {
+
 }
 
 // Looks up the user by id in the database and returns a new User
@@ -69,13 +90,40 @@ func LookupUser(id int64, db *sqlx.DB) (User, error) {
 	// By default sqlx just passes whatever you type and you need to manually use the correct token...
 	// ? for mysql, $1..$N for postgres, etc.
 	// db.Rebind() will update the string to use the correct bind.
-	query := db.Rebind("SELECT id, first_name, last_name, email, created_at, updated_at FROM users WHERE id=?")
+	query := db.Rebind("SELECT id, first_name, last_name, email, password, created_at, updated_at FROM users WHERE id=?")
 	err := db.Get(&u, query, id)
 	if err != nil {
 		return User{}, err
 	}
 	// this seems dumb, but it ensures correctness by using the standard NewUser interface
 	return NewUser(u.ID, u.Email, u.FirstName, u.LastName, u.CreatedAt, u.UpdatedAt), nil
+}
+
+// Looks up the username (or email, as the case is for now) and verifies that the password
+// matches that of the user.
+func AuthenticateLogin(username, password string, db *sqlx.DB) (User, error) {
+	u := User{}
+
+	query := db.Rebind(
+		"SELECT id, email, password, first_name, last_name, created_at, updated_at FROM users WHERE email = ?")
+	err := db.Get(&u, query, username)
+
+	if err != nil {
+		return User{}, err
+	}
+
+	if u == (User{}) {
+		return u, errors.New(UserNotFoundError)
+	}
+
+	pwdErr := bcrypt.CompareHashAndPassword([]byte(u.Password()), []byte(password))
+	if pwdErr != nil {
+		return User{}, pwdErr
+	}
+
+	// Redundant since token.User is already a User{} struct, but this ensures that any other init
+	// which may be needed actually happens.
+	return NewUser(u.ID(), u.Email(), u.FirstName(), u.LastName(), u.CreatedAt(), u.UpdatedAt()), nil
 }
 
 // Uses a token as passed in authentication headers by a user to look them up
