@@ -26,6 +26,8 @@ type user struct {
 
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
+
+	passwordChanged bool
 }
 
 type User struct {
@@ -35,7 +37,7 @@ type User struct {
 // Returns a new user
 func NewUser(id int64, email, firstName, lastName string, createdAt, updatedAt time.Time) User {
 	return User{user{ID: id, Email: email, FirstName: firstName, LastName: lastName, CreatedAt: createdAt,
-		UpdatedAt: updatedAt}}
+		UpdatedAt: updatedAt, passwordChanged: false}}
 }
 
 func (u User) ID() int64            { return u.user.ID }
@@ -46,16 +48,26 @@ func (u User) CreatedAt() time.Time { return u.user.CreatedAt }
 func (u User) UpdatedAt() time.Time { return u.user.UpdatedAt }
 func (u User) Password() string { return u.user.Password }
 
-func SetUserPassword(u User, password string) (User, error) {
-	// Sets the hashed user password in the database
-
+// SetUserPassword hashes the given password and returns a new user with the password set to the bcrypt hashed value
+// using the given hashCost.  If hashCost is less than bcrypt.MinCost then worrywort.DefaultPasswordHashCost is used.
+func SetUserPassword(u User, password string, hashCost int) (User, error) {
 	// TODO: abstract this out to allow for easily using a different hashing algorithm
 	// or changing the hash cost, such as to something very low for tests?
-	passwdBytes, err := bcrypt.GenerateFromPassword([]byte(password), DefaultPasswordHashCost)
+	if hashCost <= bcrypt.MinCost {
+		hashCost = DefaultPasswordHashCost
+	}
+	passwdBytes, err := bcrypt.GenerateFromPassword([]byte(password), hashCost)
 	if err != nil {
 		return u, err
 	}
 	u.user.Password = string(passwdBytes)
+
+	// For now password hash is not being passed around because it would make NewUser() irritating
+	// so this lets us know password has changed so taht it can be included in save.
+	// But that may change because this kind of sucks, too.  It would be easier to just include the password hash
+	// always when saving... could always use NewUser() to not have password for a truly new user and use other methods
+	// for looking up actual existing users... leaning towards that.
+	u.user.passwordChanged = true
 	return u, nil
 }
 
@@ -79,7 +91,7 @@ func (u User) Save(db *sqlx.DB) error {
 }
 
 // TODO: Needs to accept set of changes somehow
-func UpdateUser(user User) {
+func UpdateUser(user User, ) {
 
 }
 
@@ -105,7 +117,7 @@ func AuthenticateLogin(username, password string, db *sqlx.DB) (User, error) {
 	u := User{}
 
 	query := db.Rebind(
-		"SELECT id, email, password, first_name, last_name, created_at, updated_at FROM users WHERE email = ?")
+		"SELECT id, email, first_name, last_name, created_at, updated_at, password FROM users WHERE email = ?")
 	err := db.Get(&u, query, username)
 
 	if err != nil {
