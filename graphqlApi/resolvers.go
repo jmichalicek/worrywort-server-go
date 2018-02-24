@@ -218,12 +218,28 @@ type authTokenResolver struct {
 // func (r *Resolver) Login(args *struct {
 // 	Username string
 // 	Password string
-// }) *authTokenResolver {
+// }) (*authTokenResolver, error) {
 //
-// 	review := &review{
-// 		stars:      args.Review.Stars,
-// 		commentary: args.Review.Commentary,
+// 	user, err := worrywort.AuthenticateUser(args.Username, args.Password)
+// 	// TODO: Check for errors which should not be exposed?  Or for known good errors to expose
+// 	// and return something more generic + log if unexpected?
+// 	if err != nil {
+// 		return nil, err
 // 	}
-// 	reviews[args.Episode] = append(reviews[args.Episode], review)
-// 	return &reviewResolver{review}
+//
+// 	token, err := worrywort.GenerateTokenForUser(user, worrywort.TOKEN_SCOPE_ALL)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+//
+// 	token.Save()
+//  return &authTokenResolver {
+//		token: token.ForAuthenticationHeader()
+//	}
+// 	// review := &review{
+// 	// 	stars:      args.Review.Stars,
+// 	// 	commentary: args.Review.Commentary,
+// 	// }
+// 	// reviews[args.Episode] = append(reviews[args.Episode], review)
+// 	// return &reviewResolver{review}
 // }

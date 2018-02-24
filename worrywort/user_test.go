@@ -170,7 +170,7 @@ func TestLookupUserByToken(t *testing.T) {
 		rows := sqlmock.NewRows(
 			[]string{"token_id", "token", "scope", "expires_at", "created_at", "updated_at", "id", "email",
 				"first_name", "last_name", "created_at", "updated_at"}).
-			AddRow(token.TokenId, token.Token, token.Scope, token.ExpiresAt, token.CreatedAt, token.UpdatedAt, user.ID(),
+			AddRow(token.ID(), token.Token(), token.Scope(), token.ExpiresAt(), token.CreatedAt(), token.UpdatedAt(), user.ID(),
 				user.Email(), user.FirstName(), user.LastName(), user.CreatedAt(), user.UpdatedAt())
 		mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token_id = \? AND \(t.expires_at IS NULL OR t.expires_at < \?\)`).
 			WithArgs(tokenId, AnyTime{}).WillReturnRows(rows)
