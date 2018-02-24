@@ -13,7 +13,7 @@ import (
 // The bcrypt cost to use for hashing the password
 // good info on cost here https://security.stackexchange.com/a/83382
 const DefaultPasswordHashCost int = 13
-const UserNotFoundError = "User not found"
+var UserNotFoundError error = errors.New("User not found")
 
 type user struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
@@ -35,7 +35,7 @@ type User struct {
 // Returns a new user
 func NewUser(id int64, email, firstName, lastName string, createdAt, updatedAt time.Time) User {
 	return User{user{ID: id, Email: email, FirstName: firstName, LastName: lastName, CreatedAt: createdAt,
-		UpdatedAt: updatedAt, passwordChanged: false}}
+		UpdatedAt: updatedAt}}
 }
 
 func (u User) ID() int64            { return u.user.ID }
@@ -68,13 +68,13 @@ func (u User) Save(db *sqlx.DB) error {
 	var createdAt time.Time
 	var err error = nil
 	if u.ID() != 0 {
-		query = `UPDATE users SET email = ?, first_name = ?, last_name = ?, password = ?, updated_at = ? WHERE id = ?)`
+		query = "UPDATE users SET email = ?, first_name = ?, last_name = ?, password = ?, updated_at = ? WHERE id = ?)"
 		createdAt = u.CreatedAt()
-		_, err := db.Exec(query, u.Email(), u.FirstName(), u.LastName(), u.Password(), createdAt, time.Now(), u.ID())
+		_, err = db.Exec(query, u.Email(), u.FirstName(), u.LastName(), u.Password(), createdAt, time.Now(), u.ID())
 	} else {
-		query = `INSERT INTO users (email, first_name, last_name, password, created_at, updated_at)`
+		query = "INSERT INTO users (email, first_name, last_name, password, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
 		createdAt = time.Now()
-		_, err := db.Exec(query, u.Email(), u.FirstName(), u.LastName(), u.Password(), createdAt, time.Now())
+		_, err = db.Exec(query, u.Email(), u.FirstName(), u.LastName(), u.Password(), createdAt, time.Now())
 	}
 	return err
 }
@@ -86,7 +86,7 @@ func UpdateUser(user User) {
 
 // Looks up the user by id in the database and returns a new User
 func LookupUser(id int64, db *sqlx.DB) (User, error) {
-	u := user{}
+	u := User{}
 	// if I have understood correctly, different DBs use a different parameterization token (the ? below).
 	// By default sqlx just passes whatever you type and you need to manually use the correct token...
 	// ? for mysql, $1..$N for postgres, etc.
@@ -109,12 +109,12 @@ func AuthenticateLogin(username, password string, db *sqlx.DB) (User, error) {
 		"SELECT id, email, first_name, last_name, created_at, updated_at, password FROM users WHERE email = ?")
 	err := db.Get(&u, query, username)
 
-	if err != nil {
-		return User{}, err
+	if u == (User{}) {
+		return u, UserNotFoundError //errors.New(UserNotFoundError)
 	}
 
-	if u == (User{}) {
-		return u, errors.New(UserNotFoundError)
+	if err != nil {
+		return User{}, err
 	}
 
 	pwdErr := bcrypt.CompareHashAndPassword([]byte(u.Password()), []byte(password))
@@ -159,5 +159,5 @@ func LookupUserByToken(tokenStr string, db *sqlx.DB) (User, error) {
 		return User{}, pwdErr
 	}
 
-	return u, nil
+	return token.User, nil
 }

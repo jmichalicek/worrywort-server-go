@@ -3,7 +3,6 @@ package worrywort
 import (
 	"database/sql"
 	"database/sql/driver"
-	"fmt"
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/jmoiron/sqlx"
 	"golang.org/x/crypto/bcrypt"
@@ -96,7 +95,6 @@ func TestUserStruct(t *testing.T) {
 			t.Errorf("Unexpected error hashing password: %v", err)
 		}
 
-		fmt.Println("updated pass is ", updatedUser.Password())
 		if bcrypt.CompareHashAndPassword([]byte(updatedUser.Password()), []byte(password)) != nil {
 			t.Errorf("SetUserPassword() did not hash and set the password as expected")
 		}
@@ -117,8 +115,8 @@ func TestLookupUser(t *testing.T) {
 	user := NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 
 	t.Run("Test valid user id returns user", func(t *testing.T) {
-		rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at"}).
-			AddRow(user.ID(), user.Email(), user.FirstName(), user.LastName(), user.CreatedAt(), user.UpdatedAt())
+		rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at", "password"}).
+			AddRow(user.ID(), user.Email(), user.FirstName(), user.LastName(), user.CreatedAt(), user.UpdatedAt(), user.Password())
 		mock.ExpectQuery(`^SELECT (.+) FROM users WHERE id=\?`).WithArgs(user.ID()).WillReturnRows(rows)
 		actual, err := LookupUser(1, sqlxDB)
 
@@ -132,7 +130,7 @@ func TestLookupUser(t *testing.T) {
 	})
 
 	t.Run("Test invalid user id returns empty user", func(t *testing.T) {
-		rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at"})
+		rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at", "password"})
 		mock.ExpectQuery(`^SELECT (.+) FROM users WHERE id=?`).WithArgs(1).WillReturnRows(rows)
 		actual, err := LookupUser(1, sqlxDB)
 		expected := User{}
@@ -227,7 +225,6 @@ func TestAuthenticateLogin(t *testing.T) {
 	}
 
 	t.Run("Test valid username and password returns User", func(t *testing.T) {
-		fmt.Println("Password is ", user.Password())
 		rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at", "password"}).
 			AddRow(user.ID(), user.Email(), user.FirstName(), user.LastName(), user.CreatedAt(), user.UpdatedAt(), user.Password())
 
@@ -238,14 +235,42 @@ func TestAuthenticateLogin(t *testing.T) {
 			t.Errorf("Got unexpected error: %v", err)
 		}
 
-		fmt.Println("u.Password is ", u.Password())
-		if u != NewUser(user.ID(), user.Email(), user.FirstName(), user.LastName(), user.CreatedAt(), user.UpdatedAt()) {
-			t.Errorf("Expected user: %v, got: %v", user, u)
+		if u != user {
+			t.Errorf("Expected user: %v\ngot: %v", user, u)
 		}
 	})
 
-	// TODO: Test mismatched password
+	t.Run("Test valid username and password mistmatch returns error and empty User{}", func(t *testing.T) {
+		badPass, _ := bcrypt.GenerateFromPassword([]byte("a"), bcrypt.MinCost)
+		rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at", "password"}).
+			AddRow(user.ID(), user.Email(), user.FirstName(), user.LastName(), user.CreatedAt(), user.UpdatedAt(), string(badPass))
+
+		mock.ExpectQuery(`^SELECT (.+) FROM users WHERE email = \?`).WithArgs(user.Email()).WillReturnRows(rows)
+
+		u, err := AuthenticateLogin(user.Email(), password, sqlxDB)
+		if err != bcrypt.ErrMismatchedHashAndPassword {
+			t.Errorf("Expected error: %v\nGot: %V", UserNotFoundError, err)
+		}
+
+		if u != (User{}) {
+			t.Errorf("Expected empty user: %v\ngot: %v", User{}, u)
+		}
+	})
 
 	// TODO: test mismatched email
+	t.Run("Test invalid username/email and returns error and User{}", func(t *testing.T) {
+		rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at", "password"})
+
+		mock.ExpectQuery(`^SELECT (.+) FROM users WHERE email = \?`).WithArgs("nomatch@example.com").WillReturnRows(rows)
+
+		u, err := AuthenticateLogin("nomatch@example.com", password, sqlxDB)
+		if err != UserNotFoundError {
+			t.Errorf("Expected: %v\nGot : %v", UserNotFoundError, err)
+		}
+
+		if u != (User{}) {
+			t.Errorf("Expected empty user: %v\ngot: %v", user, u)
+		}
+	})
 
 }
