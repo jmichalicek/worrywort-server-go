@@ -24,6 +24,7 @@ func dateString(dt time.Time) string {
 }
 
 type Resolver struct {
+	// todo: should be Db?
 	db *sqlx.DB
 }
 
@@ -93,8 +94,11 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	timeRecorded := time.Now()
+
+	tempId := "REMOVEME"
+	// TODO: This needs to save and THAT is whre the uuid should really be generated
 	m := worrywort.NewTemperatureMeasurement(
-		"shouldbeauuid", 64.26, worrywort.FAHRENHEIT, b, therm, f, timeRecorded, createdAt, updatedAt, u)
+		tempId, 64.26, worrywort.FAHRENHEIT, b, therm, f, timeRecorded, createdAt, updatedAt, u)
 	return &temperatureMeasurementResolver{m: m}
 }
 
@@ -209,37 +213,34 @@ func (r *temperatureMeasurementResolver) CreatedBy() *userResolver {
 
 // An auth token returned after logging in to use in Authentication headers
 type authTokenResolver struct {
-	token string
+	t worrywort.AuthToken
 	// return a status such as ok or error?
 }
 
-// Mutation Resolvers
+func (a *authTokenResolver) ID() graphql.ID { return graphql.ID(a.t.ForAuthenticationHeader()) }
+func (a *authTokenResolver) Token() string  { return a.t.ForAuthenticationHeader() }
 
-// func (r *Resolver) Login(args *struct {
-// 	Username string
-// 	Password string
-// }) (*authTokenResolver, error) {
-//
-// 	user, err := worrywort.AuthenticateUser(args.Username, args.Password)
-// 	// TODO: Check for errors which should not be exposed?  Or for known good errors to expose
-// 	// and return something more generic + log if unexpected?
-// 	if err != nil {
-// 		return nil, err
-// 	}
-//
-// 	token, err := worrywort.GenerateTokenForUser(user, worrywort.TOKEN_SCOPE_ALL)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-//
-// 	token.Save()
-//  return &authTokenResolver {
-//		token: token.ForAuthenticationHeader()
-//	}
-// 	// review := &review{
-// 	// 	stars:      args.Review.Stars,
-// 	// 	commentary: args.Review.Commentary,
-// 	// }
-// 	// reviews[args.Episode] = append(reviews[args.Episode], review)
-// 	// return &reviewResolver{review}
-// }
+
+// Mutations
+
+func (r *Resolver) Login(args *struct {
+	Username string
+	Password string
+}) (*authTokenResolver, error) {
+
+	user, err := worrywort.AuthenticateLogin(args.Username, args.Password, r.db)
+	// TODO: Check for errors which should not be exposed?  Or for known good errors to expose
+	// and return something more generic + log if unexpected?
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := worrywort.GenerateTokenForUser(user, worrywort.TOKEN_SCOPE_ALL)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: not yet implemented, will need db
+	token.Save(r.db)
+	return &authTokenResolver{t: token}, nil
+}

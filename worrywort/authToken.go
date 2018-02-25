@@ -3,13 +3,14 @@ package worrywort
 // "github.com/jmoiron/sqlx"
 import (
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"golang.org/x/crypto/bcrypt"
 	"time"
 )
 
 const InvalidTokenError = "Invalid token.  Not found."
 const TokenFormatError = "Token should be formatted as `tokenId:secret` but was not"
-const DefaultTokenHashCost int = 10  // to be faster than password hash cost because this will be calculated frequently
+const DefaultTokenHashCost int = 10 // to be faster than password hash cost because this will be calculated frequently
 
 // TODO: Possibly move authToken stuff to its own package so that scope stuff will be
 // authToken.READ_ALL, etc.
@@ -37,19 +38,20 @@ type authToken struct {
 type AuthToken struct {
 	authToken
 }
-func (t AuthToken) ID() string { return t.authToken.TokenId }
-func (t AuthToken) Token() string { return t.authToken.Token }
-func (t AuthToken) ExpiresAt() time.Time { return t.authToken.ExpiresAt }
-func (t AuthToken) CreatedAt() time.Time { return t.authToken.CreatedAt }
-func (t AuthToken) UpdatedAt() time.Time { return t.authToken.UpdatedAt }
+
+func (t AuthToken) ID() string                { return t.authToken.TokenId }
+func (t AuthToken) Token() string             { return t.authToken.Token }
+func (t AuthToken) ExpiresAt() time.Time      { return t.authToken.ExpiresAt }
+func (t AuthToken) CreatedAt() time.Time      { return t.authToken.CreatedAt }
+func (t AuthToken) UpdatedAt() time.Time      { return t.authToken.UpdatedAt }
 func (t AuthToken) Scope() AuthTokenScopeType { return t.authToken.Scope }
-func (t AuthToken) User() User { return t.authToken.User }
+func (t AuthToken) User() User                { return t.authToken.User }
 func (t AuthToken) ForAuthenticationHeader() string {
 	// TODO: Base64 encode this
 	// "encoding/base64"
 	return t.ID() + ":" + t.Token()
 }
-func (t AuthToken) Save() error {
+func (t AuthToken) Save(*sqlx.DB) error {
 	// TODO: Save the token to the db
 	return nil
 }
