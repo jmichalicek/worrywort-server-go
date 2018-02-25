@@ -6,6 +6,7 @@ import (
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
 	graphql "github.com/neelance/graphql-go"
+	// "log"
 	"strconv"
 	"time"
 )
@@ -220,9 +221,10 @@ type authTokenResolver struct {
 func (a *authTokenResolver) ID() graphql.ID { return graphql.ID(a.t.ForAuthenticationHeader()) }
 func (a *authTokenResolver) Token() string  { return a.t.ForAuthenticationHeader() }
 
-
 // Mutations
 
+// TODO: Something here is not working.  It builds, but blows up.  Cannot tell for sure if it is
+// due to returning an error or maybe something in middleware
 func (r *Resolver) Login(args *struct {
 	Username string
 	Password string
@@ -242,5 +244,6 @@ func (r *Resolver) Login(args *struct {
 
 	// TODO: not yet implemented, will need db
 	token.Save(r.db)
-	return &authTokenResolver{t: token}, nil
+	atr := authTokenResolver{t: token}
+	return &atr, nil
 }

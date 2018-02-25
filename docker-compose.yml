@@ -34,10 +34,10 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     environment:
-      DB_HOST: database
-      DB_NAME: ${POSTGRES_DB:-worrywort}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-developer}
-      DB_USER: ${POSTGRES_USER:-developer}
+      DATABASE_HOST: database
+      DATABASE_NAME: ${POSTGRES_DB:-worrywort}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-developer}
+      DATABASE_USER: ${POSTGRES_USER:-developer}
       REDIS_HOST: redis
     ports:
       - "8080:8080"  # May muck with port.  I do not really care, it was just on 8080 from initial sample I used as starting point.

@@ -11,13 +11,16 @@ package graphqlApi
 var Schema = `
 	schema {
 		query: Query
-
+		mutation: Mutation
 	}
 
 	type Query {
 		currentUser(): User
 		batch(id: ID!): Batch
+	}
 
+	type Mutation {
+		login(username: String!, password: String!): AuthToken
 	}
 
 	enum VolumeUnit {
@@ -34,6 +37,11 @@ var Schema = `
 		BUCKET
 		CARBOY
 		CONICAL
+	}
+
+	type AuthToken {
+		id: ID!
+		token: String!
 	}
 
 	type User {

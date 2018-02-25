@@ -127,9 +127,13 @@ func AuthenticateLogin(username, password string, db *sqlx.DB) (User, error) {
 
 // Uses a token as passed in authentication headers by a user to look them up
 func LookupUserByToken(tokenStr string, db *sqlx.DB) (User, error) {
-	// TODO: Really need to hash these tokens, possibly with pbkdf2 and a user configurable salt.
-	// May switch user to pbkdf2 at same time just to only use 1 hash lib
-	// token is passed in as 2 parts
+	// TODO: Is there a good way to abstract this so that token data could optionally
+	// be stored in redis while other data is in postgres?  If two separate lookups
+	// are done even for db then it is easy.
+
+	// TODO: Considering making this taken token id and actual token as separate params
+	// for explicitness
+	// token is passed in has 2 parts
 	tokenParts := strings.SplitN(tokenStr, ":", 2)
 
 	if len(tokenParts) != 2 {
