@@ -249,7 +249,7 @@ func TestAuthenticateLogin(t *testing.T) {
 
 		u, err := AuthenticateLogin(user.Email(), password, sqlxDB)
 		if err != bcrypt.ErrMismatchedHashAndPassword {
-			t.Errorf("Expected error: %v\nGot: %V", UserNotFoundError, err)
+			t.Errorf("Expected error: %v\nGot: %v", UserNotFoundError, err)
 		}
 
 		if u != (User{}) {
