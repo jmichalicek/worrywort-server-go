@@ -199,11 +199,11 @@ func TestLookupUserByToken(t *testing.T) {
 		expected := User{}
 
 		if err != sql.ErrNoRows {
-			t.Errorf("TestLookupUserByToken() expected error: %v, but returned %v", sql.ErrNoRows, err)
+			t.Errorf("\nExpected error: %v\nGot: %v", sql.ErrNoRows, err)
 		}
 
 		if actual != expected {
-			t.Errorf("Expected: %v, got: %v", expected, actual)
+			t.Errorf("\nExpected: %v\ngot: %v", expected, actual)
 		}
 	})
 }

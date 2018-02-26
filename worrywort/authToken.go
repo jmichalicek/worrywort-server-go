@@ -4,6 +4,7 @@ package worrywort
 import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 	"time"
 )
@@ -26,10 +27,10 @@ const (
 // Simplified auth tokens.  May eventually be replaced with proper OAuth 2.
 type authToken struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
-	TokenId   string             `db:"token_id"`
+	Id        string             `db:"token_id"`
 	Token     string             `db:"token"`
 	User      User               `db:",prefix=u."`
-	ExpiresAt time.Time          `db:"expires_at"`
+	ExpiresAt pq.NullTime        `db:"expires_at"`
 	CreatedAt time.Time          `db:"created_at"`
 	UpdatedAt time.Time          `db:"updated_at"`
 	Scope     AuthTokenScopeType `db:"scope"`
@@ -39,20 +40,30 @@ type AuthToken struct {
 	authToken
 }
 
-func (t AuthToken) ID() string                { return t.authToken.TokenId }
+func (t AuthToken) ID() string                { return t.authToken.Id }
 func (t AuthToken) Token() string             { return t.authToken.Token }
-func (t AuthToken) ExpiresAt() time.Time      { return t.authToken.ExpiresAt }
+func (t AuthToken) ExpiresAt() pq.NullTime    { return t.authToken.ExpiresAt }
 func (t AuthToken) CreatedAt() time.Time      { return t.authToken.CreatedAt }
 func (t AuthToken) UpdatedAt() time.Time      { return t.authToken.UpdatedAt }
 func (t AuthToken) Scope() AuthTokenScopeType { return t.authToken.Scope }
 func (t AuthToken) User() User                { return t.authToken.User }
 func (t AuthToken) ForAuthenticationHeader() string {
-	// TODO: Base64 encode this
+	// TODO: Base64 encode this?
 	// "encoding/base64"
 	return t.ID() + ":" + t.Token()
 }
-func (t AuthToken) Save(*sqlx.DB) error {
+func (t AuthToken) Save(db *sqlx.DB) error {
 	// TODO: Save the token to the db
+	// TODO: May change the name of this table as it suggests a joining table.
+	if t.CreatedAt().IsZero() {
+		query := "INSERT INTO user_authtokens (token_id, token, expires_at, updated_at, scope, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
+		_, err := db.Exec(query, t.ID(), t.Token(), t.ExpiresAt(), time.Now(), t.Scope(), t.User().ID())
+		if err != nil {
+			return err
+		}
+	}
+	// No update allowed for now.
+	//TODO: decide if this will update and what can be updated.  Perhaps can update scope and expiration?  or maybe nothing.
 	return nil
 }
 
@@ -65,7 +76,7 @@ func NewToken(tokenId, token string, user User, scope AuthTokenScopeType, hashCo
 		return AuthToken{}, err
 	}
 
-	return AuthToken{authToken{TokenId: tokenId, Token: string(passwdBytes), User: user, Scope: scope}}, nil
+	return AuthToken{authToken{Id: tokenId, Token: string(passwdBytes), User: user, Scope: scope}}, nil
 }
 
 // Generate a random auth token for a user with the given scope

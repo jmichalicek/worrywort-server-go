@@ -50,23 +50,8 @@ func TestLoginMutation(t *testing.T) {
 	// should this close sqlxdb instead?
 	defer mockDB.Close()
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(sqlxDB))
-
-	// Not sure I like this over just using the build in run with a name,
-	// but this will work for now.
-	// This also might belong as well under the cmd/worrywortd tests since that is what REALLY needs to work.
-
 	user := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	// using hashedPassword in the returned sql is nto working
 	var hashedPassword string = "$2a$13$pPg7mwPA.VFf3W9AUZyMGO0Q2nhoh/979F/TZ8ED.iqVubLe.TDmi"
-	// user, err = worrywort.SetUserPassword(user, "password", bcrypt.MinCost)
-	// fmt.Print(user.Password())
-	// if err != nil {
-	// 	t.Errorf("Unexpected error hashing password: %v", err)
-	// }
-
-	// tokenId := "tokenid"
-	// tokenKey := "secret"
-	// token, _ := worrywort.NewToken(tokenId, tokenKey, user, 0, 10)
 
 	t.Run("Test valid email and password returns a token", func(t *testing.T) {
 		rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at", "password"}).
@@ -96,14 +81,23 @@ func TestLoginMutation(t *testing.T) {
 		// the $2a$10$ indicates bcrypt and the version of it as 2a
 		// and a hashcost of 10
 		// Testing this pattern this far may be a bit overtesting.  Could just test for any string as the token.
-		expected := `\{"login":\{"token":".+:\$2a\$10\$[A-Za-z0-9/.]{53}"\}\}`
+		expected := `\{"login":\{"token":"(.+):(\$2a\$10\$[A-Za-z0-9/.]{53})"\}\}`
+		matcher := regexp.MustCompile(expected)
 		// TODO: capture the token and make sure there's an entry in the db for it.
-		matched, err := regexp.Match(expected, result.Data)
-		if err != nil {
-			t.Errorf(err.Error())
-		}
+		matched := matcher.Match(result.Data)
+
 		if !matched {
 			t.Errorf("\nExpected respose to match pattern: %s\nGot: %s", expected, result.Data)
 		}
+		subMatches := matcher.FindStringSubmatch(string(result.Data))
+		tokenId := subMatches[1]
+		tokenStr := subMatches[2]
+		// "INSERT INTO user_authtokens (id, token, expires_at, updated_at, scope, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
+		var lastInsertID, affected int64
+		insertResult := sqlmock.NewResult(lastInsertID, affected)
+		mock.ExpectExec("^INSERT INTO user_authtokens (id, token, expires_at, updated_at, scope, user_id) VALUES (.+)").
+		WithArgs(tokenId, tokenStr, nil, AnyTime{}, worrywort.TOKEN_SCOPE_ALL, user.ID()).
+		WillReturnResult(insertResult)
+
 	})
 }
