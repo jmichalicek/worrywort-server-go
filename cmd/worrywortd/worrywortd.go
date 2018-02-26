@@ -53,8 +53,8 @@ func main() {
 	}
 	connectionString := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		dbHost, dbPort, dbUser, dbPassword, dbName)
-	db, _ := sqlx.Connect("postgres", connectionString)
 
+	db, _ := sqlx.Connect("postgres", connectionString)
 	schema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
 
 	tokenAuthHandler := authMiddleware.NewTokenAuthHandler(newTokenAuthLookup(db))
@@ -65,5 +65,6 @@ func main() {
 	if !uriSet {
 		uri = ":8080"
 	}
+	log.Printf("WorryWort now listening on %s\n", uri)
 	log.Fatal(http.ListenAndServe(uri, nil))
 }
