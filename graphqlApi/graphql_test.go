@@ -9,11 +9,14 @@ import (
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
 	"github.com/neelance/graphql-go"
-	"github.com/neelance/graphql-go/gqltesting"
+	// "github.com/neelance/graphql-go/gqltesting"
 	// "golang.org/x/crypto/bcrypt"
+	"context"
+	// "fmt"
 	"testing"
 	"time"
-	// "fmt"
+	// "encoding/json"
+	"regexp"
 )
 
 // from https://github.com/DATA-DOG/go-sqlmock#matching-arguments-like-timetime
@@ -65,32 +68,42 @@ func TestLoginMutation(t *testing.T) {
 	// tokenKey := "secret"
 	// token, _ := worrywort.NewToken(tokenId, tokenKey, user, 0, 10)
 
-	rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at", "password"}).
-		AddRow(user.ID(), user.Email(), user.FirstName(), user.LastName(), user.CreatedAt(), user.UpdatedAt(), hashedPassword)
-	mock.ExpectQuery(`^SELECT (.+) FROM users WHERE email = \?`).WithArgs(user.Email()).WillReturnRows(rows)
+	t.Run("Test valid email and password returns a token", func(t *testing.T) {
+		rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at", "password"}).
+			AddRow(user.ID(), user.Email(), user.FirstName(), user.LastName(), user.CreatedAt(), user.UpdatedAt(), hashedPassword)
+		mock.ExpectQuery(`^SELECT (.+) FROM users WHERE email = \?`).WithArgs(user.Email()).WillReturnRows(rows)
 
-	gqltesting.RunTests(t, []*gqltesting.Test{
-		// TODO: mock db query to return expected token!
-		{
-			Schema: worrywortSchema,
-			Query: `
-				mutation Login($username: String!, $password: String!) {
-					login(username: $username, password: $password) {
-						token
-					}
+		// This is all based on https://github.com/neelance/graphql-go/blob/master/gqltesting/testing.go#L38
+		// but allows for more flexible checking of the response
+		variables := map[string]interface{}{
+			"username": "user@example.com",
+			"password": "password",
+		}
+		query := `
+			mutation Login($username: String!, $password: String!) {
+				login(username: $username, password: $password) {
+					token
 				}
-			`,
-			Variables: map[string]interface{}{
-				"username": "user@example.com",
-				"password": "password",
-			},
-			ExpectedResult: `
-				{
-					"login": {
-						"token": "THISISWRONG"
-					}
-				}
-			`,
-		},
+			}
+		`
+		operationName := ""
+		context := context.Background()
+		result := worrywortSchema.Exec(context, query, operationName, variables)
+		// example:
+		// {"login":{"token":"c9d103e1-8320-45fd-8ac6-245d59c01b3d:$2a$10$1FiMdC5apU32nePwLqoynutvAUhTRP5iRj5VZBoqOEZuXPIFaLeJ."}}
+		// the actual hash part of the bcrypt hash is 53 characters made up of uppercase and lowercase US alphabet,
+		// 0-9, and then / (forward slash), and . (period)
+		// the $2a$10$ indicates bcrypt and the version of it as 2a
+		// and a hashcost of 10
+		// Testing this pattern this far may be a bit overtesting.  Could just test for any string as the token.
+		expected := `\{"login":\{"token":".+:\$2a\$10\$[A-Za-z0-9/.]{53}"\}\}`
+		// TODO: capture the token and make sure there's an entry in the db for it.
+		matched, err := regexp.Match(expected, result.Data)
+		if err != nil {
+			t.Errorf(err.Error())
+		}
+		if !matched {
+			t.Errorf("\nExpected respose to match pattern: %s\nGot: %s", expected, result.Data)
+		}
 	})
 }

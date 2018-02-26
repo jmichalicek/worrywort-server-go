@@ -56,9 +56,10 @@ func (t AuthToken) Save(*sqlx.DB) error {
 	return nil
 }
 
+// Returns an AuthToken with a hashed token for a given tokenId and token string
 func NewToken(tokenId, token string, user User, scope AuthTokenScopeType, hashCost int) (AuthToken, error) {
-	// use https://github.com/google/uuid
-	// to make uuid NewRandom() function
+	// TODO: instead of taking hashCost, take a function which hashes the passwd - this could then do bcrypt at any cost,
+	// pbkdf2, or for testing situations a simple md5 or just leave alone.
 	passwdBytes, err := bcrypt.GenerateFromPassword([]byte(token), hashCost)
 	if err != nil {
 		return AuthToken{}, err
@@ -69,6 +70,8 @@ func NewToken(tokenId, token string, user User, scope AuthTokenScopeType, hashCo
 
 // Generate a random auth token for a user with the given scope
 func GenerateTokenForUser(user User, scope AuthTokenScopeType) (AuthToken, error) {
+	// TODO: instead of taking hashCost, take a function which hashes the passwd - this could then do bcrypt at any cost,
+	// pbkdf2, or for testing situations a simple md5 or just leave alone.
 	tokenId, err := uuid.NewRandom()
 	if err != nil {
 		return AuthToken{}, err
