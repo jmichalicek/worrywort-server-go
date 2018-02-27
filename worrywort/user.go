@@ -142,8 +142,7 @@ func LookupUserByToken(tokenStr string, db *sqlx.DB) (User, error) {
 
 	tokenId := tokenParts[0]
 	tokenSecret := tokenParts[1]
-	token := authToken{}
-
+	token := AuthToken{}
 	query := db.Rebind(
 		"SELECT t.token_id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at u.id, u.first_name, u.last_name, " +
 			"u.email, u.created_at, u.updated_at, u.password FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id " +
@@ -154,14 +153,14 @@ func LookupUserByToken(tokenStr string, db *sqlx.DB) (User, error) {
 		return User{}, err
 	}
 
-	if token == (authToken{}) {
+	if token == (AuthToken{}) {
 		return User{}, errors.New(InvalidTokenError)
 	}
 
-	pwdErr := bcrypt.CompareHashAndPassword([]byte(token.Token), []byte(tokenSecret))
-	if pwdErr != nil {
-		return User{}, pwdErr
+	// could do this in the sql
+	if !token.Compare(tokenSecret) {
+		return User{}, errors.New(InvalidTokenError)
 	}
 
-	return token.User, nil
+	return token.User(), nil
 }
