@@ -75,19 +75,16 @@ func TestLoginMutation(t *testing.T) {
 		context := context.Background()
 		result := worrywortSchema.Exec(context, query, operationName, variables)
 		// example:
-		// {"login":{"token":"c9d103e1-8320-45fd-8ac6-245d59c01b3d:$2a$10$1FiMdC5apU32nePwLqoynutvAUhTRP5iRj5VZBoqOEZuXPIFaLeJ."}}
-		// the actual hash part of the bcrypt hash is 53 characters made up of uppercase and lowercase US alphabet,
-		// 0-9, and then / (forward slash), and . (period)
-		// the $2a$10$ indicates bcrypt and the version of it as 2a
-		// and a hashcost of 10
+		// {"login":{"token":"c9d103e1-8320-45fd-8ac6-245d59c01b3d:HRXG69cqTv1kyG6zmsJo0tJNsEKmeCqWH5WeH3H-_IyTHZ46ivz0KyTTfUgun1CNCV3n1HLwizvAET1I2DwJiA=="}}
+		// the hash, the part of the token after the colon, is a base64 encoded sha512 sum
 		// Testing this pattern this far may be a bit overtesting.  Could just test for any string as the token.
-		expected := `\{"login":\{"token":"(.+):(\$2a\$10\$[A-Za-z0-9/.]{53})"\}\}`
+		expected := `\{"login":\{"token":"(.+):([-A-Za-z0-9/+_]+=*)"\}\}`
 		matcher := regexp.MustCompile(expected)
 		// TODO: capture the token and make sure there's an entry in the db for it.
 		matched := matcher.Match(result.Data)
 
 		if !matched {
-			t.Errorf("\nExpected respose to match pattern: %s\nGot: %s", expected, result.Data)
+			t.Errorf("\nExpected response to match pattern: %s\nGot: %s", expected, result.Data)
 		}
 		subMatches := matcher.FindStringSubmatch(string(result.Data))
 		tokenId := subMatches[1]

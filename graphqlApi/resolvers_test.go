@@ -3,7 +3,6 @@ package graphqlApi
 import (
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	graphql "github.com/neelance/graphql-go"
-	"golang.org/x/crypto/bcrypt"
 	"testing"
 	"time"
 )
@@ -315,7 +314,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 		var ID graphql.ID = r.ID()
 		expected := graphql.ID(m.ID())
 		if ID != expected {
-			t.Errorf("Expected: %v, got: %v", expected, ID)
+			t.Errorf("\nExpected: %v\ngot: %v", expected, ID)
 		}
 	})
 
@@ -323,7 +322,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 		var dt string = r.CreatedAt()
 		expected := m.CreatedAt().Format(time.RFC3339)
 		if dt != expected {
-			t.Errorf("Expected: %v, got: %v", expected, dt)
+			t.Errorf("\nExpected: %v\ngot: %v", expected, dt)
 		}
 	})
 
@@ -331,7 +330,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 		var dt string = r.UpdatedAt()
 		expected := m.UpdatedAt().Format(time.RFC3339)
 		if dt != expected {
-			t.Errorf("Expected: %v, got %v", expected, dt)
+			t.Errorf("\nExpected: %v\ngot %v", expected, dt)
 		}
 	})
 
@@ -339,24 +338,21 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 		var actual *userResolver = r.CreatedBy()
 		expected := userResolver{u: b.CreatedBy()}
 		if *actual != expected {
-			t.Errorf("Expected: %v, got %v", expected, actual)
+			t.Errorf("\nExpected: %v\ngot %v", expected, actual)
 		}
 	})
 }
 
 func TestAuthTokenResolver(t *testing.T) {
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	token, err := worrywort.NewToken("tokenid", "token", u, worrywort.TOKEN_SCOPE_ALL, bcrypt.MinCost)
-	if err != nil {
-		t.Fatalf("Error generating token for test: %v", token)
-	}
+	token := worrywort.NewToken("tokenid", "token", u, worrywort.TOKEN_SCOPE_ALL)
 	r := authTokenResolver{t: token}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = r.ID()
 		expected := graphql.ID(token.ForAuthenticationHeader())
 		if ID != expected {
-			t.Errorf("Expected: %v\ngot: %v", expected, ID)
+			t.Errorf("\nExpected: %v\ngot: %v", expected, ID)
 		}
 	})
 
@@ -364,7 +360,7 @@ func TestAuthTokenResolver(t *testing.T) {
 		var tokenStr string = r.Token()
 		expected := token.ForAuthenticationHeader()
 		if tokenStr != expected {
-			t.Errorf("Expected: %v\ngot: %v", expected, tokenStr)
+			t.Errorf("\nExpected: %v\ngot: %v", expected, tokenStr)
 		}
 	})
 }

@@ -1,11 +1,11 @@
 package worrywort
 
-// "github.com/jmoiron/sqlx"
 import (
+	"crypto/sha512"
+	"encoding/base64"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
-	"golang.org/x/crypto/bcrypt"
 	"time"
 )
 
@@ -34,6 +34,7 @@ type authToken struct {
 	CreatedAt time.Time          `db:"created_at"`
 	UpdatedAt time.Time          `db:"updated_at"`
 	Scope     AuthTokenScopeType `db:"scope"`
+	fromString	string  // usually empty, the string this token was generated from
 }
 
 type AuthToken struct {
@@ -50,7 +51,7 @@ func (t AuthToken) User() User                { return t.authToken.User }
 func (t AuthToken) ForAuthenticationHeader() string {
 	// TODO: Base64 encode this?
 	// "encoding/base64"
-	return t.ID() + ":" + t.Token()
+	return t.ID() + ":" + t.fromString
 }
 func (t AuthToken) Save(db *sqlx.DB) error {
 	// TODO: Save the token to the db
@@ -67,16 +68,28 @@ func (t AuthToken) Save(db *sqlx.DB) error {
 	return nil
 }
 
-// Returns an AuthToken with a hashed token for a given tokenId and token string
-func NewToken(tokenId, token string, user User, scope AuthTokenScopeType, hashCost int) (AuthToken, error) {
-	// TODO: instead of taking hashCost, take a function which hashes the passwd - this could then do bcrypt at any cost,
-	// pbkdf2, or for testing situations a simple md5 or just leave alone.
-	passwdBytes, err := bcrypt.GenerateFromPassword([]byte(token), hashCost)
-	if err != nil {
-		return AuthToken{}, err
-	}
+func (t AuthToken) Compare(token string) bool {
+	tokenHash := MakeTokenHash(token)
+	return tokenHash == t.Token()
+}
 
-	return AuthToken{authToken{Id: tokenId, Token: string(passwdBytes), User: user, Scope: scope}}, nil
+// Make a hashed token from string.  May rename
+func MakeTokenHash(tokenStr string) string {
+	tokenBytes := sha512.Sum512([]byte(tokenStr))
+	// tokenBytes is a byte array, which cannot be directly cast to a string.  Instead make it a
+	// byte slice for EncodeToString, which does cast properly.
+	token := base64.URLEncoding.EncodeToString(tokenBytes[:])
+	return token
+}
+
+// Returns an AuthToken with a hashed token for a given tokenId and token string
+func NewToken(tokenId, token string, user User, scope AuthTokenScopeType) AuthToken {
+	// TODO: instead of taking hashCost, take a function which hashes the passwd
+	// for now use SHA512.  The token as a uuidv4 already has significant entropy, so salt is
+	// less necessary.  Users must already login with a slow hash before generating a token here,
+	// and for API usage on every request this token needs to be fast to calculate.
+	tokenString := MakeTokenHash(token)
+	return AuthToken{authToken{Id: tokenId, Token: tokenString, User: user, Scope: scope, fromString: token}}
 }
 
 // Generate a random auth token for a user with the given scope
@@ -93,5 +106,8 @@ func GenerateTokenForUser(user User, scope AuthTokenScopeType) (AuthToken, error
 		return AuthToken{}, err
 	}
 
-	return NewToken(tokenId.String(), token.String(), user, scope, DefaultTokenHashCost)
+	// not sure there's much point to this, but it makes it nicer looking
+	tokenb64 := base64.URLEncoding.EncodeToString([]byte(token.String()))
+
+	return NewToken(tokenId.String(), tokenb64, user, scope), nil
 }
