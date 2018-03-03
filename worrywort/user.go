@@ -132,10 +132,8 @@ func LookupUserByToken(tokenStr string, db *sqlx.DB) (User, error) {
 	// are done even for db then it is easy.
 
 	// TODO: Considering making this taken token id and actual token as separate params
-	// for explicitness
-	// token is passed in has 2 parts
+	// for explicitness that token is passed in has 2 parts
 	tokenParts := strings.SplitN(tokenStr, ":", 2)
-
 	if len(tokenParts) != 2 {
 		return User{}, errors.New(TokenFormatError) // should return an error about invalid token probably
 	}
@@ -144,7 +142,7 @@ func LookupUserByToken(tokenStr string, db *sqlx.DB) (User, error) {
 	tokenSecret := tokenParts[1]
 	token := AuthToken{}
 	query := db.Rebind(
-		"SELECT t.token_id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at u.id, u.first_name, u.last_name, " +
+		"SELECT t.token_id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, u.id, u.first_name, u.last_name, " +
 			"u.email, u.created_at, u.updated_at, u.password FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id " +
 			"WHERE t.token_id = ? AND (t.expires_at IS NULL OR t.expires_at < ?)")
 	err := db.Get(&token, query, tokenId, time.Now())
@@ -157,7 +155,7 @@ func LookupUserByToken(tokenStr string, db *sqlx.DB) (User, error) {
 		return User{}, errors.New(InvalidTokenError)
 	}
 
-	// could do this in the sql
+	// could do this in the sql, but it keeps the hashing code all closer together
 	if !token.Compare(tokenSecret) {
 		return User{}, errors.New(InvalidTokenError)
 	}

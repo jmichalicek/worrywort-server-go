@@ -11,7 +11,6 @@ import (
 
 const InvalidTokenError = "Invalid token.  Not found."
 const TokenFormatError = "Token should be formatted as `tokenId:secret` but was not"
-const DefaultTokenHashCost int = 10 // to be faster than password hash cost because this will be calculated frequently
 
 // TODO: Possibly move authToken stuff to its own package so that scope stuff will be
 // authToken.READ_ALL, etc.
@@ -54,10 +53,10 @@ func (t AuthToken) ForAuthenticationHeader() string {
 	return t.ID() + ":" + t.fromString
 }
 func (t AuthToken) Save(db *sqlx.DB) error {
-	// TODO: Save the token to the db
 	// TODO: May change the name of this table as it suggests a joining table.
 	if t.CreatedAt().IsZero() {
-		query := "INSERT INTO user_authtokens (token_id, token, expires_at, updated_at, scope, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
+		query := db.Rebind(`INSERT INTO user_authtokens (token_id, token, expires_at, updated_at, scope, user_id)
+			VALUES (?, ?, ?, ?, ?, ?)`)
 		_, err := db.Exec(query, t.ID(), t.Token(), t.ExpiresAt(), time.Now(), t.Scope(), t.User().ID())
 		if err != nil {
 			return err
