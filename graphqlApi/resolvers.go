@@ -9,6 +9,7 @@ import (
 	// "log"
 	"strconv"
 	"time"
+  "fmt"
 )
 
 // Takes a time.Time and returns nil if the time is zero or pointer to the time string formatted as RFC3339
@@ -230,6 +231,7 @@ func (r *Resolver) Login(args *struct {
 	Password string
 }) (*authTokenResolver, error) {
 
+  fmt.Printf("\nGOT PASSWORD %s\n", args.Password)
 	user, err := worrywort.AuthenticateLogin(args.Username, args.Password, r.db)
 	// TODO: Check for errors which should not be exposed?  Or for known good errors to expose
 	// and return something more generic + log if unexpected?
@@ -245,6 +247,7 @@ func (r *Resolver) Login(args *struct {
 	// TODO: not yet implemented, will need db
 	err = token.Save(r.db)
 	if err != nil {
+		fmt.Printf("\n\n\nERROR SAVING TOKEN %s\n\n", err)
 		return nil, err
 	}
 	atr := authTokenResolver{t: token}
