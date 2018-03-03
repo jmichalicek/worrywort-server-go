@@ -58,6 +58,14 @@ func TestLoginMutation(t *testing.T) {
 			AddRow(user.ID(), user.Email(), user.FirstName(), user.LastName(), user.CreatedAt(), user.UpdatedAt(), hashedPassword)
 		mock.ExpectQuery(`^SELECT (.+) FROM users WHERE email = \?`).WithArgs(user.Email()).WillReturnRows(rows)
 
+		insertResult := sqlmock.NewResult(1, 1)
+		mock.ExpectExec(`^INSERT INTO user_authtokens \(token_id, token, expires_at, updated_at, scope, user_id\) VALUES \(\?, \?, \?, \?, \?, \?\)`).
+		WillReturnResult(insertResult)  // should test args before WillReturnResult
+		// WithArgs(tokenid, token, nil, AnyTime{}, worrywort.TOKEN_SCOPE_ALL, user.ID()).
+		// do not know what tokenid and token are to test
+		// but could maybe add an AnyString{}
+
+
 		// This is all based on https://github.com/neelance/graphql-go/blob/master/gqltesting/testing.go#L38
 		// but allows for more flexible checking of the response
 		variables := map[string]interface{}{
@@ -74,6 +82,7 @@ func TestLoginMutation(t *testing.T) {
 		operationName := ""
 		context := context.Background()
 		result := worrywortSchema.Exec(context, query, operationName, variables)
+
 		// example:
 		// {"login":{"token":"c9d103e1-8320-45fd-8ac6-245d59c01b3d:HRXG69cqTv1kyG6zmsJo0tJNsEKmeCqWH5WeH3H-_IyTHZ46ivz0KyTTfUgun1CNCV3n1HLwizvAET1I2DwJiA=="}}
 		// the hash, the part of the token after the colon, is a base64 encoded sha512 sum
@@ -86,15 +95,17 @@ func TestLoginMutation(t *testing.T) {
 		if !matched {
 			t.Errorf("\nExpected response to match pattern: %s\nGot: %s", expected, result.Data)
 		}
-		subMatches := matcher.FindStringSubmatch(string(result.Data))
-		tokenId := subMatches[1]
-		tokenStr := subMatches[2]
+
+		// TODO: start using data-dog sql-txdb so that sql queries are actually tested.
+		// that will also allow me to grab the token id as below and verify that it actually exists, matching what
+		// was returned.  Currently I can just verify that there was an insert.
+		// subMatches := matcher.FindStringSubmatch(string(result.Data))
+		// tokenId := subMatches[1]
+		// tokenStr := subMatches[2]
 		// "INSERT INTO user_authtokens (id, token, expires_at, updated_at, scope, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
-		var lastInsertID, affected int64
-		insertResult := sqlmock.NewResult(lastInsertID, affected)
-		mock.ExpectExec("^INSERT INTO user_authtokens (id, token, expires_at, updated_at, scope, user_id) VALUES (.+)").
-		WithArgs(tokenId, tokenStr, nil, AnyTime{}, worrywort.TOKEN_SCOPE_ALL, user.ID()).
-		WillReturnResult(insertResult)
+		// var lastInsertID, affected int64
+		// insertResult := sqlmock.NewResult(lastInsertID, affected)
+
 
 	})
 }

@@ -9,6 +9,7 @@ import (
 	// "log"
 	"strconv"
 	"time"
+  "fmt"
 )
 
 // Takes a time.Time and returns nil if the time is zero or pointer to the time string formatted as RFC3339
@@ -38,8 +39,8 @@ func (r *Resolver) CurrentUser(ctx context.Context) *userResolver {
 	// may change to just "authMiddleware" or something though so that
 	// a single function can exist to get user from any of the auth methods
 	// or just write a separate function for that here instead of using it from authMiddleware.
+	// TODO: should check errors
 	u, _ := authMiddleware.UserFromContext(ctx)
-	// TODO:  panic if error is returned?
 	ur := userResolver{u: u}
 	return &ur
 }
@@ -230,6 +231,7 @@ func (r *Resolver) Login(args *struct {
 	Password string
 }) (*authTokenResolver, error) {
 
+  fmt.Printf("\nGOT PASSWORD %s\n", args.Password)
 	user, err := worrywort.AuthenticateLogin(args.Username, args.Password, r.db)
 	// TODO: Check for errors which should not be exposed?  Or for known good errors to expose
 	// and return something more generic + log if unexpected?
@@ -243,7 +245,11 @@ func (r *Resolver) Login(args *struct {
 	}
 
 	// TODO: not yet implemented, will need db
-	token.Save(r.db)
+	err = token.Save(r.db)
+	if err != nil {
+		fmt.Printf("\n\n\nERROR SAVING TOKEN %s\n\n", err)
+		return nil, err
+	}
 	atr := authTokenResolver{t: token}
 	return &atr, nil
 }
