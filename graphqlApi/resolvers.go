@@ -123,7 +123,7 @@ type batchResolver struct {
 	b worrywort.Batch
 }
 
-func (r *batchResolver) ID() graphql.ID       { return graphql.ID(strconv.FormatInt(r.b.ID(), 10)) }
+func (r *batchResolver) ID() graphql.ID       { return graphql.ID(strconv.Itoa(r.b.ID())) }
 func (r *batchResolver) Name() string         { return r.b.Name() }
 func (r *batchResolver) BrewNotes() string    { return r.b.BrewNotes() }
 func (r *batchResolver) TastingNotes() string { return r.b.TastingNotes() }
@@ -179,7 +179,7 @@ type fermenterResolver struct {
 	f worrywort.Fermenter
 }
 
-func (r *fermenterResolver) ID() graphql.ID    { return graphql.ID(strconv.FormatInt(r.f.ID(), 10)) }
+func (r *fermenterResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.f.ID())) }
 func (r *fermenterResolver) CreatedAt() string { return dateString(r.f.CreatedAt()) }
 func (r *fermenterResolver) UpdatedAt() string { return dateString(r.f.UpdatedAt()) }
 
@@ -191,7 +191,7 @@ type thermometerResolver struct {
 	t worrywort.Thermometer
 }
 
-func (r *thermometerResolver) ID() graphql.ID    { return graphql.ID(strconv.FormatInt(r.t.ID(), 10)) }
+func (r *thermometerResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.t.ID())) }
 func (r *thermometerResolver) CreatedAt() string { return dateString(r.t.CreatedAt()) }
 func (r *thermometerResolver) UpdatedAt() string { return dateString(r.t.UpdatedAt()) }
 

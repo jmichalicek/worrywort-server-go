@@ -32,7 +32,7 @@ const (
 // Should these be exportable if I am going to use factory methods?  NewBatch() etc?
 // as long as I provide a Batcher interface or whatever?
 type batch struct {
-	ID                int64
+	ID                int
 	Name              string
 	BrewNotes         string
 	TastingNotes      string
@@ -58,7 +58,7 @@ type Batch struct {
 	batch
 }
 
-func (b Batch) ID() int64                   { return b.batch.ID }
+func (b Batch) ID() int                   { return b.batch.ID }
 func (b Batch) Name() string                { return b.batch.Name }
 func (b Batch) BrewNotes() string           { return b.batch.BrewNotes }
 func (b Batch) TastingNotes() string        { return b.batch.TastingNotes }
@@ -74,7 +74,7 @@ func (b Batch) CreatedAt() time.Time        { return b.batch.CreatedAt }
 func (b Batch) UpdatedAt() time.Time        { return b.batch.UpdatedAt }
 func (b Batch) CreatedBy() User             { return b.batch.CreatedBy }
 
-func NewBatch(id int64, name string, brewedDate, bottledDate time.Time, volumeBoiled, volumeInFermenter float64,
+func NewBatch(id int, name string, brewedDate, bottledDate time.Time, volumeBoiled, volumeInFermenter float64,
 	volumeUnits VolumeUnitType, originalGravity, finalGravity float64, createdBy User, createdAt, updatedAt time.Time,
 	brewNotes, tastingNotes string, recipeURL string) Batch {
 	return Batch{batch: batch{ID: id, Name: name, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: volumeBoiled,
@@ -86,7 +86,7 @@ func NewBatch(id int64, name string, brewedDate, bottledDate time.Time, volumeBo
 type fermenter struct {
 	// I could use name + user composite key for pk on these in the db, but I'm probably going to be lazy
 	// and take the standard ORM-ish route and use an int or uuid  Int for now.
-	ID            int64
+	ID            int
 	Name          string
 	Description   string
 	Volume        float64
@@ -104,7 +104,7 @@ type Fermenter struct {
 	fermenter
 }
 
-func (f Fermenter) ID() int64                         { return f.fermenter.ID }
+func (f Fermenter) ID() int                         { return f.fermenter.ID }
 func (f Fermenter) Name() string                      { return f.fermenter.Name }
 func (f Fermenter) Description() string               { return f.fermenter.Description }
 func (f Fermenter) VolumeUnits() VolumeUnitType       { return f.fermenter.VolumeUnits }
@@ -115,7 +115,7 @@ func (f Fermenter) CreatedBy() User                   { return f.fermenter.Creat
 func (f Fermenter) CreatedAt() time.Time              { return f.fermenter.CreatedAt }
 func (f Fermenter) UpdatedAt() time.Time              { return f.fermenter.UpdatedAt }
 
-func NewFermenter(id int64, name, description string, volume float64, volumeUnits VolumeUnitType,
+func NewFermenter(id int, name, description string, volume float64, volumeUnits VolumeUnitType,
 	fermenterType FermenterStyleType, isActive, isAvailable bool, createdBy User, createdAt, updatedAt time.Time) Fermenter {
 	return Fermenter{fermenter{ID: id, Name: name, Description: description, Volume: volume, VolumeUnits: volumeUnits,
 		FermenterType: fermenterType, IsActive: isActive, IsAvailable: isAvailable, CreatedBy: createdBy,
@@ -129,7 +129,7 @@ func NewFermenter(id int64, name, description string, volume float64, volumeUnit
 // TODO: This may also want extra metadata such as model or type?  That is probably
 // going too far for now, so keep it simple.
 type thermometer struct {
-	ID        int64
+	ID        int
 	Name      string
 	CreatedBy User
 
@@ -141,14 +141,14 @@ type Thermometer struct {
 	thermometer
 }
 
-func (t Thermometer) ID() int64            { return t.thermometer.ID }
+func (t Thermometer) ID() int            { return t.thermometer.ID }
 func (t Thermometer) Name() string         { return t.thermometer.Name }
 func (t Thermometer) CreatedBy() User      { return t.thermometer.CreatedBy }
 func (t Thermometer) CreatedAt() time.Time { return t.thermometer.CreatedAt }
 func (t Thermometer) UpdatedAt() time.Time { return t.thermometer.UpdatedAt }
 
 // Returns a new Thermometer
-func NewThermometer(id int64, name string, createdBy User, createdAt, updatedAt time.Time) Thermometer {
+func NewThermometer(id int, name string, createdBy User, createdAt, updatedAt time.Time) Thermometer {
 	return Thermometer{thermometer{ID: id, Name: name, CreatedBy: createdBy, CreatedAt: createdAt, UpdatedAt: updatedAt}}
 }
 
