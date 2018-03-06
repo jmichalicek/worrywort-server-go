@@ -112,7 +112,7 @@ type userResolver struct {
 	u worrywort.User
 }
 
-func (r *userResolver) ID() graphql.ID    { return graphql.ID(strconv.FormatInt(r.u.ID(), 10)) }
+func (r *userResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.u.ID())) }
 func (r *userResolver) FirstName() string { return r.u.FirstName() }
 func (r *userResolver) LastName() string  { return r.u.LastName() }
 func (r *userResolver) Email() string     { return r.u.Email() }

@@ -38,7 +38,7 @@ func TestUserStruct(t *testing.T) {
 	u := NewUser(1, "user@example.com", "Justin", "Michalicek", createdAt, updatedAt)
 
 	t.Run("ID()", func(t *testing.T) {
-		var actual int64 = u.ID()
+		var actual int = u.ID()
 		expected := u.user.ID
 		if actual != expected {
 			t.Errorf("Expected: %v, got: %v", expected, actual)

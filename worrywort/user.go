@@ -19,7 +19,7 @@ var UserNotFoundError error = errors.New("User not found")
 type user struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
 	// TODO: Considering having a separate username from the email
-	ID        int64  `db:"id"`
+	ID        int    `db:"id"`
 	FirstName string `db:"first_name"`
 	LastName  string `db:"last_name"`
 	Email     string `db:"email"`
@@ -34,12 +34,12 @@ type User struct {
 }
 
 // Returns a new user
-func NewUser(id int64, email, firstName, lastName string, createdAt, updatedAt time.Time) User {
+func NewUser(id int, email, firstName, lastName string, createdAt, updatedAt time.Time) User {
 	return User{user{ID: id, Email: email, FirstName: firstName, LastName: lastName, CreatedAt: createdAt,
 		UpdatedAt: updatedAt}}
 }
 
-func (u User) ID() int64            { return u.user.ID }
+func (u User) ID() int              { return u.user.ID }
 func (u User) FirstName() string    { return u.user.FirstName }
 func (u User) LastName() string     { return u.user.LastName }
 func (u User) Email() string        { return u.user.Email }
@@ -66,10 +66,11 @@ func SetUserPassword(u User, password string, hashCost int) (User, error) {
 // Save the User to the database.  If User.ID() is 0
 // then an insert is performed, otherwise an update on the User matching that id.
 func SaveUser(db *sqlx.DB, u User) (User, error) {
+	// TODO: TEST CASE
 	if u.ID() != 0 {
-		return UpdateUser(db, user)
+		return UpdateUser(db, u)
 	} else {
-		return InsertUser(db, user)
+		return InsertUser(db, u)
 	}
 }
 
@@ -77,36 +78,40 @@ func SaveUser(db *sqlx.DB, u User) (User, error) {
 // Returns a new copy of the user with any updated values set upon success.
 // Returns the same, unmodified User and errors on error
 func InsertUser(db *sqlx.DB, u User) (User, error) {
+	// TODO: TEST CASE
 	var updatedAt time.Time
 	var createdAt time.Time
 	var userId int
 
-	query = `INSERT INTO users (email, first_name, last_name, password)
+	query := `INSERT INTO users (email, first_name, last_name, password)
 		VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at`
-	err := db.QueryRow(query, u.Email(), u.FirstName(), u.LastName(), u.Password()).Scan(&userId, &createdAt, &updatedAt)
+	err := db.QueryRow(
+		query, u.Email(), u.FirstName(), u.LastName(), u.Password()).Scan(&userId, &createdAt, &updatedAt)
 	if err != nil {
-		return user, err
+		return u, err
 	}
 
-	user.u.ID = userId
-	user.u.CreatedAt = createdAt
-	user.u.UpdatedAt = updatedAt
-	return user, nil
+	u.user.ID = userId
+	u.user.CreatedAt = createdAt
+	u.user.UpdatedAt = updatedAt
+	return u, nil
 }
 
 // Saves the passed in user to the database using an UPDATE
 // Returns a new copy of the user with any updated values set upon success.
 // Returns the same, unmodified User and errors on error
 func UpdateUser(db *sqlx.DB, u User) (User, error) {
+	// TODO: TEST CASE
 	var updatedAt time.Time
-	query = `UPDATE users SET email = ?, first_name = ?, last_name = ?, password = ?, updated_at = NOW()
+	query := `UPDATE users SET email = ?, first_name = ?, last_name = ?, password = ?, updated_at = NOW()
 		WHERE id = ?) RETURNING updated_at`
-	err = db.QueryRow(query, u.Email(), u.FirstName(), u.LastName(), u.Password(), u.ID()).Scan(&updatedAt)
+	err := db.QueryRow(
+		query, u.Email(), u.FirstName(), u.LastName(), u.Password(), u.ID()).Scan(&updatedAt)
 	if err != nil {
-		return user, err
+		return u, err
 	}
-	user.u.UpdatedAt = updatedAt
-	return user, nil
+	u.user.UpdatedAt = updatedAt
+	return u, nil
 }
 
 // Looks up the user by id in the database and returns a new User
