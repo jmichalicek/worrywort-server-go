@@ -23,10 +23,6 @@
 
 [[constraint]]
   branch = "master"
-  name = "github.com/neelance/graphql-go"
-
-[[constraint]]
-  branch = "master"
   name = "github.com/jmoiron/sqlx"
 
 [[constraint]]
@@ -40,3 +36,7 @@
 [[constraint]]
   name = "github.com/google/uuid"
   version = "0.2.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/graph-gophers/graphql-go"

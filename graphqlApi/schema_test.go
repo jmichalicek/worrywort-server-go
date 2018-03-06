@@ -1,7 +1,7 @@
 package graphqlApi
 
 import (
-	graphql "github.com/neelance/graphql-go"
+	graphql "github.com/graph-gophers/graphql-go"
 	"testing"
 )
 

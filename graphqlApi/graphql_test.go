@@ -8,14 +8,11 @@ import (
 	"github.com/jmichalicek/worrywort-server-go/graphqlApi"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
-	"github.com/neelance/graphql-go"
-	// "github.com/neelance/graphql-go/gqltesting"
-	// "golang.org/x/crypto/bcrypt"
+	"github.com/graph-gophers/graphql-go"
 	"context"
 	// "fmt"
 	"testing"
 	"time"
-	// "encoding/json"
 	"regexp"
 )
 
