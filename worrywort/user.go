@@ -115,7 +115,7 @@ func UpdateUser(db *sqlx.DB, u User) (User, error) {
 }
 
 // Looks up the user by id in the database and returns a new User
-func LookupUser(id int64, db *sqlx.DB) (User, error) {
+func LookupUser(id int, db *sqlx.DB) (User, error) {
 	u := User{}
 	// if I have understood correctly, different DBs use a different parameterization token (the ? below).
 	// By default sqlx just passes whatever you type and you need to manually use the correct token...

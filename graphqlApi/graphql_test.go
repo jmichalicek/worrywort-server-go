@@ -103,7 +103,7 @@ func TestLoginMutation(t *testing.T) {
 		// tokenId := subMatches[1]
 		// tokenStr := subMatches[2]
 		// "INSERT INTO user_authtokens (id, token, expires_at, updated_at, scope, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
-		// var lastInsertID, affected int64
+		// var lastInsertID, affected int
 		// insertResult := sqlmock.NewResult(lastInsertID, affected)
 
 
