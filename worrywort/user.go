@@ -13,6 +13,7 @@ import (
 // The bcrypt cost to use for hashing the password
 // good info on cost here https://security.stackexchange.com/a/83382
 const DefaultPasswordHashCost int = 13
+
 var UserNotFoundError error = errors.New("User not found")
 
 type user struct {
@@ -44,7 +45,7 @@ func (u User) LastName() string     { return u.user.LastName }
 func (u User) Email() string        { return u.user.Email }
 func (u User) CreatedAt() time.Time { return u.user.CreatedAt }
 func (u User) UpdatedAt() time.Time { return u.user.UpdatedAt }
-func (u User) Password() string { return u.user.Password }
+func (u User) Password() string     { return u.user.Password }
 
 // SetUserPassword hashes the given password and returns a new user with the password set to the bcrypt hashed value
 // using the given hashCost.  If hashCost is less than bcrypt.MinCost then worrywort.DefaultPasswordHashCost is used.
@@ -62,26 +63,50 @@ func SetUserPassword(u User, password string, hashCost int) (User, error) {
 	return u, nil
 }
 
-// super incomplete
-func (u User) Save(db *sqlx.DB) error {
-	var query string
-	var createdAt time.Time
-	var err error = nil
+// Save the User to the database.  If User.ID() is 0
+// then an insert is performed, otherwise an update on the User matching that id.
+func SaveUser(db *sqlx.DB, u User) (User, error) {
 	if u.ID() != 0 {
-		query = "UPDATE users SET email = ?, first_name = ?, last_name = ?, password = ?, updated_at = ? WHERE id = ?)"
-		createdAt = u.CreatedAt()
-		_, err = db.Exec(query, u.Email(), u.FirstName(), u.LastName(), u.Password(), createdAt, time.Now(), u.ID())
+		return UpdateUser(db, user)
 	} else {
-		query = "INSERT INTO users (email, first_name, last_name, password, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
-		createdAt = time.Now()
-		_, err = db.Exec(query, u.Email(), u.FirstName(), u.LastName(), u.Password(), createdAt, time.Now())
+		return InsertUser(db, user)
 	}
-	return err
 }
 
-// TODO: Needs to accept set of changes somehow... I think a map of string[interface{}]
-func UpdateUser(user User) {
+// Inserts the passed in User into the database.
+// Returns a new copy of the user with any updated values set upon success.
+// Returns the same, unmodified User and errors on error
+func InsertUser(db *sqlx.DB, u User) (User, error) {
+	var updatedAt time.Time
+	var createdAt time.Time
+	var userId int
 
+	query = `INSERT INTO users (email, first_name, last_name, password)
+		VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at`
+	err := db.QueryRow(query, u.Email(), u.FirstName(), u.LastName(), u.Password()).Scan(&userId, &createdAt, &updatedAt)
+	if err != nil {
+		return user, err
+	}
+
+	user.u.ID = userId
+	user.u.CreatedAt = createdAt
+	user.u.UpdatedAt = updatedAt
+	return user, nil
+}
+
+// Saves the passed in user to the database using an UPDATE
+// Returns a new copy of the user with any updated values set upon success.
+// Returns the same, unmodified User and errors on error
+func UpdateUser(db *sqlx.DB, u User) (User, error) {
+	var updatedAt time.Time
+	query = `UPDATE users SET email = ?, first_name = ?, last_name = ?, password = ?, updated_at = NOW()
+		WHERE id = ?) RETURNING updated_at`
+	err = db.QueryRow(query, u.Email(), u.FirstName(), u.LastName(), u.Password(), u.ID()).Scan(&updatedAt)
+	if err != nil {
+		return user, err
+	}
+	user.u.UpdatedAt = updatedAt
+	return user, nil
 }
 
 // Looks up the user by id in the database and returns a new User
