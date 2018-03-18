@@ -4,6 +4,9 @@ package worrywort
 
 import (
 	// "net/url"
+	"fmt"
+	"github.com/jmoiron/sqlx"
+	"strings"
 	"time"
 )
 
@@ -32,33 +35,34 @@ const (
 // Should these be exportable if I am going to use factory methods?  NewBatch() etc?
 // as long as I provide a Batcher interface or whatever?
 type batch struct {
-	ID                int
-	Name              string
-	BrewNotes         string
-	TastingNotes      string
-	BrewedDate        time.Time
-	BottledDate       time.Time
-	VolumeBoiled      float64
-	VolumeInFermenter float64
-	VolumeUnits       VolumeUnitType
-	OriginalGravity   float64
-	FinalGravity      float64
-
+	ID                 int            `db:"id"`
+	CreatedBy          User           `db:"created_by_user_id,prefix=u."`
+	Name               string         `db:"name"`
+	BrewNotes          string         `db:"brew_notes"`
+	TastingNotes       string         `db:"tasting_notes"`
+	BrewedDate         time.Time      `db:"brewed_date"`
+	BottledDate        time.Time      `db:"bottled_date"`
+	VolumeBoiled       float64        `db:"volume_boiled"`
+	VolumeInFermenter  float64        `db:"volume_in_fermenter"`
+	VolumeUnits        VolumeUnitType `db:"volume_units"`
+	OriginalGravity    float64        `db:"original_gravity"`
+	FinalGravity       float64        `db:"final_gravity"`
+	MaxTemperature     float64        `db:"max_temperature"`
+	MinTemperature     float64        `db:"min_temperature"`
+	AverageTemperature float64        `db:"average_temperature"`
 	// handle this as a string.  It makes nearly everything easier and can easily be run through
 	// url.Parse if needed
-	RecipeURL string
+	RecipeURL string `db:"recipe_url"`
 
-	CreatedAt time.Time
-	UpdatedAt time.Time
-
-	CreatedBy User
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
 
 type Batch struct {
 	batch
 }
 
-func (b Batch) ID() int                   { return b.batch.ID }
+func (b Batch) ID() int                     { return b.batch.ID }
 func (b Batch) Name() string                { return b.batch.Name }
 func (b Batch) BrewNotes() string           { return b.batch.BrewNotes }
 func (b Batch) TastingNotes() string        { return b.batch.TastingNotes }
@@ -83,6 +87,32 @@ func NewBatch(id int, name string, brewedDate, bottledDate time.Time, volumeBoil
 		OriginalGravity: originalGravity, FinalGravity: finalGravity}}
 }
 
+// Find a batch by exact match of attributes
+// Currently allows lookup by `id` and `created_by_user_id`
+// TODO: Use fields() to iterate over the fields and use the `db`
+// tag to map field name to db field.
+func FindBatch(params map[string]interface{}, db *sqlx.DB) (*Batch, error) {
+	b := Batch{}
+	var values []interface{}
+	var where []string
+	for _, k := range []string{"id", "created_by_user_id"} {
+		if v, ok := params[k]; ok {
+			values = append(values, v)
+			where = append(where, fmt.Sprintf("%s = ?", k))
+		}
+	}
+
+	query := db.Rebind("SELECT b.*, u.* FROM batches b LEFT JOIN users u ON u.id = b.created_by_user_id WHERE " +
+		strings.Join(where, " AND "))
+	err := db.Get(&b, query, values...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &b, nil
+}
+
 type fermenter struct {
 	// I could use name + user composite key for pk on these in the db, but I'm probably going to be lazy
 	// and take the standard ORM-ish route and use an int or uuid  Int for now.
@@ -104,7 +134,7 @@ type Fermenter struct {
 	fermenter
 }
 
-func (f Fermenter) ID() int                         { return f.fermenter.ID }
+func (f Fermenter) ID() int                           { return f.fermenter.ID }
 func (f Fermenter) Name() string                      { return f.fermenter.Name }
 func (f Fermenter) Description() string               { return f.fermenter.Description }
 func (f Fermenter) VolumeUnits() VolumeUnitType       { return f.fermenter.VolumeUnits }
@@ -141,7 +171,7 @@ type Thermometer struct {
 	thermometer
 }
 
-func (t Thermometer) ID() int            { return t.thermometer.ID }
+func (t Thermometer) ID() int              { return t.thermometer.ID }
 func (t Thermometer) Name() string         { return t.thermometer.Name }
 func (t Thermometer) CreatedBy() User      { return t.thermometer.CreatedBy }
 func (t Thermometer) CreatedAt() time.Time { return t.thermometer.CreatedAt }
