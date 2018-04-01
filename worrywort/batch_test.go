@@ -1,9 +1,20 @@
 package worrywort
 
 import (
+	"fmt"
+	txdb "github.com/DATA-DOG/go-txdb"
+	"os"
 	"testing"
 	"time"
 )
+
+func init() {
+	dbUser, _ := os.LookupEnv("DATABASE_USER")
+	dbPassword, _ := os.LookupEnv("DATABASE_PASSWORD")
+	// we register an sql driver txdb
+	connString := fmt.Sprintf("host=database port=5432 user=%s password=%s dbname=worrywort_test sslmode=disable", dbUser, dbPassword)
+	txdb.Register("txdb", "postgres", connString)
+}
 
 // Test that NewBatch() returns a batch with the expected values
 func TestNewBatch(t *testing.T) {
