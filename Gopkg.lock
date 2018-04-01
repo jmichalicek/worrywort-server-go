@@ -8,6 +8,12 @@
   version = "v1.3.0"
 
 [[projects]]
+  name = "github.com/DATA-DOG/go-txdb"
+  packages = ["."]
+  revision = "c3389523873340a9bdbbb51442197f86a176ad94"
+  version = "v0.1.0"
+
+[[projects]]
   name = "github.com/google/uuid"
   packages = ["."]
   revision = "064e2069ce9c359c118179501254f67d7d37ba24"
@@ -80,6 +86,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c93bda3e0b0e6f385ee146183b92f343fac8cf004448f9f20fe7643467ccda78"
+  inputs-digest = "7ff445b0e7381a54bd916eea834cca9f53eae28e1dac8f902681e2e5255f5c5f"
   solver-name = "gps-cdcl"
   solver-version = 1
