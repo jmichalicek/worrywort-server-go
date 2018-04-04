@@ -2,18 +2,18 @@ package graphqlApi_test
 
 import (
 	// "context"
+	"context"
 	"database/sql"
 	"database/sql/driver"
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
+	"github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/graphqlApi"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
-	"github.com/graph-gophers/graphql-go"
-	"context"
 	// "fmt"
+	"regexp"
 	"testing"
 	"time"
-	"regexp"
 )
 
 // from https://github.com/DATA-DOG/go-sqlmock#matching-arguments-like-timetime
@@ -57,11 +57,10 @@ func TestLoginMutation(t *testing.T) {
 
 		insertResult := sqlmock.NewResult(1, 1)
 		mock.ExpectExec(`^INSERT INTO user_authtokens \(token_id, token, expires_at, updated_at, scope, user_id\) VALUES \(\?, \?, \?, \?, \?, \?\)`).
-		WillReturnResult(insertResult)  // should test args before WillReturnResult
+			WillReturnResult(insertResult) // should test args before WillReturnResult
 		// WithArgs(tokenid, token, nil, AnyTime{}, worrywort.TOKEN_SCOPE_ALL, user.ID()).
 		// do not know what tokenid and token are to test
 		// but could maybe add an AnyString{}
-
 
 		// This is all based on https://github.com/neelance/graphql-go/blob/master/gqltesting/testing.go#L38
 		// but allows for more flexible checking of the response
@@ -102,7 +101,6 @@ func TestLoginMutation(t *testing.T) {
 		// "INSERT INTO user_authtokens (id, token, expires_at, updated_at, scope, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
 		// var lastInsertID, affected int
 		// insertResult := sqlmock.NewResult(lastInsertID, affected)
-
 
 	})
 }

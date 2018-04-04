@@ -1,8 +1,8 @@
 package graphqlApi
 
 import (
-	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	graphql "github.com/graph-gophers/graphql-go"
+	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"testing"
 	"time"
 )
