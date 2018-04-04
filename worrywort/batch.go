@@ -77,6 +77,9 @@ func (b Batch) RecipeURL() string           { return b.batch.RecipeURL } // this
 func (b Batch) CreatedAt() time.Time        { return b.batch.CreatedAt }
 func (b Batch) UpdatedAt() time.Time        { return b.batch.UpdatedAt }
 func (b Batch) CreatedBy() User             { return b.batch.CreatedBy }
+func (b Batch) MaxTemperature() float64     { return b.batch.MaxTemperature }
+func (b Batch) MinTemperature() float64     { return b.batch.MinTemperature }
+func (b Batch) AverageTemperature() float64 { return b.batch.AverageTemperature }
 
 func NewBatch(id int, name string, brewedDate, bottledDate time.Time, volumeBoiled, volumeInFermenter float64,
 	volumeUnits VolumeUnitType, originalGravity, finalGravity float64, createdBy User, createdAt, updatedAt time.Time,
@@ -111,6 +114,65 @@ func FindBatch(params map[string]interface{}, db *sqlx.DB) (*Batch, error) {
 	}
 
 	return &b, nil
+}
+
+// Save the User to the database.  If User.ID() is 0
+// then an insert is performed, otherwise an update on the User matching that id.
+func SaveBatch(db *sqlx.DB, b Batch) (Batch, error) {
+	// TODO: TEST CASE
+	if b.ID() != 0 {
+		return UpdateBatch(db, b)
+	} else {
+		return InsertBatch(db, b)
+	}
+}
+
+// Inserts the passed in User into the database.
+// Returns a new copy of the user with any updated values set upon success.
+// Returns the same, unmodified User and errors on error
+func InsertBatch(db *sqlx.DB, b Batch) (Batch, error) {
+	// TODO: TEST CASE
+	var updatedAt time.Time
+	var createdAt time.Time
+	var batchId int
+
+	query := db.Rebind(`INSERT INTO batches (created_by_user_id, name, brew_notes, tasting_notes, brewed_date, bottled_date,
+		volume_boiled, volume_in_fermenter, volume_units, original_gravity, final_gravity, recipe_url, max_temperature,
+		min_temperature, average_temperature, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at`)
+	// TODO: Make the dates strings for sql to be happy
+	err := db.QueryRow(
+		query, b.CreatedBy().ID(), b.Name(), b.BrewNotes(), b.TastingNotes(), b.BrewedDate(), b.BottledDate(),
+		b.VolumeBoiled(), b.VolumeInFermenter(), b.VolumeUnits(), b.OriginalGravity(), b.FinalGravity(), b.RecipeURL(),
+		b.MaxTemperature(), b.MinTemperature(), b.AverageTemperature()).Scan(&batchId, &createdAt, &updatedAt)
+	if err != nil {
+		return b, err
+	}
+
+	b.batch.ID = batchId
+	b.batch.CreatedAt = createdAt
+	b.batch.UpdatedAt = updatedAt
+	return b, nil
+}
+
+// Saves the passed in user to the database using an UPDATE
+// Returns a new copy of the user with any updated values set upon success.
+// Returns the same, unmodified User and errors on error
+func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
+	// TODO: TEST CASE
+	var updatedAt time.Time
+	// TODO: FIX ME!!! THIS IS NOT CORRECT!
+	query := db.Rebind(`UPDATE users SET email = ?, first_name = ?, last_name = ?, password = ?, updated_at = NOW()
+		WHERE id = ?) RETURNING updated_at`)
+	err := db.QueryRow(
+		query, b.CreatedBy().ID(), b.Name(), b.BrewNotes(), b.TastingNotes(), b.BrewedDate(), b.BottledDate(),
+		b.VolumeBoiled(), b.VolumeInFermenter(), b.VolumeUnits(), b.OriginalGravity(), b.FinalGravity(), b.RecipeURL(),
+		b.MaxTemperature(), b.MinTemperature(), b.AverageTemperature()).Scan(&updatedAt)
+	if err != nil {
+		return b, err
+	}
+	b.batch.UpdatedAt = updatedAt
+	return b, nil
 }
 
 type fermenter struct {

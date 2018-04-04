@@ -21,3 +21,8 @@ psql:
 # This is needed for hydra to work initially
 hydra-migrate:
 	docker-compose run hydra migrate sql postgres://developer:developer@database:5432/hydra?sslmode=disable
+
+setup-test-db:
+	dropdb -h ${DATABASE_HOST} -U ${DATABASE_USER} ${DATABASE_NAME}_test
+	createdb -h ${DATABASE_HOST} -U ${DATABASE_USER} ${DATABASE_NAME}_test -O ${DATABASE_USER}
+	migrate -source file://./_migrations -database postgres://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:5432/${DATABASE_NAME}_test?sslmode=disable up ${migrate_to}

@@ -1,8 +1,10 @@
 package worrywort
 
 import (
+	"database/sql"
 	"fmt"
 	txdb "github.com/DATA-DOG/go-txdb"
+	"github.com/jmoiron/sqlx"
 	"os"
 	"testing"
 	"time"
@@ -86,3 +88,45 @@ func TestNewTemperatureMeasurement(t *testing.T) {
 		t.Errorf("Expected:\n%v\n\nGot:\n%v\n", expected, m)
 	}
 }
+
+func TestFindBatch(t *testing.T) {
+	// Set up the db using sql.Open() and sqlx.NewDb() rather than sqlx.Open() so that the custom
+	// `txdb` db type may be used with Open() but can still be registered as postgres with sqlx
+	// so that sqlx' Rebind() functions.
+	_db, err := sql.Open("txdb", "one")
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer _db.Close()
+	db := sqlx.NewDb(_db, "postgres")
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	u := NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err = SaveUser(db, u)
+
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	createdAt := time.Now()
+	updatedAt := time.Now()
+	brewedDate := time.Now().Add(time.Duration(1) * time.Minute)
+	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute)
+	b := NewBatch(1, "Testing", brewedDate, bottledDate, 5, 4.5, GALLON, 1.060, 1.020, u, createdAt, updatedAt,
+		"Brew notes", "Taste notes", "http://example.org/beer")
+	b, err = SaveBatch(db, b)
+
+	// var count int = 0
+	// err = db.QueryRow("SELECT COUNT(id) FROM users").Scan(&count)
+	// if err != nil {
+	// 	t.Fatalf("failed to count users: %s", err)
+	// }
+	// if count != 3 {
+	// 	t.Fatalf("expected 3 users to be in database, but got %d", count)
+	// }
+}
+
+func TestInsertBatch(t *testing.T) {}
+func TestUpdateBatch(t *testing.T) {}
+func TestSaveBatch(t *testing.T) {}
