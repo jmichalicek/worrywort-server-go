@@ -36,7 +36,7 @@ const (
 // as long as I provide a Batcher interface or whatever?
 type batch struct {
 	ID                 int            `db:"id"`
-	CreatedBy          User           `db:"created_by_user_id,prefix=u."`
+	CreatedBy          User           `db:",prefix=u."`
 	Name               string         `db:"name"`
 	BrewNotes          string         `db:"brew_notes"`
 	TastingNotes       string         `db:"tasting_notes"`
@@ -56,6 +56,14 @@ type batch struct {
 
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
+}
+
+// Returns a list of the db columns to use for a SELECT query
+func (b batch) queryColumns() []string {
+	// TODO: Way to dynamically build this using the `db` tag and reflection/introspection
+	return []string{"id", "name", "brew_notes", "tasting_notes", "brewed_date", "bottled_date",
+		"volume_boiled", "volume_in_fermenter", "volume_units", "original_gravity", "final_gravity", "recipe_url",
+		"max_temperature", "min_temperature", "average_temperature", "created_at", "updated_at"}
 }
 
 type Batch struct {
@@ -81,6 +89,7 @@ func (b Batch) MaxTemperature() float64     { return b.batch.MaxTemperature }
 func (b Batch) MinTemperature() float64     { return b.batch.MinTemperature }
 func (b Batch) AverageTemperature() float64 { return b.batch.AverageTemperature }
 
+// Initializes and returns a new Batch instance
 func NewBatch(id int, name string, brewedDate, bottledDate time.Time, volumeBoiled, volumeInFermenter float64,
 	volumeUnits VolumeUnitType, originalGravity, finalGravity float64, createdBy User, createdAt, updatedAt time.Time,
 	brewNotes, tastingNotes string, recipeURL string) Batch {
@@ -101,13 +110,29 @@ func FindBatch(params map[string]interface{}, db *sqlx.DB) (*Batch, error) {
 	for _, k := range []string{"id", "created_by_user_id"} {
 		if v, ok := params[k]; ok {
 			values = append(values, v)
-			where = append(where, fmt.Sprintf("%s = ?", k))
+			// TODO: Deal with values from batch OR user table
+			where = append(where, fmt.Sprintf("b.%s = ?", k))
 		}
 	}
 
-	query := db.Rebind("SELECT b.*, u.* FROM batches b LEFT JOIN users u ON u.id = b.created_by_user_id WHERE " +
-		strings.Join(where, " AND "))
+	selectCols := ""
+	for _, k := range b.queryColumns() {
+		selectCols += fmt.Sprintf("b.%s, ", k)
+	}
+
+	u := User{}
+	for _, k := range u.queryColumns() {
+		selectCols += fmt.Sprintf("u.%s, ", k)
+	}
+
+	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROm batches b LEFT JOIN users u on u.id = b.created_by_user_id ` +
+		`WHERE ` + strings.Join(where, " AND ")
+
+	query := db.Rebind(q)
+	fmt.Printf("Query is: %v", query)
 	err := db.Get(&b, query, values...)
+
+	fmt.Printf("b id is %v", b.ID())
 
 	if err != nil {
 		return nil, err
@@ -161,9 +186,12 @@ func InsertBatch(db *sqlx.DB, b Batch) (Batch, error) {
 func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	// TODO: TEST CASE
 	var updatedAt time.Time
-	// TODO: FIX ME!!! THIS IS NOT CORRECT!
-	query := db.Rebind(`UPDATE users SET email = ?, first_name = ?, last_name = ?, password = ?, updated_at = NOW()
-		WHERE id = ?) RETURNING updated_at`)
+
+	// TODO: Use introspection and reflection to set these rather than manually managing this?
+	query := db.Rebind(`UPDATE users SET created_by_user_id = ?, name = ?, brew_notes = ?, tasting_notes = ?,
+		brewed_date = ?, bottled_date = ?, volume_boiled = ?, volume_in_fermenter = ?, volume_units = ?,
+		original_gravity = ?, final_gravity = ?, recipe_url = ?, max_temperature = ?, min_temperature = ?,
+		average_temperature = ?, updated_at = NOW() WHERE id = ?) RETURNING updated_at`)
 	err := db.QueryRow(
 		query, b.CreatedBy().ID(), b.Name(), b.BrewNotes(), b.TastingNotes(), b.BrewedDate(), b.BottledDate(),
 		b.VolumeBoiled(), b.VolumeInFermenter(), b.VolumeUnits(), b.OriginalGravity(), b.FinalGravity(), b.RecipeURL(),

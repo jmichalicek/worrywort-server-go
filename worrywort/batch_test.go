@@ -18,6 +18,20 @@ func init() {
 	txdb.Register("txdb", "postgres", connString)
 }
 
+func setUpTestDb() (*sqlx.DB, error) {
+	_db, err := sql.Open("txdb", "one")
+	if err != nil {
+		return nil, err
+	}
+
+	db := sqlx.NewDb(_db, "postgres")
+	if err != nil {
+		return nil, err
+	}
+
+	return db, nil
+}
+
 // Test that NewBatch() returns a batch with the expected values
 func TestNewBatch(t *testing.T) {
 	createdAt := time.Now()
@@ -93,15 +107,13 @@ func TestFindBatch(t *testing.T) {
 	// Set up the db using sql.Open() and sqlx.NewDb() rather than sqlx.Open() so that the custom
 	// `txdb` db type may be used with Open() but can still be registered as postgres with sqlx
 	// so that sqlx' Rebind() functions.
-	_db, err := sql.Open("txdb", "one")
+
+	db, err := setUpTestDb()
 	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		t.Fatalf("Got error setting up database: %s", err)
 	}
-	defer _db.Close()
-	db := sqlx.NewDb(_db, "postgres")
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
+	defer db.Close()
+
 	u := NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	u, err = SaveUser(db, u)
 
@@ -113,9 +125,22 @@ func TestFindBatch(t *testing.T) {
 	updatedAt := time.Now()
 	brewedDate := time.Now().Add(time.Duration(1) * time.Minute)
 	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute)
-	b := NewBatch(1, "Testing", brewedDate, bottledDate, 5, 4.5, GALLON, 1.060, 1.020, u, createdAt, updatedAt,
+	b := NewBatch(0, "Testing", brewedDate, bottledDate, 5, 4.5, GALLON, 1.060, 1.020, u, createdAt, updatedAt,
 		"Brew notes", "Taste notes", "http://example.org/beer")
 	b, err = SaveBatch(db, b)
+	if err != nil {
+		t.Fatalf("Unexpected error saving batch: %s", err)
+	}
+
+	batchArgs := make(map[string]interface{})
+	batchArgs["created_by_user_id"] = u.ID()
+	batchArgs["id"] = b.ID()
+	found, err := FindBatch(batchArgs, db)
+	if err != nil {
+		t.Errorf("Got unexpected error: %s", err)
+	} else if *found != b {
+		t.Errorf("Expected: %v\nGot: %v\n", b, *found)
+	}
 
 	// var count int = 0
 	// err = db.QueryRow("SELECT COUNT(id) FROM users").Scan(&count)

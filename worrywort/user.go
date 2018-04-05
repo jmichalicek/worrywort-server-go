@@ -29,6 +29,11 @@ type user struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
+func (u user) queryColumns() []string {
+	// TODO: Way to dynamically build this using the `db` tag and reflection/introspection
+	return []string{"id", "first_name", "last_name", "email", "password", "created_at", "updated_at"}
+}
+
 type User struct {
 	user
 }
