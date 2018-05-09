@@ -36,7 +36,7 @@ const (
 // as long as I provide a Batcher interface or whatever?
 type batch struct {
 	ID                 int            `db:"id"`
-	CreatedBy          User           `db:",prefix=u."`
+	CreatedBy          User           `db:"created_by,prefix=u"`
 	Name               string         `db:"name"`
 	BrewNotes          string         `db:"brew_notes"`
 	TastingNotes       string         `db:"tasting_notes"`
@@ -89,6 +89,25 @@ func (b Batch) MaxTemperature() float64     { return b.batch.MaxTemperature }
 func (b Batch) MinTemperature() float64     { return b.batch.MinTemperature }
 func (b Batch) AverageTemperature() float64 { return b.batch.AverageTemperature }
 
+// Performs a comparison of all attributes of the Batches.  Related structs have only their ID() compared.
+// may rename to just Equal() or that may be used for a simpler ID() only type comparison, but that is easy to
+// compare anyway.
+func (b Batch) StrictEqual(other Batch) bool {
+	// TODO: do not follow the object for CreatedBy() to get id, but will need to add a CreatedById() to
+	// the batch struct
+	fmt.Printf("%v", b.CreatedAt())
+	fmt.Printf("%v", other.CreatedAt())
+	return b.ID() == other.ID() && b.Name() == other.Name() && b.BrewNotes() == other.BrewNotes() &&
+		b.TastingNotes() == other.TastingNotes() && b.VolumeUnits() == other.VolumeUnits() &&
+		b.VolumeInFermenter() == other.VolumeInFermenter() && b.VolumeBoiled() == other.VolumeBoiled() &&
+		b.OriginalGravity() == other.OriginalGravity() && b.FinalGravity() == other.FinalGravity() &&
+		b.RecipeURL() == other.RecipeURL() && b.CreatedBy().ID() == other.CreatedBy().ID() &&
+		b.MaxTemperature() == other.MaxTemperature() && b.MinTemperature() == other.MinTemperature() &&
+		b.AverageTemperature() == other.AverageTemperature() &&
+		b.BrewedDate().Equal(other.BrewedDate()) && b.BottledDate().Equal(other.BottledDate()) &&
+		b.CreatedAt().Equal(other.CreatedAt()) //&& b.UpdatedAt().Equal(other.UpdatedAt())
+}
+
 // Initializes and returns a new Batch instance
 func NewBatch(id int, name string, brewedDate, bottledDate time.Time, volumeBoiled, volumeInFermenter float64,
 	volumeUnits VolumeUnitType, originalGravity, finalGravity float64, createdBy User, createdAt, updatedAt time.Time,
@@ -122,17 +141,14 @@ func FindBatch(params map[string]interface{}, db *sqlx.DB) (*Batch, error) {
 
 	u := User{}
 	for _, k := range u.queryColumns() {
-		selectCols += fmt.Sprintf("u.%s, ", k)
+		selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
 	}
 
 	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROm batches b LEFT JOIN users u on u.id = b.created_by_user_id ` +
 		`WHERE ` + strings.Join(where, " AND ")
 
 	query := db.Rebind(q)
-	fmt.Printf("Query is: %v", query)
 	err := db.Get(&b, query, values...)
-
-	fmt.Printf("b id is %v", b.ID())
 
 	if err != nil {
 		return nil, err

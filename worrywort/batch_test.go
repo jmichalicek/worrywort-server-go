@@ -48,7 +48,7 @@ func TestNewBatch(t *testing.T) {
 		"Brew notes", "Taste notes", "http://example.org/beer")
 
 	if b != expectedBatch {
-		t.Errorf("Expected:\n\n%v\n\nGot:\n\n%v", expectedBatch, b)
+		t.Errorf("Expected: %v\n\nGot: %v", expectedBatch, b)
 	}
 }
 
@@ -121,10 +121,12 @@ func TestFindBatch(t *testing.T) {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	createdAt := time.Now()
-	updatedAt := time.Now()
-	brewedDate := time.Now().Add(time.Duration(1) * time.Minute)
-	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute)
+	createdAt := time.Now().Round(time.Microsecond)
+	updatedAt := time.Now().Round(time.Microsecond)
+	// THe values when returned by postgres will be microsecond accuracy, but golang default
+	// is nanosecond, so we round these for easy comparison
+	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
+	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
 	b := NewBatch(0, "Testing", brewedDate, bottledDate, 5, 4.5, GALLON, 1.060, 1.020, u, createdAt, updatedAt,
 		"Brew notes", "Taste notes", "http://example.org/beer")
 	b, err = SaveBatch(db, b)
@@ -138,7 +140,7 @@ func TestFindBatch(t *testing.T) {
 	found, err := FindBatch(batchArgs, db)
 	if err != nil {
 		t.Errorf("Got unexpected error: %s", err)
-	} else if *found != b {
+	} else if !b.StrictEqual(*found) {
 		t.Errorf("Expected: %v\nGot: %v\n", b, *found)
 	}
 
