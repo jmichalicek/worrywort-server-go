@@ -48,11 +48,12 @@ func (r *Resolver) CurrentUser(ctx context.Context) *userResolver {
 // handle errors by returning error with 403?
 // func sig: func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*batchResolver, error) {
 func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*batchResolver, error) {
-	// authUser, _ := authMiddleware.UserFromContext(ctx)
 	// TODO: panic on error, no user, etc.
 	u, _ := authMiddleware.UserFromContext(ctx)
+	fmt.Printf("user is %v\n\n\n\n", u)
 	var err error
 	batchArgs := make(map[string]interface{})
+  // TODO: Or if batch is publicly readable by anyone?
 	batchArgs["created_by_user_id"] = u.ID()
 	batchArgs["id"], err = strconv.ParseInt(string(args.ID), 10, 0)
 
@@ -60,6 +61,7 @@ func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*ba
 		return nil, err
 	}
 	batch, err := worrywort.FindBatch(batchArgs, r.db)
+	// TODO: Handle `no rows in result set`!!!!
 
 	// brewedDate := time.Now()
 	// bottledDate := time.Time{} // zero time
@@ -68,7 +70,7 @@ func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*ba
 	// u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	// batch := worrywort.NewBatch(1, "Testing", brewedDate, bottledDate, 5, 4.5, worrywort.GALLON, 1.060, 1.020, u, createdAt, updatedAt,
 	// 	"Brew notes", "Taste notes", "http://example.org/beer")
-	return &batchResolver{b: *batch}, nil
+	return &batchResolver{b: batch}, nil
 }
 
 func (r *Resolver) Fermenter(ctx context.Context, args struct{ ID graphql.ID }) *fermenterResolver {
@@ -130,7 +132,7 @@ func (r *userResolver) CreatedAt() string { return dateString(r.u.CreatedAt()) }
 func (r *userResolver) UpdatedAt() string { return dateString(r.u.UpdatedAt()) }
 
 type batchResolver struct {
-	b worrywort.Batch
+	b *worrywort.Batch
 }
 
 func (r *batchResolver) ID() graphql.ID       { return graphql.ID(strconv.Itoa(r.b.ID())) }
@@ -240,8 +242,6 @@ func (r *Resolver) Login(args *struct {
 	Username string
 	Password string
 }) (*authTokenResolver, error) {
-
-	fmt.Printf("\nGOT PASSWORD %s\n", args.Password)
 	user, err := worrywort.AuthenticateLogin(args.Username, args.Password, r.db)
 	// TODO: Check for errors which should not be exposed?  Or for known good errors to expose
 	// and return something more generic + log if unexpected?

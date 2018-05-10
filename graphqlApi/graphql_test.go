@@ -1,17 +1,20 @@
 package graphqlApi_test
 
 import (
-	// "context"
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"fmt"
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
+	txdb "github.com/DATA-DOG/go-txdb"
 	"github.com/graph-gophers/graphql-go"
+	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/graphqlApi"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
-	// "fmt"
+	"os"
 	"regexp"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -26,6 +29,7 @@ func (a AnyTime) Match(v driver.Value) bool {
 	return ok
 }
 
+// TODO: remove setUpDb() and use setUpTestDB() with a real txdb for the login test
 func setUpDb() (*sqlx.DB, *sql.DB, sqlmock.Sqlmock, error) {
 	mockDB, mock, err := sqlmock.New()
 	if err != nil {
@@ -36,6 +40,28 @@ func setUpDb() (*sqlx.DB, *sql.DB, sqlmock.Sqlmock, error) {
 
 	// TODO: This may need to be a pointer
 	return sqlxDB, mockDB, mock, nil
+}
+
+func init() {
+	dbUser, _ := os.LookupEnv("DATABASE_USER")
+	dbPassword, _ := os.LookupEnv("DATABASE_PASSWORD")
+	// we register an sql driver txdb
+	connString := fmt.Sprintf("host=database port=5432 user=%s password=%s dbname=worrywort_test sslmode=disable", dbUser, dbPassword)
+	txdb.Register("txdb", "postgres", connString)
+}
+
+func setUpTestDb() (*sqlx.DB, error) {
+	_db, err := sql.Open("txdb", "one")
+	if err != nil {
+		return nil, err
+	}
+
+	db := sqlx.NewDb(_db, "postgres")
+	if err != nil {
+		return nil, err
+	}
+
+	return db, nil
 }
 
 func TestLoginMutation(t *testing.T) {
@@ -103,4 +129,62 @@ func TestLoginMutation(t *testing.T) {
 		// insertResult := sqlmock.NewResult(lastInsertID, affected)
 
 	})
+}
+
+func TestBatchQuery(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := worrywort.NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err = worrywort.SaveUser(db, u)
+
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	// TODO: Can this become global to these tests?
+	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+
+	createdAt := time.Now().Round(time.Microsecond)
+	updatedAt := time.Now().Round(time.Microsecond)
+	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
+	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
+
+	b := worrywort.NewBatch(0, "Testing", brewedDate, bottledDate, 5, 4.5, worrywort.GALLON, 1.060, 1.020, u, createdAt, updatedAt,
+		"Brew notes", "Taste notes", "http://example.org/beer")
+	b, err = worrywort.SaveBatch(db, b)
+	if err != nil {
+		t.Fatalf("Unexpected error saving batch: %s", err)
+	}
+
+	// b2 := worrywort.NewBatch(0, "Testing 2", brewedDate, bottledDate, 5, 4.5, worrywort.GALLON, 1.060, 1.020, u, createdAt, updatedAt,
+	// 	"Brew notes", "Taste notes", "http://example.org/beer")
+	// b2, err = worrywort.SaveBatch(db, b)
+	// if err != nil {
+	// 	t.Fatalf("Unexpected error saving batch: %s", err)
+	// }
+
+	t.Run("Test query for batch which exists returns the batch", func(t *testing.T) {		variables := map[string]interface{}{
+			"ID": graphql.ID(strconv.Itoa(b.ID())),
+		}
+		query := `
+			query getBatch($ID: ID!) {
+				Batch(ID: $ID) {
+					id
+				}
+			}
+		`
+		operationName := ""
+		ctx := context.Background()
+		// Add the user to the context?
+		const DefaultUserKey string = "user"
+		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+
+		result := worrywortSchema.Exec(ctx, query, operationName, variables)
+		t.Errorf("%s", result.Data)
+	})
+
 }
