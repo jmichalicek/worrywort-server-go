@@ -160,31 +160,88 @@ func TestBatchQuery(t *testing.T) {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
 
-	// b2 := worrywort.NewBatch(0, "Testing 2", brewedDate, bottledDate, 5, 4.5, worrywort.GALLON, 1.060, 1.020, u, createdAt, updatedAt,
-	// 	"Brew notes", "Taste notes", "http://example.org/beer")
-	// b2, err = worrywort.SaveBatch(db, b)
-	// if err != nil {
-	// 	t.Fatalf("Unexpected error saving batch: %s", err)
-	// }
-
-	t.Run("Test query for batch which exists returns the batch", func(t *testing.T) {		variables := map[string]interface{}{
-			"ID": graphql.ID(strconv.Itoa(b.ID())),
+	t.Run("Test query for batch which exists returns the batch", func(t *testing.T) {
+		variables := map[string]interface{}{
+			"id": strconv.Itoa(b.ID()),
 		}
 		query := `
-			query getBatch($ID: ID!) {
-				Batch(ID: $ID) {
+			query getBatch($id: ID!) {
+				batch(id: $id) {
 					id
+					createdAt
+					brewNotes
+					brewedDate
+					bottledDate
+					volumeBoiled
+					volumeInFermenter
+					volumeUnits
+					tastingNotes
+					finalGravity
+					originalGravity
+					recipeURL
+					createdBy {
+						id
+						email
+						firstName
+						lastName
+					}
 				}
 			}
 		`
 		operationName := ""
 		ctx := context.Background()
-		// Add the user to the context?
 		const DefaultUserKey string = "user"
 		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
-
 		result := worrywortSchema.Exec(ctx, query, operationName, variables)
-		t.Errorf("%s", result.Data)
+
+		// This is the dumbest date formatting I have ever seen
+		expected := fmt.Sprintf(
+			`{"batch":{"id":"%d","createdAt":"%s","brewNotes":"Brew notes","brewedDate":"%s","bottledDate":"%s","volumeBoiled":5,"volumeInFermenter":4.5,"volumeUnits":"<worrywort.VolumeUnitType Value>","tastingNotes":"Taste notes","finalGravity":1.02,"originalGravity":1.06,"recipeURL":"http://example.org/beer","createdBy":{"id":"%d","email":"user@example.com","firstName":"Justin","lastName":"Michalicek"}}}`,
+			b.ID(), createdAt.Format("2006-01-02T15:04:05Z"), brewedDate.Format("2006-01-02T15:04:05Z"), bottledDate.Format("2006-01-02T15:04:05Z"), u.ID())
+
+		if expected != string(result.Data) {
+			t.Errorf("Expected: %s\nGot: %s", expected, result.Data)
+		}
+	})
+
+	t.Run("Test query for batch which does not exist returns null", func(t *testing.T) {
+		variables := map[string]interface{}{
+			"id": "fake",
+		}
+		query := `
+			query getBatch($id: ID!) {
+				batch(id: $id) {
+					id
+					createdAt
+					brewNotes
+					brewedDate
+					bottledDate
+					volumeBoiled
+					volumeInFermenter
+					volumeUnits
+					tastingNotes
+					finalGravity
+					originalGravity
+					recipeURL
+					createdBy {
+						id
+						email
+						firstName
+						lastName
+					}
+				}
+			}
+		`
+		operationName := ""
+		ctx := context.Background()
+		const DefaultUserKey string = "user"
+		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+		result := worrywortSchema.Exec(ctx, query, operationName, variables)
+
+		expected := `{"batch":null}`
+		if expected != string(result.Data) {
+			t.Errorf("Expected: %s\nGot: %s", expected, result.Data)
+		}
 	})
 
 }
