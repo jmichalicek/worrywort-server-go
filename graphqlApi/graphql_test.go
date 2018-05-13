@@ -42,11 +42,13 @@ func setUpDb() (*sqlx.DB, *sql.DB, sqlmock.Sqlmock, error) {
 	return sqlxDB, mockDB, mock, nil
 }
 
-func init() {
+func TestMain(m *testing.M) {
 	dbUser, _ := os.LookupEnv("DATABASE_USER")
 	dbPassword, _ := os.LookupEnv("DATABASE_PASSWORD")
+	dbHost, _ := os.LookupEnv("DATABASE_HOST")
 	// we register an sql driver txdb
-	connString := fmt.Sprintf("host=database port=5432 user=%s password=%s dbname=worrywort_test sslmode=disable", dbUser, dbPassword)
+	connString := fmt.Sprintf("host=%s port=5432 user=%s password=%s dbname=worrywort_test sslmode=disable", dbHost,
+		dbUser, dbPassword)
 	txdb.Register("txdb", "postgres", connString)
 }
 
