@@ -4,6 +4,7 @@
 -- May need to do this for generating the uuid... but may already be loaded?
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+BEGIN;
 -- id for PK because I'm lazy and so used to standard ORM rules
 -- SERIAL and not BIGSERIAL because graphql only does 32 bit signed int anyway
 -- Use of text rather than varchar(n) based on info at https://www.postgresql.org/docs/current/static/datatype-character.html
@@ -108,3 +109,4 @@ CREATE TABLE IF NOT EXISTS temperature_measurements(
   updated_at timestamp with time zone
 );
 CREATE INDEX IF NOT EXISTS temperature_measurements_recorded_index ON temperature_measurements (recorded_at);
+COMMIT;

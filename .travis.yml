@@ -5,7 +5,7 @@ go:
 env:
   global:
     - DATABASE_USER=postgres
-    - DATABASE_NAME=worrywort
+    - DATABASE_NAME=worrywort_test
     - DATABASE_HOST=localhost
     - PGPORT=5432
 before_install:

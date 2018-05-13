@@ -47,9 +47,15 @@ func TestMain(m *testing.M) {
 	dbPassword, _ := os.LookupEnv("DATABASE_PASSWORD")
 	dbHost, _ := os.LookupEnv("DATABASE_HOST")
 	// we register an sql driver txdb
-	connString := fmt.Sprintf("host=%s port=5432 user=%s password=%s dbname=worrywort_test sslmode=disable", dbHost,
-		dbUser, dbPassword)
+	connString := fmt.Sprintf("host=%s port=5432 user=%s dbname=worrywort_test sslmode=disable", dbHost,
+		dbUser)
+	if dbPassword != "" {
+		connString += fmt.Sprintf(" password=%s", dbPassword)
+	}
+	fmt.Printf("connstring: %s", connString)
 	txdb.Register("txdb", "postgres", connString)
+	retCode := m.Run()
+	os.Exit(retCode)
 }
 
 func setUpTestDb() (*sqlx.DB, error) {
