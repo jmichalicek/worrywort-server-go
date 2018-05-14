@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
+	graphql "github.com/graph-gophers/graphql-go"
+	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/graphqlApi"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
-	graphql "github.com/graph-gophers/graphql-go"
-	"github.com/graph-gophers/graphql-go/relay"
 	"log"
 	"net/http"
 	"os"
@@ -26,7 +26,6 @@ var schema *graphql.Schema
 // func tokenAuthUserLookup(token string) (worrywort.User, error) {
 // 	return worrywort.NewUser(1, "jmichalicek@gmail.com", "Justin", "Michalicek", time.Now(), time.Now()), nil
 // }
-
 
 // Returns a function for looking up a user by token for authMiddleware.NewTokenAuthHandler()
 // which closes over the db needed to look up the user

@@ -1,19 +1,43 @@
 package worrywort
 
 import (
+	"database/sql"
 	"fmt"
 	txdb "github.com/DATA-DOG/go-txdb"
+	"github.com/jmoiron/sqlx"
 	"os"
 	"testing"
 	"time"
 )
 
-func init() {
+func TestMain(m *testing.M) {
 	dbUser, _ := os.LookupEnv("DATABASE_USER")
 	dbPassword, _ := os.LookupEnv("DATABASE_PASSWORD")
+	dbHost, _ := os.LookupEnv("DATABASE_HOST")
 	// we register an sql driver txdb
-	connString := fmt.Sprintf("host=database port=5432 user=%s password=%s dbname=worrywort_test sslmode=disable", dbUser, dbPassword)
+	connString := fmt.Sprintf("host=%s port=5432 user=%s dbname=worrywort_test sslmode=disable", dbHost,
+		dbUser)
+	if dbPassword != "" {
+		connString += fmt.Sprintf(" password=%s", dbPassword)
+	}
+	fmt.Printf("connstring: %s", connString)
 	txdb.Register("txdb", "postgres", connString)
+	retCode := m.Run()
+	os.Exit(retCode)
+}
+
+func setUpTestDb() (*sqlx.DB, error) {
+	_db, err := sql.Open("txdb", "one")
+	if err != nil {
+		return nil, err
+	}
+
+	db := sqlx.NewDb(_db, "postgres")
+	if err != nil {
+		return nil, err
+	}
+
+	return db, nil
 }
 
 // Test that NewBatch() returns a batch with the expected values
@@ -32,7 +56,7 @@ func TestNewBatch(t *testing.T) {
 		"Brew notes", "Taste notes", "http://example.org/beer")
 
 	if b != expectedBatch {
-		t.Errorf("Expected:\n\n%v\n\nGot:\n\n%v", expectedBatch, b)
+		t.Errorf("Expected: %v\n\nGot: %v", expectedBatch, b)
 	}
 }
 
@@ -86,3 +110,58 @@ func TestNewTemperatureMeasurement(t *testing.T) {
 		t.Errorf("Expected:\n%v\n\nGot:\n%v\n", expected, m)
 	}
 }
+
+func TestFindBatch(t *testing.T) {
+	// Set up the db using sql.Open() and sqlx.NewDb() rather than sqlx.Open() so that the custom
+	// `txdb` db type may be used with Open() but can still be registered as postgres with sqlx
+	// so that sqlx' Rebind() functions.
+
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err = SaveUser(db, u)
+
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	createdAt := time.Now().Round(time.Microsecond)
+	updatedAt := time.Now().Round(time.Microsecond)
+	// THe values when returned by postgres will be microsecond accuracy, but golang default
+	// is nanosecond, so we round these for easy comparison
+	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
+	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
+	b := NewBatch(0, "Testing", brewedDate, bottledDate, 5, 4.5, GALLON, 1.060, 1.020, u, createdAt, updatedAt,
+		"Brew notes", "Taste notes", "http://example.org/beer")
+	b, err = SaveBatch(db, b)
+	if err != nil {
+		t.Fatalf("Unexpected error saving batch: %s", err)
+	}
+
+	batchArgs := make(map[string]interface{})
+	batchArgs["created_by_user_id"] = u.ID()
+	batchArgs["id"] = b.ID()
+	found, err := FindBatch(batchArgs, db)
+	if err != nil {
+		t.Errorf("Got unexpected error: %s", err)
+	} else if !b.StrictEqual(*found) {
+		t.Errorf("Expected: %v\nGot: %v\n", b, *found)
+	}
+
+	// var count int = 0
+	// err = db.QueryRow("SELECT COUNT(id) FROM users").Scan(&count)
+	// if err != nil {
+	// 	t.Fatalf("failed to count users: %s", err)
+	// }
+	// if count != 3 {
+	// 	t.Fatalf("expected 3 users to be in database, but got %d", count)
+	// }
+}
+
+func TestInsertBatch(t *testing.T) {}
+func TestUpdateBatch(t *testing.T) {}
+func TestSaveBatch(t *testing.T)   {}

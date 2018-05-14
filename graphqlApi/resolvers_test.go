@@ -1,8 +1,8 @@
 package graphqlApi
 
 import (
-	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	graphql "github.com/graph-gophers/graphql-go"
+	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"testing"
 	"time"
 )
@@ -73,8 +73,8 @@ func TestBatchResolver(t *testing.T) {
 		createdAt, updatedAt, "Brew notes", "Taste notes", "http://example.org/beer")
 	unbrewed := worrywort.NewBatch(2, "Testing", time.Time{}, time.Time{}, 5, 4.5, worrywort.GALLON, 1.060, 1.020,
 		worrywort.User{}, createdAt, updatedAt, "Brew notes", "Taste notes", "http://example.org/beer")
-	br := batchResolver{b: brewed}
-	unbr := batchResolver{b: unbrewed}
+	br := batchResolver{b: &brewed}
+	unbr := batchResolver{b: &unbrewed}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = br.ID()

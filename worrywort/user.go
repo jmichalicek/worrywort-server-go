@@ -29,6 +29,11 @@ type user struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
+func (u user) queryColumns() []string {
+	// TODO: Way to dynamically build this using the `db` tag and reflection/introspection
+	return []string{"id", "first_name", "last_name", "email", "password", "created_at", "updated_at"}
+}
+
 type User struct {
 	user
 }
@@ -83,8 +88,8 @@ func InsertUser(db *sqlx.DB, u User) (User, error) {
 	var createdAt time.Time
 	var userId int
 
-	query := `INSERT INTO users (email, first_name, last_name, password)
-		VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at`
+	query := db.Rebind(`INSERT INTO users (email, first_name, last_name, password, created_at, updated_at)
+		VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at`)
 	err := db.QueryRow(
 		query, u.Email(), u.FirstName(), u.LastName(), u.Password()).Scan(&userId, &createdAt, &updatedAt)
 	if err != nil {
@@ -103,8 +108,8 @@ func InsertUser(db *sqlx.DB, u User) (User, error) {
 func UpdateUser(db *sqlx.DB, u User) (User, error) {
 	// TODO: TEST CASE
 	var updatedAt time.Time
-	query := `UPDATE users SET email = ?, first_name = ?, last_name = ?, password = ?, updated_at = NOW()
-		WHERE id = ?) RETURNING updated_at`
+	query := db.Rebind(`UPDATE users SET email = ?, first_name = ?, last_name = ?, password = ?, updated_at = NOW()
+		WHERE id = ?) RETURNING updated_at`)
 	err := db.QueryRow(
 		query, u.Email(), u.FirstName(), u.LastName(), u.Password(), u.ID()).Scan(&updatedAt)
 	if err != nil {
