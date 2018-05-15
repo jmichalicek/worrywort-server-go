@@ -177,9 +177,9 @@ func LookupUserByToken(tokenStr string, db *sqlx.DB) (User, error) {
 	tokenSecret := tokenParts[1]
 	token := AuthToken{}
 	query := db.Rebind(
-		"SELECT t.token_id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, u.id, u.first_name, u.last_name, " +
-			"u.email, u.created_at, u.updated_at, u.password FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id " +
-			"WHERE t.token_id = ? AND (t.expires_at IS NULL OR t.expires_at < ?)")
+		`SELECT t.token_id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, u.id "user.id", u.first_name "user.first_name", u.last_name "user.last_name", ` +
+			`u.email "user.email", u.created_at "user.created_at", u.updated_at "user.updated_at", u.password "user.password" FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id ` +
+			`WHERE t.token_id = ? AND (t.expires_at IS NULL OR t.expires_at > ?)`)
 	err := db.Get(&token, query, tokenId, time.Now())
 
 	if err != nil {
