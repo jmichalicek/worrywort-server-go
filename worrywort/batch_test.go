@@ -20,7 +20,6 @@ func TestMain(m *testing.M) {
 	if dbPassword != "" {
 		connString += fmt.Sprintf(" password=%s", dbPassword)
 	}
-	fmt.Printf("connstring: %s", connString)
 	txdb.Register("txdb", "postgres", connString)
 	retCode := m.Run()
 	os.Exit(retCode)
