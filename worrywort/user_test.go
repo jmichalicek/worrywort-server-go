@@ -2,21 +2,10 @@ package worrywort
 
 import (
 	"database/sql"
-	"database/sql/driver"
 	"golang.org/x/crypto/bcrypt"
 	"testing"
 	"time"
 )
-
-// from https://github.com/DATA-DOG/go-sqlmock#matching-arguments-like-timetime
-// stuff for matching times.  Need to improve this to match now-ish times
-type AnyTime struct{}
-
-// Match satisfies sqlmock.Argument interface
-func (a AnyTime) Match(v driver.Value) bool {
-	_, ok := v.(time.Time)
-	return ok
-}
 
 func TestNewUser(t *testing.T) {
 	createdAt := time.Now()
@@ -99,109 +88,18 @@ func TestUserStruct(t *testing.T) {
 	})
 }
 
-func TestLookupUser(t *testing.T) {
+func TestUserDatabaseFunctionality(t *testing.T) {
+	// Subtests which use the database and a user so that user is only saved once, password only saved once, etc.
+	// If modifications to user start happening here then need to see if txdb is wrapping each t.Run() or if
+	// I need to find a way to do that manually.
 	db, err := setUpTestDb()
 	if err != nil {
 		t.Fatalf("Got error setting up database: %s", err)
 	}
 	defer db.Close()
-	user := NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	user, err = SaveUser(db, user)
-
-	t.Run("Test valid user id returns user", func(t *testing.T) {
-		actual, err := LookupUser(user.ID(), db)
-
-		if err != nil {
-			t.Errorf("LookupUser() returned error %v", err)
-		}
-
-		if user != actual {
-			t.Errorf("Expected: %v, got: %v", user, actual)
-		}
-	})
-
-	t.Run("Test invalid user id returns empty user", func(t *testing.T) {
-		actual, err := LookupUser(0, db)
-		expected := User{}
-
-		if err != sql.ErrNoRows {
-			t.Errorf("Expected error: %v\ngot: %v\n", sql.ErrNoRows, err)
-		}
-
-		if actual != expected {
-			t.Errorf("Expected: %v\ngot: %v\n", expected, actual)
-		}
-	})
-}
-
-func TestLookupUserByToken(t *testing.T) {
-	db, err := setUpTestDb()
-	if err != nil {
-		t.Fatalf("Got error setting up database: %s", err)
-	}
-	defer db.Close()
-
-	user := NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	user, err = SaveUser(db, user)
-	tokenId := "tokenid"
-	tokenKey := "secret"
-	token := NewToken(tokenId, tokenKey, user, TOKEN_SCOPE_ALL)
-	token.Save(db)
-
-	t.Run("Test valid token returns user", func(t *testing.T) {
-		tokenStr := tokenId + ":" + tokenKey
-		actual, err := LookupUserByToken(tokenStr, db)
-
-		if err != nil {
-			t.Errorf("TestLookupUserByToken() returned error %v", err)
-		}
-
-		if user != actual {
-			t.Errorf("Expected: %v, got: %v", user, actual)
-		}
-	})
-
-	t.Run("Test invalid token with valid token id", func(t *testing.T) {
-
-		tokenStr := "tokenid:tokenstr"
-		actual, err := LookupUserByToken(tokenStr, db)
-		expected := User{}
-
-		if err != InvalidTokenError {
-			t.Errorf("\nExpected error: %v\nGot: %v", InvalidTokenError, err)
-		}
-
-		if actual != expected {
-			t.Errorf("\nExpected: %v\ngot: %v", expected, actual)
-		}
-	})
-
-	t.Run("Test invalid token id", func(t *testing.T) {
-
-		tokenStr := "nope:tokenstr"
-		actual, err := LookupUserByToken(tokenStr, db)
-		expected := User{}
-
-		if err != InvalidTokenError {
-			t.Errorf("\nExpected error: %v\nGot: %v", InvalidTokenError, err)
-		}
-
-		if actual != expected {
-			t.Errorf("\nExpected: %v\ngot: %v", expected, actual)
-		}
-	})
-}
-
-func TestAuthenticateLogin(t *testing.T) {
-	db, err := setUpTestDb()
-	if err != nil {
-		t.Fatalf("Got error setting up database: %s", err)
-	}
-	defer db.Close()
-
 	user := NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	password := "password"
-	user, _ = SetUserPassword(user, password, bcrypt.MinCost)
+	user, err = SetUserPassword(user, password, bcrypt.MinCost)
 	if err != nil {
 		t.Fatalf("Error hashing password for test: %v", err)
 	}
@@ -210,37 +108,117 @@ func TestAuthenticateLogin(t *testing.T) {
 		t.Fatalf("Error setting up test user: %v", err)
 	}
 
-	t.Run("Test valid username and password returns User", func(t *testing.T) {
-		u, err := AuthenticateLogin(user.Email(), password, db)
-		if err != nil {
-			t.Errorf("Got unexpected error: %v", err)
-		}
+	//func TestLookupUser(t *testing.T) {
+	t.Run("TestLookupUser", func(t *testing.T) {
+		t.Run("Test valid user id returns user", func(t *testing.T) {
+			actual, err := LookupUser(user.ID(), db)
 
-		if u != user {
-			t.Errorf("Expected: %v\ngot: %v", user, u)
-		}
+			if err != nil {
+				t.Errorf("LookupUser() returned error %v", err)
+			}
+
+			if user != actual {
+				t.Errorf("Expected: %v, got: %v", user, actual)
+			}
+		})
+
+		t.Run("Test invalid user id returns empty user", func(t *testing.T) {
+			actual, err := LookupUser(0, db)
+			expected := User{}
+
+			if err != sql.ErrNoRows {
+				t.Errorf("Expected error: %v\ngot: %v\n", sql.ErrNoRows, err)
+			}
+
+			if actual != expected {
+				t.Errorf("Expected: %v\ngot: %v\n", expected, actual)
+			}
+		})
 	})
 
-	t.Run("Test valid username and password mistmatch returns error and empty User{}", func(t *testing.T) {
-		u, err := AuthenticateLogin(user.Email(), "a", db)
-		if err != bcrypt.ErrMismatchedHashAndPassword {
-			t.Errorf("Expected error: %v\nGot: %v", UserNotFoundError, err)
-		}
+	//func TestLookupUserByToken(t *testing.T) {
+	t.Run("TestLookupUserByToken", func(t *testing.T) {
+		tokenId := "tokenid"
+		tokenKey := "secret"
+		token := NewToken(tokenId, tokenKey, user, TOKEN_SCOPE_ALL)
+		token.Save(db)
 
-		if u != (User{}) {
-			t.Errorf("Expected: %v\ngot: %v", User{}, u)
-		}
+		t.Run("Test valid token returns user", func(t *testing.T) {
+			tokenStr := tokenId + ":" + tokenKey
+			actual, err := LookupUserByToken(tokenStr, db)
+
+			if err != nil {
+				t.Errorf("TestLookupUserByToken() returned error %v", err)
+			}
+
+			if user != actual {
+				t.Errorf("Expected: %v, got: %v", user, actual)
+			}
+		})
+
+		t.Run("Test invalid token with valid token id", func(t *testing.T) {
+			tokenStr := "tokenid:tokenstr"
+			actual, err := LookupUserByToken(tokenStr, db)
+			expected := User{}
+
+			if err != InvalidTokenError {
+				t.Errorf("\nExpected error: %v\nGot: %v", InvalidTokenError, err)
+			}
+
+			if actual != expected {
+				t.Errorf("\nExpected: %v\ngot: %v", expected, actual)
+			}
+		})
+
+		t.Run("Test invalid token id", func(t *testing.T) {
+			tokenStr := "nope:tokenstr"
+			actual, err := LookupUserByToken(tokenStr, db)
+			expected := User{}
+
+			if err != InvalidTokenError {
+				t.Errorf("\nExpected error: %v\nGot: %v", InvalidTokenError, err)
+			}
+
+			if actual != expected {
+				t.Errorf("\nExpected: %v\ngot: %v", expected, actual)
+			}
+		})
 	})
 
-	// TODO: test mismatched email
-	t.Run("Test invalid username/email and returns error and User{}", func(t *testing.T) {
-		u, err := AuthenticateLogin("nomatch@example.com", password, db)
-		if err != UserNotFoundError {
-			t.Errorf("Expected: %v\nGot: %v", UserNotFoundError, err)
-		}
+	//func TestAuthenticateLogin(t *testing.T) {
+	t.Run("TestAuthenticateLogin", func(t *testing.T) {
+		t.Run("Test valid username and password returns User", func(t *testing.T) {
+			u, err := AuthenticateLogin(user.Email(), password, db)
+			if err != nil {
+				t.Errorf("Got unexpected error: %v", err)
+			}
 
-		if u != (User{}) {
-			t.Errorf("Expected: %v\ngot: %v", user, u)
-		}
+			if u != user {
+				t.Errorf("Expected: %v\ngot: %v", user, u)
+			}
+		})
+
+		t.Run("Test valid username and password mistmatch returns error and empty User{}", func(t *testing.T) {
+			u, err := AuthenticateLogin(user.Email(), "a", db)
+			if err != bcrypt.ErrMismatchedHashAndPassword {
+				t.Errorf("Expected error: %v\nGot: %v", UserNotFoundError, err)
+			}
+
+			if u != (User{}) {
+				t.Errorf("Expected: %v\ngot: %v", User{}, u)
+			}
+		})
+
+		// TODO: test mismatched email
+		t.Run("Test invalid username/email and returns error and User{}", func(t *testing.T) {
+			u, err := AuthenticateLogin("nomatch@example.com", password, db)
+			if err != UserNotFoundError {
+				t.Errorf("Expected: %v\nGot: %v", UserNotFoundError, err)
+			}
+
+			if u != (User{}) {
+				t.Errorf("Expected: %v\ngot: %v", user, u)
+			}
+		})
 	})
 }
