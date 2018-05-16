@@ -28,7 +28,7 @@ type authToken struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
 	Id         string             `db:"token_id"`
 	Token      string             `db:"token"`
-	User       User               `db:",prefix=u."`
+	User       User               `db:"user,prefix=u."`
 	ExpiresAt  pq.NullTime        `db:"expires_at"`
 	CreatedAt  time.Time          `db:"created_at"`
 	UpdatedAt  time.Time          `db:"updated_at"`

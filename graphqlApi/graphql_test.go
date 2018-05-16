@@ -3,44 +3,20 @@ package graphqlApi_test
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
 	"fmt"
-	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	txdb "github.com/DATA-DOG/go-txdb"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/graphqlApi"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
+	"golang.org/x/crypto/bcrypt"
 	"os"
 	"regexp"
 	"strconv"
 	"testing"
 	"time"
 )
-
-// from https://github.com/DATA-DOG/go-sqlmock#matching-arguments-like-timetime
-// stuff for matching times.  Need to improve this to match now-ish times
-type AnyTime struct{}
-
-// Match satisfies sqlmock.Argument interface
-func (a AnyTime) Match(v driver.Value) bool {
-	_, ok := v.(time.Time)
-	return ok
-}
-
-// TODO: remove setUpDb() and use setUpTestDB() with a real txdb for the login test
-func setUpDb() (*sqlx.DB, *sql.DB, sqlmock.Sqlmock, error) {
-	mockDB, mock, err := sqlmock.New()
-	if err != nil {
-		return nil, mockDB, mock, err
-		// t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
-
-	// TODO: This may need to be a pointer
-	return sqlxDB, mockDB, mock, nil
-}
 
 func TestMain(m *testing.M) {
 	dbUser, _ := os.LookupEnv("DATABASE_USER")
@@ -52,7 +28,6 @@ func TestMain(m *testing.M) {
 	if dbPassword != "" {
 		connString += fmt.Sprintf(" password=%s", dbPassword)
 	}
-	fmt.Printf("connstring: %s", connString)
 	txdb.Register("txdb", "postgres", connString)
 	retCode := m.Run()
 	os.Exit(retCode)
@@ -73,29 +48,24 @@ func setUpTestDb() (*sqlx.DB, error) {
 }
 
 func TestLoginMutation(t *testing.T) {
-
-	sqlxDB, mockDB, mock, err := setUpDb()
+	db, err := setUpTestDb()
 	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		t.Fatalf("Got error setting up database: %s", err)
 	}
-	// should this close sqlxdb instead?
-	defer mockDB.Close()
-	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(sqlxDB))
-	user := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	var hashedPassword string = "$2a$13$pPg7mwPA.VFf3W9AUZyMGO0Q2nhoh/979F/TZ8ED.iqVubLe.TDmi"
+	defer db.Close()
+
+	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	user := worrywort.NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	// This is the hash for the password `password`
+	// var hashedPassword string = "$2a$13$pPg7mwPA.VFf3W9AUZyMGO0Q2nhoh/979F/TZ8ED.iqVubLe.TDmi"
+	user, err = worrywort.SetUserPassword(user, "password", bcrypt.MinCost)
+	user, err = worrywort.SaveUser(db, user)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+	// hashedPassword := user.Password()
 
 	t.Run("Test valid email and password returns a token", func(t *testing.T) {
-		rows := sqlmock.NewRows([]string{"id", "email", "first_name", "last_name", "created_at", "updated_at", "password"}).
-			AddRow(user.ID(), user.Email(), user.FirstName(), user.LastName(), user.CreatedAt(), user.UpdatedAt(), hashedPassword)
-		mock.ExpectQuery(`^SELECT (.+) FROM users WHERE email = \?`).WithArgs(user.Email()).WillReturnRows(rows)
-
-		insertResult := sqlmock.NewResult(1, 1)
-		mock.ExpectExec(`^INSERT INTO user_authtokens \(token_id, token, expires_at, updated_at, scope, user_id\) VALUES \(\?, \?, \?, \?, \?, \?\)`).
-			WillReturnResult(insertResult) // should test args before WillReturnResult
-		// WithArgs(tokenid, token, nil, AnyTime{}, worrywort.TOKEN_SCOPE_ALL, user.ID()).
-		// do not know what tokenid and token are to test
-		// but could maybe add an AnyString{}
-
 		// This is all based on https://github.com/neelance/graphql-go/blob/master/gqltesting/testing.go#L38
 		// but allows for more flexible checking of the response
 		variables := map[string]interface{}{
@@ -126,16 +96,28 @@ func TestLoginMutation(t *testing.T) {
 			t.Errorf("\nExpected response to match pattern: %s\nGot: %s", expected, result.Data)
 		}
 
-		// TODO: start using data-dog sql-txdb so that sql queries are actually tested.
-		// that will also allow me to grab the token id as below and verify that it actually exists, matching what
-		// was returned.  Currently I can just verify that there was an insert.
-		// subMatches := matcher.FindStringSubmatch(string(result.Data))
-		// tokenId := subMatches[1]
-		// tokenStr := subMatches[2]
-		// "INSERT INTO user_authtokens (id, token, expires_at, updated_at, scope, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
-		// var lastInsertID, affected int
-		// insertResult := sqlmock.NewResult(lastInsertID, affected)
+		// Make sure that the token really was inserted into the db
+		subMatches := matcher.FindStringSubmatch(string(result.Data))
+		tokenId := subMatches[1]
+		// tokenSecret := subMatches[2]
+		newToken := worrywort.AuthToken{}
+		query = db.Rebind(
+			`SELECT t.token_id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, u.id "user.id", u.first_name "user.first_name", u.last_name "user.last_name", ` +
+				`u.email "user.email", u.created_at "user.created_at", u.updated_at "user.updated_at", u.password "user.password" FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id ` +
+				`WHERE t.token_id = ?`)
+		err := db.Get(&newToken, query, tokenId)
 
+		if err != nil {
+			t.Errorf("Error looking up newly created token: %v", err)
+		}
+
+		if newToken == (worrywort.AuthToken{}) {
+			t.Errorf("Expected auth token with id %s to be saved to database", tokenId)
+		}
+
+		if newToken.User().ID() != user.ID() {
+			t.Errorf("Expected auth token to be associated with user %v but it is associated with %v", user, newToken.User)
+		}
 	})
 }
 
@@ -251,5 +233,4 @@ func TestBatchQuery(t *testing.T) {
 			t.Errorf("Expected: %s\nGot: %s", expected, result.Data)
 		}
 	})
-
 }
