@@ -1,6 +1,7 @@
 package worrywort
 
 import (
+	"database/sql"
 	"errors"
 	"github.com/jmoiron/sqlx"
 	"golang.org/x/crypto/bcrypt"
@@ -183,16 +184,19 @@ func LookupUserByToken(tokenStr string, db *sqlx.DB) (User, error) {
 	err := db.Get(&token, query, tokenId, time.Now())
 
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return User{}, InvalidTokenError
+		}
 		return User{}, err
 	}
 
 	if token == (AuthToken{}) {
-		return User{}, errors.New(InvalidTokenError)
+		return User{}, InvalidTokenError
 	}
 
 	// could do this in the sql, but it keeps the hashing code all closer together
 	if !token.Compare(tokenSecret) {
-		return User{}, errors.New(InvalidTokenError)
+		return User{}, InvalidTokenError
 	}
 
 	return token.User(), nil
