@@ -168,11 +168,11 @@ func TestLookupUserByToken(t *testing.T) {
 		// approximately correct with join for single query but need to figure out how to make sqlx handle This
 		// looks like it should at https://github.com/jmoiron/sqlx/issues/131
 		rows := sqlmock.NewRows(
-			[]string{"token_id", "token", "scope", "expires_at", "created_at", "updated_at", "id", "email",
-				"first_name", "last_name", "created_at", "updated_at", "password"}).
+			[]string{"token_id", "token", "scope", "expires_at", "created_at", "updated_at", "user.id", "user.email",
+				"user.first_name", "user.last_name", "user.created_at", "user.updated_at", "user.password"}).
 			AddRow(token.ID(), token.Token(), token.Scope(), token.ExpiresAt(), token.CreatedAt(), token.UpdatedAt(), user.ID(),
 				user.Email(), user.FirstName(), user.LastName(), user.CreatedAt(), user.UpdatedAt(), user.Password())
-		mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token_id = \? AND \(t.expires_at IS NULL OR t.expires_at < \?\)`).
+		mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token_id = \? AND \(t.expires_at IS NULL OR t.expires_at > \?\)`).
 			WithArgs(tokenId, AnyTime{}).WillReturnRows(rows)
 
 		actual, err := LookupUserByToken(tokenStr, sqlxDB)
@@ -190,9 +190,9 @@ func TestLookupUserByToken(t *testing.T) {
 
 		tokenStr := "tokenid:tokenstr"
 
-		tokenRows := sqlmock.NewRows([]string{"token_id", "token", "scope", "expires_at", "created_at", "updated_at", "id",
-			"email", "first_name", "last_name", "created_at", "updated_at"})
-		mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token_id = \? AND \(t.expires_at IS NULL OR t.expires_at < \?\)`).
+		tokenRows := sqlmock.NewRows([]string{"token_id", "token", "scope", "expires_at", "created_at", "updated_at", "user.id",
+			"user.email", "user.first_name", "user.last_name", "user.created_at", "user.updated_at"})
+		mock.ExpectQuery(`^SELECT (.+) FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id WHERE t.token_id = \? AND \(t.expires_at IS NULL OR t.expires_at > \?\)`).
 			WithArgs(tokenId, AnyTime{}).WillReturnRows(tokenRows)
 
 		actual, err := LookupUserByToken(tokenStr, sqlxDB)
