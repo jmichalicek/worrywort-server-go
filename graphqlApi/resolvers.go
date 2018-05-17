@@ -2,13 +2,13 @@ package graphqlApi
 
 import (
 	"context"
-	"fmt"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
-	// "log"
+	"log"
 	// "os"
+	"database/sql"
 	"strconv"
 	"time"
 )
@@ -58,22 +58,22 @@ func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*ba
 	batchArgs["id"], err = strconv.ParseInt(string(args.ID), 10, 0)
 
 	if err != nil {
-		return nil, err
+		log.Printf("%v", err)
+		return nil, nil
 	}
-	batchPtr, err := worrywort.FindBatch(batchArgs, r.db)
-	// TODO: Handle `no rows in result set`!!!!
 
-	// brewedDate := time.Now()
-	// bottledDate := time.Time{} // zero time
-	// createdAt := time.Now()
-	// updatedAt := time.Now()
-	// u = worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	// batch := worrywort.NewBatch(1, "Testing", brewedDate, bottledDate, 5, 4.5, worrywort.GALLON, 1.060, 1.020, u, createdAt, updatedAt,
-	//	"Brew notes", "Taste notes", "http://example.org/beer")
-	return &batchResolver{b: batchPtr}, nil
+	batchPtr, err := worrywort.FindBatch(batchArgs, r.db)
+	if err != nil {
+		// do not expose sql errors
+		if err != sql.ErrNoRows {
+			log.Printf("%v", err)
+		}
+		return nil, nil
+	}
+	return &batchResolver{b: *batchPtr}, nil
 }
 
-func (r *Resolver) Fermenter(ctx context.Context, args struct{ ID graphql.ID }) *fermenterResolver {
+func (r *Resolver) Fermenter(ctx context.Context, args struct{ ID graphql.ID }) (*fermenterResolver, error) {
 	// authUser, _ := authMiddleware.UserFromContext(ctx)
 	// TODO: panic on error, no user, etc.
 
@@ -82,10 +82,10 @@ func (r *Resolver) Fermenter(ctx context.Context, args struct{ ID graphql.ID }) 
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	f := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u, createdAt, updatedAt)
 
-	return &fermenterResolver{f: f}
+	return &fermenterResolver{f: f}, nil
 }
 
-func (r *Resolver) Thermometer(ctx context.Context, args struct{ ID graphql.ID }) *thermometerResolver {
+func (r *Resolver) Thermometer(ctx context.Context, args struct{ ID graphql.ID }) (*thermometerResolver, error) {
 	// authUser, _ := authMiddleware.UserFromContext(ctx)
 	// TODO: panic on error, no user, etc.
 
@@ -93,10 +93,10 @@ func (r *Resolver) Thermometer(ctx context.Context, args struct{ ID graphql.ID }
 	updatedAt := time.Now()
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	therm := worrywort.NewThermometer(1, "Therm1", u, createdAt, updatedAt)
-	return &thermometerResolver{t: therm}
+	return &thermometerResolver{t: therm}, nil
 }
 
-func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID graphql.ID }) *temperatureMeasurementResolver {
+func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureMeasurementResolver, error) {
 	// authUser, _ := authMiddleware.UserFromContext(ctx)
 	// TODO: panic on error, no user, etc.
 
@@ -113,7 +113,7 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 	// TODO: This needs to save and THAT is whre the uuid should really be generated
 	m := worrywort.NewTemperatureMeasurement(
 		tempId, 64.26, worrywort.FAHRENHEIT, b, therm, f, timeRecorded, createdAt, updatedAt, u)
-	return &temperatureMeasurementResolver{m: m}
+	return &temperatureMeasurementResolver{m: m}, nil
 }
 
 // TODO: example on repo would have used the user type above, but I don't think I need to.  Pretty sure that was
@@ -132,7 +132,7 @@ func (r *userResolver) CreatedAt() string { return dateString(r.u.CreatedAt()) }
 func (r *userResolver) UpdatedAt() string { return dateString(r.u.UpdatedAt()) }
 
 type batchResolver struct {
-	b *worrywort.Batch
+	b worrywort.Batch
 }
 
 func (r *batchResolver) ID() graphql.ID       { return graphql.ID(strconv.Itoa(r.b.ID())) }
@@ -257,7 +257,6 @@ func (r *Resolver) Login(args *struct {
 	// TODO: not yet implemented, will need db
 	err = token.Save(r.db)
 	if err != nil {
-		fmt.Printf("\n\n\nERROR SAVING TOKEN %s\n\n", err)
 		return nil, err
 	}
 	atr := authTokenResolver{t: token}
