@@ -17,6 +17,7 @@ var Schema = `
 	type Query {
 		currentUser(): User
 		batch(id: ID!): Batch
+		batches(): [Batch]
 	}
 
 	type Mutation {

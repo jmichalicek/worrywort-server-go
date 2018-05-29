@@ -127,6 +127,58 @@ func TestFindBatch(t *testing.T) {
 	// }
 }
 
+func TestBatchesForUser(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err = SaveUser(db, u)
+
+	u2 := NewUser(0, "user2@example.com", "Justin", "M", time.Now(), time.Now())
+	u2, err = SaveUser(db, u2)
+
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	createdAt := time.Now().Round(time.Microsecond)
+	updatedAt := time.Now().Round(time.Microsecond)
+	// THe values when returned by postgres will be microsecond accuracy, but golang default
+	// is nanosecond, so we round these for easy comparison
+	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
+	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
+	b := NewBatch(0, "Testing", brewedDate, bottledDate, 5, 4.5, GALLON, 1.060, 1.020, u, createdAt, updatedAt,
+		"Brew notes", "Taste notes", "http://example.org/beer")
+	b, err = SaveBatch(db, b)
+
+	b2 := NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond),
+													 time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond), 5, 4.5,
+													 GALLON, 1.060, 1.020, u, createdAt, updatedAt, "Brew notes", "Taste notes",
+													 "http://example.org/beer")
+	b2, err = SaveBatch(db, b2)
+
+	u2batch := NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond),
+													 time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond), 5, 4.5,
+													 GALLON, 1.060, 1.020, u, createdAt, updatedAt, "Brew notes", "Taste notes",
+													 "http://example.org/beer")
+	u2batch, err = SaveBatch(db, u2batch)
+
+	if err != nil {
+		t.Fatalf("Unexpected error saving batch: %s", err)
+	}
+
+	// TODO: split up into sub tests for different functionality... no pagination, pagination, etc.
+	batches, err := BatchesForUser(db, u, nil, nil)
+	if err != nil {
+		t.Fatalf("\n%v\n", err)
+	}
+	t.Fatalf("%v", batches)  // FAIL to see what we get on purpose
+
+}
+
 func TestInsertBatch(t *testing.T) {}
 func TestUpdateBatch(t *testing.T) {}
 func TestSaveBatch(t *testing.T)   {}

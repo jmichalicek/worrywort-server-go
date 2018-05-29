@@ -219,6 +219,27 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	return b, nil
 }
 
+// Return batches owned/created by a User, currently using default ordering only
+// with cursor based pagination using the id.  May expand cursor pagination at some point
+func BatchesForUser(db *sqlx.DB, u User, count *int, after *int) ([]Batch, error) {
+	batches := []Batch{}
+	var queryArgs []interface{}
+
+	q := `SELECT * FROM batches WHERE created_by_user_id = ?`
+	queryArgs = append(queryArgs, u.ID())
+	if after != nil {
+		q = q + ` and id > ?`
+		queryArgs = append(queryArgs, *after)
+	}
+
+	if count != nil {
+		q = fmt.Sprintf("%s LIMIT %d", *count)
+	}
+
+	err := db.Select(&batches, q, queryArgs...)
+	return batches, err
+}
+
 type fermenter struct {
 	// I could use name + user composite key for pk on these in the db, but I'm probably going to be lazy
 	// and take the standard ORM-ish route and use an int or uuid  Int for now.

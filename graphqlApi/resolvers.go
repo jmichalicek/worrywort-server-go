@@ -73,6 +73,12 @@ func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*ba
 	return &batchResolver{b: *batchPtr}, nil
 }
 
+
+func (r *Resolver) Batches(ctx context.Context) (*[]*batchResolver, error) {
+	u, _ := authMiddleware.UserFromContext(ctx)
+	var err error
+}
+
 func (r *Resolver) Fermenter(ctx context.Context, args struct{ ID graphql.ID }) (*fermenterResolver, error) {
 	// authUser, _ := authMiddleware.UserFromContext(ctx)
 	// TODO: panic on error, no user, etc.
