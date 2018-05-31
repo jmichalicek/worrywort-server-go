@@ -3,6 +3,8 @@ package worrywort
 import (
 	"testing"
 	"time"
+	// "reflect"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // Test that NewBatch() returns a batch with the expected values
@@ -162,7 +164,7 @@ func TestBatchesForUser(t *testing.T) {
 
 	u2batch := NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond),
 													 time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond), 5, 4.5,
-													 GALLON, 1.060, 1.020, u, createdAt, updatedAt, "Brew notes", "Taste notes",
+													 GALLON, 1.060, 1.020, u2, createdAt, updatedAt, "Brew notes", "Taste notes",
 													 "http://example.org/beer")
 	u2batch, err = SaveBatch(db, u2batch)
 
@@ -175,8 +177,18 @@ func TestBatchesForUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("\n%v\n", err)
 	}
-	t.Fatalf("%v", batches)  // FAIL to see what we get on purpose
 
+	// DepEqual is not playing nicely here (ie. I don't understand something) so do a very naive check for now.
+	// May be worth trying this instead of spew, which has a Diff() function which may tell me what the difference is
+	// https://godoc.org/github.com/kr/pretty
+	expected := []Batch{b, b2}
+	if len(*batches) != 2 || expected[0].ID() != (*batches)[0].ID() || expected[1].ID() != (*batches)[1].ID() {
+		t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected[0]), spew.Sdump((*batches)[0]))
+	}
+	// TODO: Cannot figure out WHY these are not equal.
+	// if !reflect.DeepEqual(*batches, expected) {
+	// 	t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(*batches))
+	// }
 }
 
 func TestInsertBatch(t *testing.T) {}
