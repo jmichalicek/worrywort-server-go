@@ -43,11 +43,11 @@ services:
       - "8080:8080"  # May muck with port.  I do not really care, it was just on 8080 from initial sample I used as starting point.
     restart: on-failure
     volumes:
-      - ${PWD}:/go/src/github.com/jmichalicek/worrywort-server-go/
+      - .:/go/src/github.com/jmichalicek/worrywort-server-go/
       # this is a workaround for dealing with how wsl + docker for windows can see paths
-      - ${GITCONFIG_PATH:-$HOME/.gitconfig}:/home/developer/.gitconfig:ro  # being weird on windows/wsl
-      - ${GITHOOKS_PATH:-$HOME/.git-hooks}:/home/developer/.git-hooks:ro
-      - ${SSH_PATH:-$HOME/.ssh}:/home/developer/.ssh:ro
+      - ~/.gitconfig:/home/developer/.gitconfig:ro  # being weird on windows/wsl
+      - ~/.git-hooks}:/home/developer/.git-hooks:ro
+      - ~/.ssh}:/home/developer/.ssh:ro
   # hydra:
   # Hydra may return, but removing for now for simplicity
   #   # Basing this on https://ory.gitbooks.io/hydra/content/install.html#install-and-run-ory-hydra
