@@ -47,7 +47,7 @@ services:
       # this is a workaround for dealing with how wsl + docker for windows can see paths
       - ~/.gitconfig:/home/developer/.gitconfig:ro  # being weird on windows/wsl
       - ~/.git-hooks}:/home/developer/.git-hooks:ro
-      - ~/.ssh}:/home/developer/.ssh:ro
+      - ~/.ssh:/home/developer/.ssh:ro
   # hydra:
   # Hydra may return, but removing for now for simplicity
   #   # Basing this on https://ory.gitbooks.io/hydra/content/install.html#install-and-run-ory-hydra
