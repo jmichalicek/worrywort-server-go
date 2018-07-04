@@ -170,7 +170,7 @@ func TestBatchQuery(t *testing.T) {
 
 	u2batch := worrywort.NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond),
 													 time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond), 5, 4.5,
-													 worrywort.GALLON, 1.060, 1.020, u, createdAt, updatedAt, "Brew notes", "Taste notes",
+													 worrywort.GALLON, 1.060, 1.020, u2, createdAt, updatedAt, "Brew notes", "Taste notes",
 													 "http://example.org/beer")
 	u2batch, err = worrywort.SaveBatch(db, u2batch)
 
@@ -229,23 +229,6 @@ func TestBatchQuery(t *testing.T) {
 			query getBatch($id: ID!) {
 				batch(id: $id) {
 					id
-					createdAt
-					brewNotes
-					brewedDate
-					bottledDate
-					volumeBoiled
-					volumeInFermenter
-					volumeUnits
-					tastingNotes
-					finalGravity
-					originalGravity
-					recipeURL
-					createdBy {
-						id
-						email
-						firstName
-						lastName
-					}
 				}
 			}
 		`
@@ -264,24 +247,8 @@ func TestBatchQuery(t *testing.T) {
 		query := `
 			query getBatches {
 				batches {
+					__typename
 					id
-					createdAt
-					brewNotes
-					brewedDate
-					bottledDate
-					volumeBoiled
-					volumeInFermenter
-					volumeUnits
-					tastingNotes
-					finalGravity
-					originalGravity
-					recipeURL
-					createdBy {
-						id
-						email
-						firstName
-						lastName
-					}
 				}
 			}
 		`
@@ -290,7 +257,8 @@ func TestBatchQuery(t *testing.T) {
 		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
 		result := worrywortSchema.Exec(ctx, query, operationName, nil)
 
-		expected := `{"batch":null}`
+		// Could make the dicts and compare json, then spacing would not matter like it does here.
+		expected := fmt.Sprintf(`{"batches":[{"__typename":"Batch","id":"%d"},{"__typename":"Batch","id":"%d"}]}`, b.ID(), b2.ID())
 		if expected != string(result.Data) {
 			t.Errorf("Expected: %s\nGot: %s", expected, result.Data)
 		}

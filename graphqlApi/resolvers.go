@@ -76,9 +76,16 @@ func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*ba
 
 func (r *Resolver) Batches(ctx context.Context) (*[]*batchResolver, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
-	batchesPtr = worrywort.BatchesForUser(r.db, u)
-	var err error
-	return nil, err
+	var resolvedBatches []*batchResolver
+	batchesPtr, err:= worrywort.BatchesForUser(r.db, u, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, batch := range (*batchesPtr) {
+		resolvedBatches = append(resolvedBatches, &batchResolver{b: batch})
+	}
+	return &resolvedBatches, err
 }
 
 func (r *Resolver) Fermenter(ctx context.Context, args struct{ ID graphql.ID }) (*fermenterResolver, error) {
