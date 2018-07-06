@@ -156,16 +156,16 @@ func TestBatchesForUser(t *testing.T) {
 		"Brew notes", "Taste notes", "http://example.org/beer")
 	b, err = SaveBatch(db, b)
 
-	b2 := NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond),
-													 time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond), 5, 4.5,
-													 GALLON, 1.060, 1.020, u, createdAt, updatedAt, "Brew notes", "Taste notes",
-													 "http://example.org/beer")
+	b2 := NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1)*time.Minute).Round(time.Microsecond),
+		time.Now().Add(time.Duration(5)*time.Minute).Round(time.Microsecond), 5, 4.5,
+		GALLON, 1.060, 1.020, u, createdAt, updatedAt, "Brew notes", "Taste notes",
+		"http://example.org/beer")
 	b2, err = SaveBatch(db, b2)
 
-	u2batch := NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond),
-													 time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond), 5, 4.5,
-													 GALLON, 1.060, 1.020, u2, createdAt, updatedAt, "Brew notes", "Taste notes",
-													 "http://example.org/beer")
+	u2batch := NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1)*time.Minute).Round(time.Microsecond),
+		time.Now().Add(time.Duration(5)*time.Minute).Round(time.Microsecond), 5, 4.5,
+		GALLON, 1.060, 1.020, u2, createdAt, updatedAt, "Brew notes", "Taste notes",
+		"http://example.org/beer")
 	u2batch, err = SaveBatch(db, u2batch)
 
 	if err != nil {

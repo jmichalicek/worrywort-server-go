@@ -1,9 +1,9 @@
 package graphqlApi_test
 
 import (
-	"reflect"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	txdb "github.com/DATA-DOG/go-txdb"
 	"github.com/graph-gophers/graphql-go"
@@ -13,11 +13,11 @@ import (
 	"github.com/jmoiron/sqlx"
 	"golang.org/x/crypto/bcrypt"
 	"os"
+	"reflect"
 	"regexp"
 	"strconv"
 	"testing"
 	"time"
-	"encoding/json"
 )
 
 func TestMain(m *testing.M) {
@@ -160,20 +160,20 @@ func TestBatchQuery(t *testing.T) {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
 
-	b2 := worrywort.NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond),
-													 time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond), 5, 4.5,
-													 worrywort.GALLON, 1.060, 1.020, u, createdAt, updatedAt, "Brew notes", "Taste notes",
-													 "http://example.org/beer")
+	b2 := worrywort.NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1)*time.Minute).Round(time.Microsecond),
+		time.Now().Add(time.Duration(5)*time.Minute).Round(time.Microsecond), 5, 4.5,
+		worrywort.GALLON, 1.060, 1.020, u, createdAt, updatedAt, "Brew notes", "Taste notes",
+		"http://example.org/beer")
 	b2, err = worrywort.SaveBatch(db, b2)
 
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
 
-	u2batch := worrywort.NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond),
-													 time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond), 5, 4.5,
-													 worrywort.GALLON, 1.060, 1.020, u2, createdAt, updatedAt, "Brew notes", "Taste notes",
-													 "http://example.org/beer")
+	u2batch := worrywort.NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1)*time.Minute).Round(time.Microsecond),
+		time.Now().Add(time.Duration(5)*time.Minute).Round(time.Microsecond), 5, 4.5,
+		worrywort.GALLON, 1.060, 1.020, u2, createdAt, updatedAt, "Brew notes", "Taste notes",
+		"http://example.org/beer")
 	u2batch, err = worrywort.SaveBatch(db, u2batch)
 
 	if err != nil {
