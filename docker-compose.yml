@@ -2,10 +2,6 @@ version: '3'
 services:
   database:
     image: "postgres:9.6.2"
-    # image: "worrywort_postgres"
-    # build:
-    #   context: .
-    #   dockerfile: ./Dockerfile.postgres
     environment:
         - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-developer}
         - POSTGRES_USER=${POSTGRES_USER:-developer}
@@ -39,13 +35,13 @@ services:
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-developer}
       DATABASE_USER: ${POSTGRES_USER:-developer}
       REDIS_HOST: redis
+      PGPASSWORD: ${POSTGRES_PASSWORD:-developer}
     ports:
       - "8080:8080"  # May muck with port.  I do not really care, it was just on 8080 from initial sample I used as starting point.
     restart: on-failure
     volumes:
       - .:/go/src/github.com/jmichalicek/worrywort-server-go/
-      # this is a workaround for dealing with how wsl + docker for windows can see paths
-      - ~/.gitconfig:/home/developer/.gitconfig:ro  # being weird on windows/wsl
+      - ~/.gitconfig:/home/developer/.gitconfig:ro
       - ~/.git-hooks}:/home/developer/.git-hooks:ro
       - ~/.ssh:/home/developer/.ssh:ro
   # hydra:
