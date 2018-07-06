@@ -15,13 +15,14 @@ import (
 // TODO:  tests for this middleware like at https://medium.com/@PurdonKyle/unit-testing-golang-http-middleware-c7727ca896ea
 // Eventually this will be configurable.
 const DefaultUserKey string = "user"
+var UserNotInContextError = errors.New("Could not get worrywort.User from context")
 
 // Type safe function to get user from context
 func UserFromContext(ctx context.Context) (worrywort.User, error) {
 	u, ok := ctx.Value(DefaultUserKey).(worrywort.User)
 	if !ok {
 		// can this differentiate between missing key and invalid value?
-		return worrywort.User{}, errors.New("Could not get worrywort.User from context")
+		return worrywort.User{}, UserNotInContextError
 	}
 	return u, nil
 }

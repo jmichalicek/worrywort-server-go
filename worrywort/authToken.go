@@ -12,7 +12,7 @@ import (
 
 var InvalidTokenError error = errors.New("Invalid token. Not found.")
 
-const TokenFormatError = "Token should be formatted as `tokenId:secret` but was not"
+var TokenFormatError = errors.New("Token should be formatted as `tokenId:secret` but was not")
 
 // TODO: Possibly move authToken stuff to its own package so that scope stuff will be
 // authToken.READ_ALL, etc.

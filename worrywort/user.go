@@ -171,7 +171,7 @@ func LookupUserByToken(tokenStr string, db *sqlx.DB) (User, error) {
 	// for explicitness that token is passed in has 2 parts
 	tokenParts := strings.SplitN(tokenStr, ":", 2)
 	if len(tokenParts) != 2 {
-		return User{}, errors.New(TokenFormatError) // should return an error about invalid token probably
+		return User{}, TokenFormatError
 	}
 
 	tokenId := tokenParts[0]
