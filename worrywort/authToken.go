@@ -26,7 +26,7 @@ const (
 )
 
 // Simplified auth tokens.  May eventually be replaced with proper OAuth 2.
-type authToken struct {
+type AuthToken struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
 	Id         string             `db:"token_id"`
 	Token      string             `db:"token"`
@@ -38,27 +38,16 @@ type authToken struct {
 	fromString string             // usually empty, the string this token was generated from
 }
 
-type AuthToken struct {
-	authToken
-}
-
-func (t AuthToken) ID() string                { return t.authToken.Id }
-func (t AuthToken) Token() string             { return t.authToken.Token }
-func (t AuthToken) ExpiresAt() pq.NullTime    { return t.authToken.ExpiresAt }
-func (t AuthToken) CreatedAt() time.Time      { return t.authToken.CreatedAt }
-func (t AuthToken) UpdatedAt() time.Time      { return t.authToken.UpdatedAt }
-func (t AuthToken) Scope() AuthTokenScopeType { return t.authToken.Scope }
-func (t AuthToken) User() User                { return t.authToken.User }
 func (t AuthToken) ForAuthenticationHeader() string {
 	// TODO: Base64 encode this?
 	// "encoding/base64"
-	return t.ID() + ":" + t.fromString
+	return t.Id + ":" + t.fromString
 }
 func (t AuthToken) Save(db *sqlx.DB) error {
 	// TODO: May change the name of this table as it suggests a joining table.
-	if t.CreatedAt().IsZero() {
+	if t.CreatedAt.IsZero() {
 		query := db.Rebind(`INSERT INTO user_authtokens (token_id, token, expires_at, updated_at, scope, user_id) VALUES (?, ?, ?, ?, ?, ?)`)
-		_, err := db.Exec(query, t.ID(), t.Token(), t.ExpiresAt(), time.Now(), t.Scope(), t.User().ID())
+		_, err := db.Exec(query, t.Id, t.Token, t.ExpiresAt, time.Now(), t.Scope, t.User.ID)
 		if err != nil {
 			return err
 		}
@@ -70,7 +59,7 @@ func (t AuthToken) Save(db *sqlx.DB) error {
 
 func (t AuthToken) Compare(token string) bool {
 	tokenHash := MakeTokenHash(token)
-	return tokenHash == t.Token()
+	return tokenHash == t.Token
 }
 
 // Make a hashed token from string.  May rename
@@ -89,7 +78,7 @@ func NewToken(tokenId, token string, user User, scope AuthTokenScopeType) AuthTo
 	// less necessary.  Users must already login with a slow hash before generating a token here,
 	// and for API usage on every request this token needs to be fast to calculate.
 	tokenString := MakeTokenHash(token)
-	return AuthToken{authToken{Id: tokenId, Token: tokenString, User: user, Scope: scope, fromString: token}}
+	return AuthToken{Id: tokenId, Token: tokenString, User: user, Scope: scope, fromString: token}
 }
 
 // Generate a random auth token for a user with the given scope
