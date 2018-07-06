@@ -1,7 +1,7 @@
 package graphqlApi
 
 // fermenter(id: ID!): Fermenter
-// thermometer(id: ID!): Thermometer
+// temperatureSensor(id: ID!): TemperatureSensor
 // temperatureMeasurement(id: ID!): TemperatureMeasurement
 
 // part of schema section
