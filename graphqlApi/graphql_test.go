@@ -1,6 +1,7 @@
 package graphqlApi_test
 
 import (
+	"reflect"
 	"context"
 	"database/sql"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"strconv"
 	"testing"
 	"time"
+	"encoding/json"
 )
 
 func TestMain(m *testing.M) {
@@ -185,24 +187,8 @@ func TestBatchQuery(t *testing.T) {
 		query := `
 			query getBatch($id: ID!) {
 				batch(id: $id) {
+					__typename
 					id
-					createdAt
-					brewNotes
-					brewedDate
-					bottledDate
-					volumeBoiled
-					volumeInFermenter
-					volumeUnits
-					tastingNotes
-					finalGravity
-					originalGravity
-					recipeURL
-					createdBy {
-						id
-						email
-						firstName
-						lastName
-					}
 				}
 			}
 		`
@@ -211,13 +197,20 @@ func TestBatchQuery(t *testing.T) {
 		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
 		result := worrywortSchema.Exec(ctx, query, operationName, variables)
 
-		// This is the dumbest date formatting I have ever seen
-		expected := fmt.Sprintf(
-			`{"batch":{"id":"%d","createdAt":"%s","brewNotes":"Brew notes","brewedDate":"%s","bottledDate":"%s","volumeBoiled":5,"volumeInFermenter":4.5,"volumeUnits":"<worrywort.VolumeUnitType Value>","tastingNotes":"Taste notes","finalGravity":1.02,"originalGravity":1.06,"recipeURL":"http://example.org/beer","createdBy":{"id":"%d","email":"user@example.com","firstName":"Justin","lastName":"Michalicek"}}}`,
-			b.ID(), createdAt.Format("2006-01-02T15:04:05Z"), brewedDate.Format("2006-01-02T15:04:05Z"), bottledDate.Format("2006-01-02T15:04:05Z"), u.ID())
+		var expected interface{}
+		err := json.Unmarshal([]byte(fmt.Sprintf(`{"batch": {"__typename": "Batch", "id": "%d"}}`, b.ID())), &expected)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
 
-		if expected != string(result.Data) {
-			t.Errorf("Expected: %s\nGot: %s", expected, result.Data)
+		var f interface{}
+		err = json.Unmarshal(result.Data, &f)
+		if err != nil {
+			t.Fatalf("%v", f)
+		}
+
+		if !reflect.DeepEqual(expected, f) {
+			t.Errorf("\nExpected: %v\nGot: %v", expected, f)
 		}
 	})
 
@@ -257,10 +250,54 @@ func TestBatchQuery(t *testing.T) {
 		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
 		result := worrywortSchema.Exec(ctx, query, operationName, nil)
 
-		// Could make the dicts and compare json, then spacing would not matter like it does here.
-		expected := fmt.Sprintf(`{"batches":[{"__typename":"Batch","id":"%d"},{"__typename":"Batch","id":"%d"}]}`, b.ID(), b2.ID())
-		if expected != string(result.Data) {
-			t.Errorf("Expected: %s\nGot: %s", expected, result.Data)
+		var expected interface{}
+		err := json.Unmarshal(
+			[]byte(fmt.Sprintf(`{"batches":[{"__typename":"Batch","id":"%d"},{"__typename":"Batch","id":"%d"}]}`, b.ID(), b2.ID())),
+			&expected)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+
+		var f interface{}
+		err = json.Unmarshal(result.Data, &f)
+		if err != nil {
+			t.Fatalf("%v", f)
+		}
+
+		if !reflect.DeepEqual(expected, f) {
+			t.Errorf("\nExpected: %v\nGot: %v", expected, f)
+		}
+	})
+
+	t.Run("Test batches() query when not authenticated", func(t *testing.T) {
+		query := `
+			query getBatches {
+				batches {
+					__typename
+					id
+				}
+			}
+		`
+		operationName := ""
+		ctx := context.Background()
+		// ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+		result := worrywortSchema.Exec(ctx, query, operationName, nil)
+
+		var expected interface{}
+		// should we actually return auth errors rather than nothing?
+		err := json.Unmarshal([]byte(`{"batches":[]}`), &expected)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+
+		var f interface{}
+		err = json.Unmarshal(result.Data, &f)
+		if err != nil {
+			t.Fatalf("%v", f)
+		}
+
+		if !reflect.DeepEqual(expected, f) {
+			t.Errorf("\nExpected: %v\nGot: %v", expected, f)
 		}
 	})
 }
