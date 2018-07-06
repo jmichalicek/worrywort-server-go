@@ -260,10 +260,10 @@ func TestFermenterResolver(t *testing.T) {
 	})
 }
 
-func TestThermometerResolver(t *testing.T) {
+func TestTemperatureSensorResolver(t *testing.T) {
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	therm := worrywort.NewThermometer(1, "Therm1", u, time.Now(), time.Now())
-	r := thermometerResolver{t: therm}
+	therm := worrywort.NewTemperatureSensor(1, "Therm1", u, time.Now(), time.Now())
+	r := temperatureSensorResolver{t: therm}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = r.ID()
@@ -300,7 +300,7 @@ func TestThermometerResolver(t *testing.T) {
 
 func TestTemperatureMeasurementResolver(t *testing.T) {
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	therm := worrywort.NewThermometer(1, "Therm1", u, time.Now(), time.Now())
+	therm := worrywort.NewTemperatureSensor(1, "Therm1", u, time.Now(), time.Now())
 	b := worrywort.NewBatch(1, "Testing", time.Now(), time.Now(), 5, 4.5, worrywort.GALLON, 1.060, 1.020, u,
 		time.Now(), time.Now(), "Brew notes", "Taste notes", "http://example.org/beer")
 	f := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u,

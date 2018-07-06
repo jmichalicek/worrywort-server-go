@@ -297,11 +297,11 @@ func NewFermenter(id int, name, description string, volume float64, volumeUnits 
 
 // possibly should live elsewhere
 
-// Thermometer will need some other unique identifier which the unit itself
+// TemperatureSensor will need some other unique identifier which the unit itself
 // can know, ideally.
 // TODO: This may also want extra metadata such as model or type?  That is probably
 // going too far for now, so keep it simple.
-type thermometer struct {
+type temperatureSensor struct {
 	ID        int
 	Name      string
 	CreatedBy User
@@ -310,22 +310,22 @@ type thermometer struct {
 	UpdatedAt time.Time
 }
 
-type Thermometer struct {
-	thermometer
+type TemperatureSensor struct {
+	temperatureSensor
 }
 
-func (t Thermometer) ID() int              { return t.thermometer.ID }
-func (t Thermometer) Name() string         { return t.thermometer.Name }
-func (t Thermometer) CreatedBy() User      { return t.thermometer.CreatedBy }
-func (t Thermometer) CreatedAt() time.Time { return t.thermometer.CreatedAt }
-func (t Thermometer) UpdatedAt() time.Time { return t.thermometer.UpdatedAt }
+func (t TemperatureSensor) ID() int              { return t.temperatureSensor.ID }
+func (t TemperatureSensor) Name() string         { return t.temperatureSensor.Name }
+func (t TemperatureSensor) CreatedBy() User      { return t.temperatureSensor.CreatedBy }
+func (t TemperatureSensor) CreatedAt() time.Time { return t.temperatureSensor.CreatedAt }
+func (t TemperatureSensor) UpdatedAt() time.Time { return t.temperatureSensor.UpdatedAt }
 
-// Returns a new Thermometer
-func NewThermometer(id int, name string, createdBy User, createdAt, updatedAt time.Time) Thermometer {
-	return Thermometer{thermometer{ID: id, Name: name, CreatedBy: createdBy, CreatedAt: createdAt, UpdatedAt: updatedAt}}
+// Returns a new TemperatureSensor
+func NewTemperatureSensor(id int, name string, createdBy User, createdAt, updatedAt time.Time) TemperatureSensor {
+	return TemperatureSensor{temperatureSensor{ID: id, Name: name, CreatedBy: createdBy, CreatedAt: createdAt, UpdatedAt: updatedAt}}
 }
 
-// A single recorded temperature measurement from a thermometer
+// A single recorded temperature measurement from a temperatureSensor
 // This may get some tweaking to play nicely with data stored in Postgres or Influxdb
 type temperatureMeasurement struct {
 	ID           string // use a uuid
@@ -333,7 +333,7 @@ type temperatureMeasurement struct {
 	Units        TemperatureUnitType
 	TimeRecorded time.Time // when the measurement was recorded
 	Batch        Batch
-	Thermometer  Thermometer
+	TemperatureSensor  TemperatureSensor
 	Fermenter    Fermenter
 
 	// not sure createdBy is a useful name in this case vs just `user` but its consistent
@@ -353,15 +353,15 @@ func (t TemperatureMeasurement) Temperature() float64       { return t.temperatu
 func (t TemperatureMeasurement) Units() TemperatureUnitType { return t.temperatureMeasurement.Units }
 func (t TemperatureMeasurement) TimeRecorded() time.Time    { return t.temperatureMeasurement.TimeRecorded }
 func (t TemperatureMeasurement) Batch() Batch               { return t.temperatureMeasurement.Batch }
-func (t TemperatureMeasurement) Thermometer() Thermometer   { return t.temperatureMeasurement.Thermometer }
+func (t TemperatureMeasurement) TemperatureSensor() TemperatureSensor   { return t.temperatureMeasurement.TemperatureSensor }
 func (t TemperatureMeasurement) Fermenter() Fermenter       { return t.temperatureMeasurement.Fermenter }
 func (t TemperatureMeasurement) CreatedBy() User            { return t.temperatureMeasurement.CreatedBy }
 func (t TemperatureMeasurement) CreatedAt() time.Time       { return t.temperatureMeasurement.CreatedAt }
 func (t TemperatureMeasurement) UpdatedAt() time.Time       { return t.temperatureMeasurement.UpdatedAt }
 
 func NewTemperatureMeasurement(id string, temperature float64, units TemperatureUnitType, batch Batch,
-	thermometer Thermometer, fermenter Fermenter, timeRecorded, createdAt, updatedAt time.Time, createdBy User) TemperatureMeasurement {
+	temperatureSensor TemperatureSensor, fermenter Fermenter, timeRecorded, createdAt, updatedAt time.Time, createdBy User) TemperatureMeasurement {
 	return TemperatureMeasurement{temperatureMeasurement{ID: id, Temperature: temperature, Units: units, Batch: batch,
-		Thermometer: thermometer, Fermenter: fermenter, TimeRecorded: timeRecorded, CreatedAt: createdAt,
+		TemperatureSensor: temperatureSensor, Fermenter: fermenter, TimeRecorded: timeRecorded, CreatedAt: createdAt,
 		UpdatedAt: updatedAt, CreatedBy: createdBy}}
 }

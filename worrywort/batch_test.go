@@ -42,13 +42,13 @@ func TestNewFermenter(t *testing.T) {
 	}
 }
 
-func TestNewThermometer(t *testing.T) {
+func TestNewTemperatureSensor(t *testing.T) {
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	u := NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	expected := Thermometer{thermometer: thermometer{ID: 1, Name: "Therm1", CreatedBy: u, CreatedAt: createdAt, UpdatedAt: updatedAt}}
+	expected := TemperatureSensor{temperatureSensor: temperatureSensor{ID: 1, Name: "Therm1", CreatedBy: u, CreatedAt: createdAt, UpdatedAt: updatedAt}}
 
-	therm := NewThermometer(1, "Therm1", u, createdAt, updatedAt)
+	therm := NewTemperatureSensor(1, "Therm1", u, createdAt, updatedAt)
 
 	if therm != expected {
 		t.Errorf("Expected:\n%v\n\nGot:\n%v\n", expected, therm)
@@ -61,13 +61,13 @@ func TestNewTemperatureMeasurement(t *testing.T) {
 	b := NewBatch(1, "Testing", time.Now(), time.Now(), 5, 4.5, GALLON, 1.060, 1.020, u, time.Now(), time.Now(),
 		"Brew notes", "Taste notes", "http://example.org/beer")
 	f := NewFermenter(1, "Ferm", "A Fermenter", 5.0, GALLON, BUCKET, true, true, u, time.Now(), time.Now())
-	therm := NewThermometer(1, "Therm1", u, time.Now(), time.Now())
+	therm := NewTemperatureSensor(1, "Therm1", u, time.Now(), time.Now())
 
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	timeRecorded := time.Now()
 	expected := TemperatureMeasurement{temperatureMeasurement{ID: "shouldbeauuid", Temperature: 64.26, Units: FAHRENHEIT,
-		TimeRecorded: timeRecorded, Batch: b, Thermometer: therm, Fermenter: f, CreatedBy: u, CreatedAt: createdAt,
+		TimeRecorded: timeRecorded, Batch: b, TemperatureSensor: therm, Fermenter: f, CreatedBy: u, CreatedAt: createdAt,
 		UpdatedAt: updatedAt}}
 
 	m := NewTemperatureMeasurement(

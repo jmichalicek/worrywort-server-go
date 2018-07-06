@@ -99,15 +99,15 @@ func (r *Resolver) Fermenter(ctx context.Context, args struct{ ID graphql.ID }) 
 	return &fermenterResolver{f: f}, nil
 }
 
-func (r *Resolver) Thermometer(ctx context.Context, args struct{ ID graphql.ID }) (*thermometerResolver, error) {
+func (r *Resolver) TemperatureSensor(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureSensorResolver, error) {
 	// authUser, _ := authMiddleware.UserFromContext(ctx)
 	// TODO: panic on error, no user, etc.
 
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	therm := worrywort.NewThermometer(1, "Therm1", u, createdAt, updatedAt)
-	return &thermometerResolver{t: therm}, nil
+	therm := worrywort.NewTemperatureSensor(1, "Therm1", u, createdAt, updatedAt)
+	return &temperatureSensorResolver{t: therm}, nil
 }
 
 func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureMeasurementResolver, error) {
@@ -118,7 +118,7 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 	b := worrywort.NewBatch(1, "Testing", time.Now(), time.Now(), 5, 4.5, worrywort.GALLON, 1.060, 1.020, u, time.Now(), time.Now(),
 		"Brew notes", "Taste notes", "http://example.org/beer")
 	f := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u, time.Now(), time.Now())
-	therm := worrywort.NewThermometer(1, "Therm1", u, time.Now(), time.Now())
+	therm := worrywort.NewTemperatureSensor(1, "Therm1", u, time.Now(), time.Now())
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	timeRecorded := time.Now()
@@ -212,17 +212,17 @@ func (r *fermenterResolver) UpdatedAt() string { return dateString(r.f.UpdatedAt
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
 func (r *fermenterResolver) CreatedBy() *userResolver { return &userResolver{u: r.f.CreatedBy()} }
 
-// Resolve a worrywort.Thermometer
-type thermometerResolver struct {
-	t worrywort.Thermometer
+// Resolve a worrywort.TemperatureSensor
+type temperatureSensorResolver struct {
+	t worrywort.TemperatureSensor
 }
 
-func (r *thermometerResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.t.ID())) }
-func (r *thermometerResolver) CreatedAt() string { return dateString(r.t.CreatedAt()) }
-func (r *thermometerResolver) UpdatedAt() string { return dateString(r.t.UpdatedAt()) }
+func (r *temperatureSensorResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.t.ID())) }
+func (r *temperatureSensorResolver) CreatedAt() string { return dateString(r.t.CreatedAt()) }
+func (r *temperatureSensorResolver) UpdatedAt() string { return dateString(r.t.UpdatedAt()) }
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
-func (r *thermometerResolver) CreatedBy() *userResolver { return &userResolver{u: r.t.CreatedBy()} }
+func (r *temperatureSensorResolver) CreatedBy() *userResolver { return &userResolver{u: r.t.CreatedBy()} }
 
 // Resolve a worrywort.TemperatureMeasurement
 type temperatureMeasurementResolver struct {
