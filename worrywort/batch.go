@@ -219,6 +219,43 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	return b, nil
 }
 
+// Return batches owned/created by a User, currently using default ordering only
+// with cursor based pagination using the id.  May expand cursor pagination at some point
+func BatchesForUser(db *sqlx.DB, u User, count *int, after *int) (*[]Batch, error) {
+	batches := []Batch{}
+	var queryArgs []interface{}
+
+	selectCols := ""
+	// This doesn't seem like it could possibly be a great way to handle this.
+	b := Batch{}
+	for _, k := range b.queryColumns() {
+		selectCols += fmt.Sprintf("b.%s, ", k)
+	}
+
+	for _, k := range u.queryColumns() {
+		selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
+	}
+
+	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batches b LEFT JOIN users u on u.id = b.created_by_user_id ` +
+		`WHERE created_by_user_id = ? `
+
+	queryArgs = append(queryArgs, u.ID())
+	if after != nil {
+		q = q + ` and id > ?`
+		queryArgs = append(queryArgs, *after)
+	}
+
+	if count != nil {
+		q = q + fmt.Sprintf(" LIMIT %d", *count)
+	}
+
+	err := db.Select(&batches, db.Rebind(q), queryArgs...)
+	if err != nil {
+		return nil, err
+	}
+	return &batches, err
+}
+
 type fermenter struct {
 	// I could use name + user composite key for pk on these in the db, but I'm probably going to be lazy
 	// and take the standard ORM-ish route and use an int or uuid  Int for now.

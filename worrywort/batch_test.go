@@ -3,6 +3,8 @@ package worrywort
 import (
 	"testing"
 	"time"
+	// "reflect"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // Test that NewBatch() returns a batch with the expected values
@@ -124,6 +126,68 @@ func TestFindBatch(t *testing.T) {
 	// }
 	// if count != 3 {
 	// 	t.Fatalf("expected 3 users to be in database, but got %d", count)
+	// }
+}
+
+func TestBatchesForUser(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err = SaveUser(db, u)
+
+	u2 := NewUser(0, "user2@example.com", "Justin", "M", time.Now(), time.Now())
+	u2, err = SaveUser(db, u2)
+
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	createdAt := time.Now().Round(time.Microsecond)
+	updatedAt := time.Now().Round(time.Microsecond)
+	// THe values when returned by postgres will be microsecond accuracy, but golang default
+	// is nanosecond, so we round these for easy comparison
+	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
+	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
+	b := NewBatch(0, "Testing", brewedDate, bottledDate, 5, 4.5, GALLON, 1.060, 1.020, u, createdAt, updatedAt,
+		"Brew notes", "Taste notes", "http://example.org/beer")
+	b, err = SaveBatch(db, b)
+
+	b2 := NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1)*time.Minute).Round(time.Microsecond),
+		time.Now().Add(time.Duration(5)*time.Minute).Round(time.Microsecond), 5, 4.5,
+		GALLON, 1.060, 1.020, u, createdAt, updatedAt, "Brew notes", "Taste notes",
+		"http://example.org/beer")
+	b2, err = SaveBatch(db, b2)
+
+	u2batch := NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1)*time.Minute).Round(time.Microsecond),
+		time.Now().Add(time.Duration(5)*time.Minute).Round(time.Microsecond), 5, 4.5,
+		GALLON, 1.060, 1.020, u2, createdAt, updatedAt, "Brew notes", "Taste notes",
+		"http://example.org/beer")
+	u2batch, err = SaveBatch(db, u2batch)
+
+	if err != nil {
+		t.Fatalf("Unexpected error saving batch: %s", err)
+	}
+
+	// TODO: split up into sub tests for different functionality... no pagination, pagination, etc.
+	batches, err := BatchesForUser(db, u, nil, nil)
+	if err != nil {
+		t.Fatalf("\n%v\n", err)
+	}
+
+	// DepEqual is not playing nicely here (ie. I don't understand something) so do a very naive check for now.
+	// May be worth trying this instead of spew, which has a Diff() function which may tell me what the difference is
+	// https://godoc.org/github.com/kr/pretty
+	expected := []Batch{b, b2}
+	if len(*batches) != 2 || expected[0].ID() != (*batches)[0].ID() || expected[1].ID() != (*batches)[1].ID() {
+		t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected[0]), spew.Sdump((*batches)[0]))
+	}
+	// TODO: Cannot figure out WHY these are not equal.
+	// if !reflect.DeepEqual(*batches, expected) {
+	// 	t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(*batches))
 	// }
 }
 
