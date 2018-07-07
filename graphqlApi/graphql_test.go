@@ -182,7 +182,7 @@ func TestBatchQuery(t *testing.T) {
 
 	t.Run("Test query for batch(id: ID!) which exists returns the batch", func(t *testing.T) {
 		variables := map[string]interface{}{
-			"id": strconv.Itoa(b.ID),
+			"id": strconv.Itoa(b.Id),
 		}
 		query := `
 			query getBatch($id: ID!) {
@@ -198,7 +198,7 @@ func TestBatchQuery(t *testing.T) {
 		result := worrywortSchema.Exec(ctx, query, operationName, variables)
 
 		var expected interface{}
-		err := json.Unmarshal([]byte(fmt.Sprintf(`{"batch": {"__typename": "Batch", "id": "%d"}}`, b.ID)), &expected)
+		err := json.Unmarshal([]byte(fmt.Sprintf(`{"batch": {"__typename": "Batch", "id": "%d"}}`, b.Id)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -252,7 +252,7 @@ func TestBatchQuery(t *testing.T) {
 
 		var expected interface{}
 		err := json.Unmarshal(
-			[]byte(fmt.Sprintf(`{"batches":[{"__typename":"Batch","id":"%d"},{"__typename":"Batch","id":"%d"}]}`, b.ID, b2.ID)),
+			[]byte(fmt.Sprintf(`{"batches":[{"__typename":"Batch","id":"%d"},{"__typename":"Batch","id":"%d"}]}`, b.Id, b2.Id)),
 			&expected)
 		if err != nil {
 			t.Fatalf("%v", err)

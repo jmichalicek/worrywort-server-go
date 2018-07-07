@@ -312,7 +312,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = r.ID()
-		expected := graphql.ID(m.ID)
+		expected := graphql.ID(m.Id)
 		if ID != expected {
 			t.Errorf("\nExpected: %v\ngot: %v", expected, ID)
 		}

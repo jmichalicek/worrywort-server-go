@@ -15,7 +15,7 @@ func TestNewBatch(t *testing.T) {
 	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute)
 	u := NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 
-	expectedBatch := Batch{ID: 1, Name: "Testing", BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
+	expectedBatch := Batch{Id: 1, Name: "Testing", BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
 		VolumeInFermenter: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedBy: u,
 		CreatedAt: createdAt, UpdatedAt: updatedAt, BrewNotes: "Brew notes", TastingNotes: "Taste notes",
 		RecipeURL: "http://example.org/beer"}
@@ -32,7 +32,7 @@ func TestNewFermenter(t *testing.T) {
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	u := NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	expected := Fermenter{ID: 1, Name: "Ferm", Description: "A Fermenter", Volume: 5.0, VolumeUnits: GALLON,
+	expected := Fermenter{Id: 1, Name: "Ferm", Description: "A Fermenter", Volume: 5.0, VolumeUnits: GALLON,
 		FermenterType: BUCKET, IsActive: true, IsAvailable: true, CreatedBy: u, CreatedAt: createdAt, UpdatedAt: updatedAt}
 
 	f := NewFermenter(1, "Ferm", "A Fermenter", 5.0, GALLON, BUCKET, true, true, u, createdAt, updatedAt)
@@ -46,7 +46,7 @@ func TestNewTemperatureSensor(t *testing.T) {
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	u := NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	expected := TemperatureSensor{ID: 1, Name: "Therm1", CreatedBy: u, CreatedAt: createdAt, UpdatedAt: updatedAt}
+	expected := TemperatureSensor{Id: 1, Name: "Therm1", CreatedBy: u, CreatedAt: createdAt, UpdatedAt: updatedAt}
 
 	therm := NewTemperatureSensor(1, "Therm1", u, createdAt, updatedAt)
 
@@ -66,7 +66,7 @@ func TestNewTemperatureMeasurement(t *testing.T) {
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	timeRecorded := time.Now()
-	expected := TemperatureMeasurement{ID: "shouldbeauuid", Temperature: 64.26, Units: FAHRENHEIT,
+	expected := TemperatureMeasurement{Id: "shouldbeauuid", Temperature: 64.26, Units: FAHRENHEIT,
 		TimeRecorded: timeRecorded, Batch: b, TemperatureSensor: therm, Fermenter: f, CreatedBy: u, CreatedAt: createdAt,
 		UpdatedAt: updatedAt}
 
@@ -111,7 +111,7 @@ func TestFindBatch(t *testing.T) {
 
 	batchArgs := make(map[string]interface{})
 	batchArgs["created_by_user_id"] = u.Id
-	batchArgs["id"] = b.ID
+	batchArgs["id"] = b.Id
 	found, err := FindBatch(batchArgs, db)
 	if err != nil {
 		t.Errorf("Got unexpected error: %s", err)
@@ -182,7 +182,7 @@ func TestBatchesForUser(t *testing.T) {
 	// May be worth trying this instead of spew, which has a Diff() function which may tell me what the difference is
 	// https://godoc.org/github.com/kr/pretty
 	expected := []Batch{b, b2}
-	if len(*batches) != 2 || expected[0].ID != (*batches)[0].ID || expected[1].ID != (*batches)[1].ID {
+	if len(*batches) != 2 || expected[0].Id != (*batches)[0].Id || expected[1].Id != (*batches)[1].Id {
 		t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected[0]), spew.Sdump((*batches)[0]))
 	}
 	// TODO: Cannot figure out WHY these are not equal.
