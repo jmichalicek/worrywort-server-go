@@ -17,7 +17,7 @@ const DefaultPasswordHashCost int = 13
 
 var UserNotFoundError error = errors.New("User not found")
 
-type user struct {
+type User struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
 	// TODO: Considering having a separate username from the email
 	ID        int    `db:"id"`
@@ -30,28 +30,16 @@ type user struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
-func (u user) queryColumns() []string {
+func (u User) queryColumns() []string {
 	// TODO: Way to dynamically build this using the `db` tag and reflection/introspection
 	return []string{"id", "first_name", "last_name", "email", "password", "created_at", "updated_at"}
 }
 
-type User struct {
-	user
-}
-
 // Returns a new user
 func NewUser(id int, email, firstName, lastName string, createdAt, updatedAt time.Time) User {
-	return User{user{ID: id, Email: email, FirstName: firstName, LastName: lastName, CreatedAt: createdAt,
-		UpdatedAt: updatedAt}}
+	return User{ID: id, Email: email, FirstName: firstName, LastName: lastName, CreatedAt: createdAt,
+		UpdatedAt: updatedAt}
 }
-
-func (u User) ID() int              { return u.user.ID }
-func (u User) FirstName() string    { return u.user.FirstName }
-func (u User) LastName() string     { return u.user.LastName }
-func (u User) Email() string        { return u.user.Email }
-func (u User) CreatedAt() time.Time { return u.user.CreatedAt }
-func (u User) UpdatedAt() time.Time { return u.user.UpdatedAt }
-func (u User) Password() string     { return u.user.Password }
 
 // SetUserPassword hashes the given password and returns a new user with the password set to the bcrypt hashed value
 // using the given hashCost.  If hashCost is less than bcrypt.MinCost then worrywort.DefaultPasswordHashCost is used.
@@ -65,7 +53,7 @@ func SetUserPassword(u User, password string, hashCost int) (User, error) {
 	if err != nil {
 		return u, err
 	}
-	u.user.Password = string(passwdBytes)
+	u.Password = string(passwdBytes)
 	return u, nil
 }
 
@@ -73,7 +61,7 @@ func SetUserPassword(u User, password string, hashCost int) (User, error) {
 // then an insert is performed, otherwise an update on the User matching that id.
 func SaveUser(db *sqlx.DB, u User) (User, error) {
 	// TODO: TEST CASE
-	if u.ID() != 0 {
+	if u.ID != 0 {
 		return UpdateUser(db, u)
 	} else {
 		return InsertUser(db, u)
@@ -92,14 +80,14 @@ func InsertUser(db *sqlx.DB, u User) (User, error) {
 	query := db.Rebind(`INSERT INTO users (email, first_name, last_name, password, created_at, updated_at)
 		VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at`)
 	err := db.QueryRow(
-		query, u.Email(), u.FirstName(), u.LastName(), u.Password()).Scan(&userId, &createdAt, &updatedAt)
+		query, u.Email, u.FirstName, u.LastName, u.Password).Scan(&userId, &createdAt, &updatedAt)
 	if err != nil {
 		return u, err
 	}
 
-	u.user.ID = userId
-	u.user.CreatedAt = createdAt
-	u.user.UpdatedAt = updatedAt
+	u.ID = userId
+	u.CreatedAt = createdAt
+	u.UpdatedAt = updatedAt
 	return u, nil
 }
 
@@ -112,11 +100,11 @@ func UpdateUser(db *sqlx.DB, u User) (User, error) {
 	query := db.Rebind(`UPDATE users SET email = ?, first_name = ?, last_name = ?, password = ?, updated_at = NOW()
 		WHERE id = ?) RETURNING updated_at`)
 	err := db.QueryRow(
-		query, u.Email(), u.FirstName(), u.LastName(), u.Password(), u.ID()).Scan(&updatedAt)
+		query, u.Email, u.FirstName, u.LastName, u.Password, u.ID).Scan(&updatedAt)
 	if err != nil {
 		return u, err
 	}
-	u.user.UpdatedAt = updatedAt
+	u.UpdatedAt = updatedAt
 	return u, nil
 }
 
@@ -153,7 +141,7 @@ func AuthenticateLogin(username, password string, db *sqlx.DB) (User, error) {
 		return User{}, err
 	}
 
-	pwdErr := bcrypt.CompareHashAndPassword([]byte(u.Password()), []byte(password))
+	pwdErr := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
 	if pwdErr != nil {
 		return User{}, pwdErr
 	}
@@ -199,5 +187,5 @@ func LookupUserByToken(tokenStr string, db *sqlx.DB) (User, error) {
 		return User{}, InvalidTokenError
 	}
 
-	return token.User(), nil
+	return token.User, nil
 }

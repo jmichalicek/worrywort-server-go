@@ -54,7 +54,7 @@ func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*ba
 	var err error
 	batchArgs := make(map[string]interface{})
 	// TODO: Or if batch is publicly readable by anyone?
-	batchArgs["created_by_user_id"] = u.ID()
+	batchArgs["created_by_user_id"] = u.ID
 	batchArgs["id"], err = strconv.ParseInt(string(args.ID), 10, 0)
 
 	if err != nil {
@@ -138,29 +138,31 @@ type userResolver struct {
 	u worrywort.User
 }
 
-func (r *userResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.u.ID())) }
-func (r *userResolver) FirstName() string { return r.u.FirstName() }
-func (r *userResolver) LastName() string  { return r.u.LastName() }
-func (r *userResolver) Email() string     { return r.u.Email() }
-func (r *userResolver) CreatedAt() string { return dateString(r.u.CreatedAt()) }
-func (r *userResolver) UpdatedAt() string { return dateString(r.u.UpdatedAt()) }
+func (r *userResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.u.ID)) }
+func (r *userResolver) FirstName() string { return r.u.FirstName }
+func (r *userResolver) LastName() string  { return r.u.LastName }
+func (r *userResolver) Email() string     { return r.u.Email }
+func (r *userResolver) CreatedAt() string { return dateString(r.u.CreatedAt) }
+func (r *userResolver) UpdatedAt() string { return dateString(r.u.UpdatedAt) }
 
 type batchResolver struct {
 	b worrywort.Batch
 }
 
-func (r *batchResolver) ID() graphql.ID       { return graphql.ID(strconv.Itoa(r.b.ID())) }
-func (r *batchResolver) Name() string         { return r.b.Name() }
-func (r *batchResolver) BrewNotes() string    { return r.b.BrewNotes() }
-func (r *batchResolver) TastingNotes() string { return r.b.TastingNotes() }
+func (r *batchResolver) ID() graphql.ID       { return graphql.ID(strconv.Itoa(r.b.ID)) }
+func (r *batchResolver) Name() string         { return r.b.Name }
+func (r *batchResolver) BrewNotes() string    { return r.b.BrewNotes }
+func (r *batchResolver) TastingNotes() string { return r.b.TastingNotes }
 
 // TODO: I should make an actual DateTime type which can be null or a valid datetime string
-func (r *batchResolver) BrewedDate() *string  { return nullableDateString(r.b.BrewedDate()) }
-func (r *batchResolver) BottledDate() *string { return nullableDateString(r.b.BottledDate()) }
+func (r *batchResolver) BrewedDate() *string  { return nullableDateString(r.b.BrewedDate) }
+func (r *batchResolver) BottledDate() *string { return nullableDateString(r.b.BottledDate) }
 func (r *batchResolver) VolumeBoiled() *float64 {
 	// If the value is optional/nullable in the GraphQL schema then we must return a pointer
 	// to it.
-	vol := r.b.VolumeBoiled()
+	// TODO: I do not like this.  Maybe switch the data type to https://godoc.org/gopkg.in/guregu/null.v3 nullint
+	// on the struct
+	vol := r.b.VolumeBoiled
 	if vol == 0 {
 		return nil
 	}
@@ -168,17 +170,21 @@ func (r *batchResolver) VolumeBoiled() *float64 {
 }
 
 func (r *batchResolver) VolumeInFermenter() *float64 {
-	vol := r.b.VolumeInFermenter()
+	vol := r.b.VolumeInFermenter
+
+	// TODO: I do not like this.  Maybe switch the data type to https://godoc.org/gopkg.in/guregu/null.v3 nullint
+	// on the struct
 	if vol == 0 {
 		return nil
 	}
 	return &vol
 }
 
-func (r *batchResolver) VolumeUnits() worrywort.VolumeUnitType { return r.b.VolumeUnits() }
+func (r *batchResolver) VolumeUnits() worrywort.VolumeUnitType { return r.b.VolumeUnits }
 func (r *batchResolver) OriginalGravity() *float64 {
-	// TODO: not sure I like this... maybe it really was 0.  Not likely with OG, of course.
-	og := r.b.OriginalGravity()
+	// TODO: I do not like this.  Maybe switch the data type to https://godoc.org/gopkg.in/guregu/null.v3 nullint
+	// on the struct
+	og := r.b.OriginalGravity
 	if og == 0 {
 		return nil
 	}
@@ -186,43 +192,48 @@ func (r *batchResolver) OriginalGravity() *float64 {
 }
 
 func (r *batchResolver) FinalGravity() *float64 {
-	fg := r.b.FinalGravity()
+	fg := r.b.FinalGravity
+
+	// TODO: I do not like this.  Maybe switch the data type to https://godoc.org/gopkg.in/guregu/null.v3 nullint
+	// on the struct
 	if fg == 0 {
 		return nil
 	}
 	return &fg
 }
 
-func (r *batchResolver) RecipeURL() string { return r.b.RecipeURL() } // this could even return a parsed URL object...
-func (r *batchResolver) CreatedAt() string { return dateString(r.b.CreatedAt()) }
-func (r *batchResolver) UpdatedAt() string { return dateString(r.b.UpdatedAt()) }
+func (r *batchResolver) RecipeURL() string { return r.b.RecipeURL } // this could even return a parsed URL object...
+func (r *batchResolver) CreatedAt() string { return dateString(r.b.CreatedAt) }
+func (r *batchResolver) UpdatedAt() string { return dateString(r.b.UpdatedAt) }
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
-func (r *batchResolver) CreatedBy() *userResolver { return &userResolver{u: r.b.CreatedBy()} }
+func (r *batchResolver) CreatedBy() *userResolver { return &userResolver{u: r.b.CreatedBy} }
 
 // Resolve a worrywort.Fermenter
 type fermenterResolver struct {
 	f worrywort.Fermenter
 }
 
-func (r *fermenterResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.f.ID())) }
-func (r *fermenterResolver) CreatedAt() string { return dateString(r.f.CreatedAt()) }
-func (r *fermenterResolver) UpdatedAt() string { return dateString(r.f.UpdatedAt()) }
+func (r *fermenterResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.f.ID)) }
+func (r *fermenterResolver) CreatedAt() string { return dateString(r.f.CreatedAt) }
+func (r *fermenterResolver) UpdatedAt() string { return dateString(r.f.UpdatedAt) }
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
-func (r *fermenterResolver) CreatedBy() *userResolver { return &userResolver{u: r.f.CreatedBy()} }
+func (r *fermenterResolver) CreatedBy() *userResolver { return &userResolver{u: r.f.CreatedBy} }
 
 // Resolve a worrywort.TemperatureSensor
 type temperatureSensorResolver struct {
 	t worrywort.TemperatureSensor
 }
 
-func (r *temperatureSensorResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.t.ID())) }
-func (r *temperatureSensorResolver) CreatedAt() string { return dateString(r.t.CreatedAt()) }
-func (r *temperatureSensorResolver) UpdatedAt() string { return dateString(r.t.UpdatedAt()) }
+func (r *temperatureSensorResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.t.ID)) }
+func (r *temperatureSensorResolver) CreatedAt() string { return dateString(r.t.CreatedAt) }
+func (r *temperatureSensorResolver) UpdatedAt() string { return dateString(r.t.UpdatedAt) }
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
-func (r *temperatureSensorResolver) CreatedBy() *userResolver { return &userResolver{u: r.t.CreatedBy()} }
+func (r *temperatureSensorResolver) CreatedBy() *userResolver {
+	return &userResolver{u: r.t.CreatedBy}
+}
 
 // Resolve a worrywort.TemperatureMeasurement
 type temperatureMeasurementResolver struct {
@@ -230,13 +241,13 @@ type temperatureMeasurementResolver struct {
 	m worrywort.TemperatureMeasurement
 }
 
-func (r *temperatureMeasurementResolver) ID() graphql.ID    { return graphql.ID(r.m.ID()) }
-func (r *temperatureMeasurementResolver) CreatedAt() string { return dateString(r.m.CreatedAt()) }
-func (r *temperatureMeasurementResolver) UpdatedAt() string { return dateString(r.m.UpdatedAt()) }
+func (r *temperatureMeasurementResolver) ID() graphql.ID    { return graphql.ID(r.m.ID) }
+func (r *temperatureMeasurementResolver) CreatedAt() string { return dateString(r.m.CreatedAt) }
+func (r *temperatureMeasurementResolver) UpdatedAt() string { return dateString(r.m.UpdatedAt) }
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
 func (r *temperatureMeasurementResolver) CreatedBy() *userResolver {
-	return &userResolver{u: r.m.CreatedBy()}
+	return &userResolver{u: r.m.CreatedBy}
 }
 
 // An auth token returned after logging in to use in Authentication headers
