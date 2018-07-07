@@ -20,7 +20,7 @@ var UserNotFoundError error = errors.New("User not found")
 type User struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
 	// TODO: Considering having a separate username from the email
-	ID        int    `db:"id"`
+	Id        int    `db:"id"`
 	FirstName string `db:"first_name"`
 	LastName  string `db:"last_name"`
 	Email     string `db:"email"`
@@ -37,7 +37,7 @@ func (u User) queryColumns() []string {
 
 // Returns a new user
 func NewUser(id int, email, firstName, lastName string, createdAt, updatedAt time.Time) User {
-	return User{ID: id, Email: email, FirstName: firstName, LastName: lastName, CreatedAt: createdAt,
+	return User{Id: id, Email: email, FirstName: firstName, LastName: lastName, CreatedAt: createdAt,
 		UpdatedAt: updatedAt}
 }
 
@@ -57,11 +57,11 @@ func SetUserPassword(u User, password string, hashCost int) (User, error) {
 	return u, nil
 }
 
-// Save the User to the database.  If User.ID() is 0
+// Save the User to the database.  If User.Id is 0
 // then an insert is performed, otherwise an update on the User matching that id.
 func SaveUser(db *sqlx.DB, u User) (User, error) {
 	// TODO: TEST CASE
-	if u.ID != 0 {
+	if u.Id != 0 {
 		return UpdateUser(db, u)
 	} else {
 		return InsertUser(db, u)
@@ -85,7 +85,7 @@ func InsertUser(db *sqlx.DB, u User) (User, error) {
 		return u, err
 	}
 
-	u.ID = userId
+	u.Id = userId
 	u.CreatedAt = createdAt
 	u.UpdatedAt = updatedAt
 	return u, nil
@@ -100,7 +100,7 @@ func UpdateUser(db *sqlx.DB, u User) (User, error) {
 	query := db.Rebind(`UPDATE users SET email = ?, first_name = ?, last_name = ?, password = ?, updated_at = NOW()
 		WHERE id = ?) RETURNING updated_at`)
 	err := db.QueryRow(
-		query, u.Email, u.FirstName, u.LastName, u.Password, u.ID).Scan(&updatedAt)
+		query, u.Email, u.FirstName, u.LastName, u.Password, u.Id).Scan(&updatedAt)
 	if err != nil {
 		return u, err
 	}

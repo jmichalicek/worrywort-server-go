@@ -117,7 +117,7 @@ func TestLoginMutation(t *testing.T) {
 			t.Errorf("Expected auth token with id %s to be saved to database", tokenId)
 		}
 
-		if newToken.User.ID != user.ID {
+		if newToken.User.Id != user.Id {
 			t.Errorf("Expected auth token to be associated with user %v but it is associated with %v", user, newToken.User)
 		}
 	})
@@ -182,7 +182,7 @@ func TestBatchQuery(t *testing.T) {
 
 	t.Run("Test query for batch(id: ID!) which exists returns the batch", func(t *testing.T) {
 		variables := map[string]interface{}{
-			"id": strconv.Itoa(b.ID),
+			"id": strconv.Itoa(b.Id),
 		}
 		query := `
 			query getBatch($id: ID!) {
@@ -198,7 +198,7 @@ func TestBatchQuery(t *testing.T) {
 		result := worrywortSchema.Exec(ctx, query, operationName, variables)
 
 		var expected interface{}
-		err := json.Unmarshal([]byte(fmt.Sprintf(`{"batch": {"__typename": "Batch", "id": "%d"}}`, b.ID)), &expected)
+		err := json.Unmarshal([]byte(fmt.Sprintf(`{"batch": {"__typename": "Batch", "id": "%d"}}`, b.Id)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -252,7 +252,7 @@ func TestBatchQuery(t *testing.T) {
 
 		var expected interface{}
 		err := json.Unmarshal(
-			[]byte(fmt.Sprintf(`{"batches":[{"__typename":"Batch","id":"%d"},{"__typename":"Batch","id":"%d"}]}`, b.ID, b2.ID)),
+			[]byte(fmt.Sprintf(`{"batches":[{"__typename":"Batch","id":"%d"},{"__typename":"Batch","id":"%d"}]}`, b.Id, b2.Id)),
 			&expected)
 		if err != nil {
 			t.Fatalf("%v", err)

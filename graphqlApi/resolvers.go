@@ -54,7 +54,7 @@ func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*ba
 	var err error
 	batchArgs := make(map[string]interface{})
 	// TODO: Or if batch is publicly readable by anyone?
-	batchArgs["created_by_user_id"] = u.ID
+	batchArgs["created_by_user_id"] = u.Id
 	batchArgs["id"], err = strconv.ParseInt(string(args.ID), 10, 0)
 
 	if err != nil {
@@ -138,7 +138,7 @@ type userResolver struct {
 	u worrywort.User
 }
 
-func (r *userResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.u.ID)) }
+func (r *userResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.u.Id)) }
 func (r *userResolver) FirstName() string { return r.u.FirstName }
 func (r *userResolver) LastName() string  { return r.u.LastName }
 func (r *userResolver) Email() string     { return r.u.Email }
@@ -149,7 +149,7 @@ type batchResolver struct {
 	b worrywort.Batch
 }
 
-func (r *batchResolver) ID() graphql.ID       { return graphql.ID(strconv.Itoa(r.b.ID)) }
+func (r *batchResolver) ID() graphql.ID       { return graphql.ID(strconv.Itoa(r.b.Id)) }
 func (r *batchResolver) Name() string         { return r.b.Name }
 func (r *batchResolver) BrewNotes() string    { return r.b.BrewNotes }
 func (r *batchResolver) TastingNotes() string { return r.b.TastingNotes }
@@ -214,7 +214,7 @@ type fermenterResolver struct {
 	f worrywort.Fermenter
 }
 
-func (r *fermenterResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.f.ID)) }
+func (r *fermenterResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.f.Id)) }
 func (r *fermenterResolver) CreatedAt() string { return dateString(r.f.CreatedAt) }
 func (r *fermenterResolver) UpdatedAt() string { return dateString(r.f.UpdatedAt) }
 
@@ -226,7 +226,7 @@ type temperatureSensorResolver struct {
 	t worrywort.TemperatureSensor
 }
 
-func (r *temperatureSensorResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.t.ID)) }
+func (r *temperatureSensorResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.t.Id)) }
 func (r *temperatureSensorResolver) CreatedAt() string { return dateString(r.t.CreatedAt) }
 func (r *temperatureSensorResolver) UpdatedAt() string { return dateString(r.t.UpdatedAt) }
 
@@ -241,7 +241,7 @@ type temperatureMeasurementResolver struct {
 	m worrywort.TemperatureMeasurement
 }
 
-func (r *temperatureMeasurementResolver) ID() graphql.ID    { return graphql.ID(r.m.ID) }
+func (r *temperatureMeasurementResolver) ID() graphql.ID    { return graphql.ID(r.m.Id) }
 func (r *temperatureMeasurementResolver) CreatedAt() string { return dateString(r.m.CreatedAt) }
 func (r *temperatureMeasurementResolver) UpdatedAt() string { return dateString(r.m.UpdatedAt) }
 

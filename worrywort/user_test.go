@@ -12,7 +12,7 @@ func TestNewUser(t *testing.T) {
 	updatedAt := time.Now()
 	u := NewUser(1, "user@example.com", "Justin", "Michalicek", createdAt, updatedAt)
 
-	expectedUser := User{ID: 1, Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek",
+	expectedUser := User{Id: 1, Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek",
 		CreatedAt: createdAt, UpdatedAt: updatedAt}
 	if u != expectedUser {
 		t.Errorf("Expected:\n\n%v\n\nGot:\n\n%v", expectedUser, u)
@@ -63,7 +63,7 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 	//func TestLookupUser(t *testing.T) {
 	t.Run("TestLookupUser", func(t *testing.T) {
 		t.Run("Test valid user id returns user", func(t *testing.T) {
-			actual, err := LookupUser(user.ID, db)
+			actual, err := LookupUser(user.Id, db)
 
 			if err != nil {
 				t.Errorf("LookupUser() returned error %v", err)
