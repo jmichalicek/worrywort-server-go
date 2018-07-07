@@ -38,7 +38,7 @@
     "relay",
     "trace"
   ]
-  revision = "152a9ba90aecac857e76720736ddfddd39b69328"
+  revision = "bb9738501bd42a6536227b96068349b814379d6e"
 
 [[projects]]
   branch = "master"
@@ -47,7 +47,7 @@
     ".",
     "reflectx"
   ]
-  revision = "cf35089a197953c69420c8d0cecda90809764b1d"
+  revision = "0dae4fefe7c0e190f7b5a78dac28a1c82cc8d849"
 
 [[projects]]
   branch = "master"
@@ -56,7 +56,7 @@
     ".",
     "oid"
   ]
-  revision = "88edab0803230a3898347e77b474f8c1820a1f20"
+  revision = "90697d60dd844d5ef6ff15135d0203f65d2f53b8"
 
 [[projects]]
   name = "github.com/opentracing/opentracing-go"
@@ -75,17 +75,17 @@
     "bcrypt",
     "blowfish"
   ]
-  revision = "91a49db82a88618983a78a06c1cbd4e00ab749ab"
+  revision = "a49355c7e3f8fe157a85be2f77e6e269a0f89602"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
   packages = ["context"]
-  revision = "22ae77b79946ea320088417e4d50825671d82d57"
+  revision = "32a936f46389aa10549d60bd7833e54b01685d09"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8f0b5cd88e75264171c368481521b27f9b92ebf1e5b998383cf2f4d0734aba5c"
+  inputs-digest = "b4fa402efc3747d6699d3b38282fee82bddde71ecdae7a79b11d6761bd06cd9d"
   solver-name = "gps-cdcl"
   solver-version = 1
