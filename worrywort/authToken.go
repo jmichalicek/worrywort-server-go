@@ -47,7 +47,7 @@ func (t AuthToken) Save(db *sqlx.DB) error {
 	// TODO: May change the name of this table as it suggests a joining table.
 	if t.CreatedAt.IsZero() {
 		query := db.Rebind(`INSERT INTO user_authtokens (token_id, token, expires_at, updated_at, scope, user_id) VALUES (?, ?, ?, ?, ?, ?)`)
-		_, err := db.Exec(query, t.Id, t.Token, t.ExpiresAt, time.Now(), t.Scope, t.User.ID)
+		_, err := db.Exec(query, t.Id, t.Token, t.ExpiresAt, time.Now(), t.Scope, t.User.Id)
 		if err != nil {
 			return err
 		}

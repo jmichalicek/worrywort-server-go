@@ -76,7 +76,7 @@ func (b Batch) StrictEqual(other Batch) bool {
 		b.TastingNotes == other.TastingNotes && b.VolumeUnits == other.VolumeUnits &&
 		b.VolumeInFermenter == other.VolumeInFermenter && b.VolumeBoiled == other.VolumeBoiled &&
 		b.OriginalGravity == other.OriginalGravity && b.FinalGravity == other.FinalGravity &&
-		b.RecipeURL == other.RecipeURL && b.CreatedBy.ID == other.CreatedBy.ID &&
+		b.RecipeURL == other.RecipeURL && b.CreatedBy.Id == other.CreatedBy.Id &&
 		b.MaxTemperature == other.MaxTemperature && b.MinTemperature == other.MinTemperature &&
 		b.AverageTemperature == other.AverageTemperature &&
 		b.BrewedDate.Equal(other.BrewedDate) && b.BottledDate.Equal(other.BottledDate) &&
@@ -132,7 +132,7 @@ func FindBatch(params map[string]interface{}, db *sqlx.DB) (*Batch, error) {
 	return &b, nil
 }
 
-// Save the User to the database.  If User.ID() is 0
+// Save the User to the database.  If User.Id() is 0
 // then an insert is performed, otherwise an update on the User matching that id.
 func SaveBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	// TODO: TEST CASE
@@ -158,7 +158,7 @@ func InsertBatch(db *sqlx.DB, b Batch) (Batch, error) {
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at`)
 	// TODO: Make the dates strings for sql to be happy
 	err := db.QueryRow(
-		query, b.CreatedBy.ID, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
+		query, b.CreatedBy.Id, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
 		b.VolumeBoiled, b.VolumeInFermenter, b.VolumeUnits, b.OriginalGravity, b.FinalGravity, b.RecipeURL,
 		b.MaxTemperature, b.MinTemperature, b.AverageTemperature).Scan(&batchId, &createdAt, &updatedAt)
 	if err != nil {
@@ -185,7 +185,7 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 		original_gravity = ?, final_gravity = ?, recipe_url = ?, max_temperature = ?, min_temperature = ?,
 		average_temperature = ?, updated_at = NOW() WHERE id = ?) RETURNING updated_at`)
 	err := db.QueryRow(
-		query, b.CreatedBy.ID, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
+		query, b.CreatedBy.Id, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
 		b.VolumeBoiled, b.VolumeInFermenter, b.VolumeUnits, b.OriginalGravity, b.FinalGravity, b.RecipeURL,
 		b.MaxTemperature, b.MinTemperature, b.AverageTemperature).Scan(&updatedAt)
 	if err != nil {
@@ -215,7 +215,7 @@ func BatchesForUser(db *sqlx.DB, u User, count *int, after *int) (*[]Batch, erro
 	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batches b LEFT JOIN users u on u.id = b.created_by_user_id ` +
 		`WHERE created_by_user_id = ? `
 
-	queryArgs = append(queryArgs, u.ID)
+	queryArgs = append(queryArgs, u.Id)
 	if after != nil {
 		q = q + ` and id > ?`
 		queryArgs = append(queryArgs, *after)

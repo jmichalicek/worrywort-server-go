@@ -117,7 +117,7 @@ func TestLoginMutation(t *testing.T) {
 			t.Errorf("Expected auth token with id %s to be saved to database", tokenId)
 		}
 
-		if newToken.User.ID != user.ID {
+		if newToken.User.Id != user.Id {
 			t.Errorf("Expected auth token to be associated with user %v but it is associated with %v", user, newToken.User)
 		}
 	})

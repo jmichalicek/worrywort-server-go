@@ -54,7 +54,7 @@ func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*ba
 	var err error
 	batchArgs := make(map[string]interface{})
 	// TODO: Or if batch is publicly readable by anyone?
-	batchArgs["created_by_user_id"] = u.ID
+	batchArgs["created_by_user_id"] = u.Id
 	batchArgs["id"], err = strconv.ParseInt(string(args.ID), 10, 0)
 
 	if err != nil {
@@ -138,7 +138,7 @@ type userResolver struct {
 	u worrywort.User
 }
 
-func (r *userResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.u.ID)) }
+func (r *userResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.u.Id)) }
 func (r *userResolver) FirstName() string { return r.u.FirstName }
 func (r *userResolver) LastName() string  { return r.u.LastName }
 func (r *userResolver) Email() string     { return r.u.Email }

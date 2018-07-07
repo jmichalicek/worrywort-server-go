@@ -110,7 +110,7 @@ func TestFindBatch(t *testing.T) {
 	}
 
 	batchArgs := make(map[string]interface{})
-	batchArgs["created_by_user_id"] = u.ID
+	batchArgs["created_by_user_id"] = u.Id
 	batchArgs["id"] = b.ID
 	found, err := FindBatch(batchArgs, db)
 	if err != nil {
