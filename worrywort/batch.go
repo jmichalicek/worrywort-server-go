@@ -283,9 +283,9 @@ type TemperatureMeasurement struct {
 	Temperature       float64
 	Units             TemperatureUnitType
 	TimeRecorded      time.Time // when the measurement was recorded
-	Batch             Batch
+	Batch             *Batch
 	TemperatureSensor TemperatureSensor
-	Fermenter         Fermenter
+	Fermenter         *Fermenter
 
 	// not sure createdBy is a useful name in this case vs just `user` but its consistent
 	CreatedBy User
@@ -295,8 +295,8 @@ type TemperatureMeasurement struct {
 	UpdatedAt time.Time
 }
 
-func NewTemperatureMeasurement(id string, temperature float64, units TemperatureUnitType, batch Batch,
-	temperatureSensor TemperatureSensor, fermenter Fermenter, timeRecorded, createdAt, updatedAt time.Time, createdBy User) TemperatureMeasurement {
+func NewTemperatureMeasurement(id string, temperature float64, units TemperatureUnitType, batch *Batch,
+	temperatureSensor TemperatureSensor, fermenter *Fermenter, timeRecorded, createdAt, updatedAt time.Time, createdBy User) TemperatureMeasurement {
 	return TemperatureMeasurement{Id: id, Temperature: temperature, Units: units, Batch: batch,
 		TemperatureSensor: temperatureSensor, Fermenter: fermenter, TimeRecorded: timeRecorded, CreatedAt: createdAt,
 		UpdatedAt: updatedAt, CreatedBy: createdBy}

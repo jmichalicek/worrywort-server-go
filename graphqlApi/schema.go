@@ -71,4 +71,26 @@ var Schema = `
 		updatedAt: String!
 		createdBy: User
 	}
+
+	type Fermenter {
+		id: ID!
+	}
+
+	type TemperatureSensor {
+		id: ID!
+		name: String
+		createdBy: User
+	}
+
+	type TemperatureMeasurement {
+		id: ID!
+		temeperature: Float!
+		units: TemperatureUnit!
+		TimeRecorded: String!
+		Batch: Batch
+		TemperatureSensor: TemperatureSensor!
+		Fermenter: Fermenter
+	}
 	`
+
+// TODO: Make a DateTime type for the various datetimes

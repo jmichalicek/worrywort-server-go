@@ -126,7 +126,7 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 	tempId := "REMOVEME"
 	// TODO: This needs to save and THAT is whre the uuid should really be generated
 	m := worrywort.NewTemperatureMeasurement(
-		tempId, 64.26, worrywort.FAHRENHEIT, b, therm, f, timeRecorded, createdAt, updatedAt, u)
+		tempId, 64.26, worrywort.FAHRENHEIT, &b, therm, &f, timeRecorded, createdAt, updatedAt, u)
 	return &temperatureMeasurementResolver{m: m}, nil
 }
 
@@ -241,9 +241,28 @@ type temperatureMeasurementResolver struct {
 	m worrywort.TemperatureMeasurement
 }
 
-func (r *temperatureMeasurementResolver) ID() graphql.ID    { return graphql.ID(r.m.Id) }
-func (r *temperatureMeasurementResolver) CreatedAt() string { return dateString(r.m.CreatedAt) }
-func (r *temperatureMeasurementResolver) UpdatedAt() string { return dateString(r.m.UpdatedAt) }
+func (r *temperatureMeasurementResolver) ID() graphql.ID                       { return graphql.ID(r.m.Id) }
+func (r *temperatureMeasurementResolver) CreatedAt() string                    { return dateString(r.m.CreatedAt) }
+func (r *temperatureMeasurementResolver) UpdatedAt() string                    { return dateString(r.m.UpdatedAt) }
+func (r *temperatureMeasurementResolver) Temperature() float64                 { return r.m.Temperature }
+func (r *temperatureMeasurementResolver) Units() worrywort.TemperatureUnitType { return r.m.Units }
+func (r *temperatureMeasurementResolver) Batch() *batchResolver {
+	if r.m.Batch != nil {
+		return &batchResolver{b: *(r.m.Batch)}
+	}
+	return nil
+}
+
+func (r *temperatureMeasurementResolver) TemperatureSensor() temperatureSensorResolver {
+	return temperatureSensorResolver{t: r.m.TemperatureSensor}
+}
+
+func (r *temperatureMeasurementResolver) Fermenter() *fermenterResolver {
+	if r.m.Fermenter != nil {
+		return &fermenterResolver{f: *(r.m.Fermenter)}
+	}
+	return nil
+}
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
 func (r *temperatureMeasurementResolver) CreatedBy() *userResolver {
