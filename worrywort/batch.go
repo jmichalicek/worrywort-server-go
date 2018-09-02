@@ -180,7 +180,7 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	var updatedAt time.Time
 
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
-	query := db.Rebind(`UPDATE users SET created_by_user_id = ?, name = ?, brew_notes = ?, tasting_notes = ?,
+	query := db.Rebind(`UPDATE batches SET created_by_user_id = ?, name = ?, brew_notes = ?, tasting_notes = ?,
 		brewed_date = ?, bottled_date = ?, volume_boiled = ?, volume_in_fermenter = ?, volume_units = ?,
 		original_gravity = ?, final_gravity = ?, recipe_url = ?, max_temperature = ?, min_temperature = ?,
 		average_temperature = ?, updated_at = NOW() WHERE id = ?) RETURNING updated_at`)
@@ -300,4 +300,60 @@ func NewTemperatureMeasurement(id string, temperature float64, units Temperature
 	return TemperatureMeasurement{Id: id, Temperature: temperature, Units: units, Batch: batch,
 		TemperatureSensor: temperatureSensor, Fermenter: fermenter, RecordedAt: recordedAt, CreatedAt: createdAt,
 		UpdatedAt: updatedAt, CreatedBy: createdBy}
+}
+
+// Save the User to the database.  If User.Id() is 0
+// then an insert is performed, otherwise an update on the User matching that id.
+func SaveTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (TemperatureMeasurement, error) {
+	if tm.Id != "" {
+		return UpdateTemperatureMeasurement(db, tm)
+	} else {
+		return InsertTemperatureMeasurement(db, tm)
+	}
+}
+
+// Inserts the passed in User into the database.
+// Returns a new copy of the user with any updated values set upon success.
+// Returns the same, unmodified User and errors on error
+func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Batch, error) {
+	var updatedAt time.Time
+	var createdAt time.Time
+	var measurementId string
+
+	query := db.Rebind(`INSERT INTO temperature_measurements (created_by_user_id, batch_id, temperature_sensor_id,
+		fermenter_id, temperature, units, recorded_at, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at`)
+	err := db.QueryRow(
+		query, tm.CreatedBy.Id, tm.Batch.Id, tm.TemperatureSensor.Id, tm.Fermenter.Id, tm.Temperature, tm.Units,
+		tm.RecordedAt, tm.CreatedAt, tm.UpdatedAt).Scan(&measurementId, &createdAt, &updatedAt)
+	if err != nil {
+		return tm, err
+	}
+
+	// TODO: Can I just assign these directly now in Scan()?
+	tm.Id = measurementId
+	tm.CreatedAt = createdAt
+	tm.UpdatedAt = updatedAt
+	return tm, nil
+}
+
+// Saves the passed in user to the database using an UPDATE
+// Returns a new copy of the user with any updated values set upon success.
+// Returns the same, unmodified User and errors on error
+func UpdateTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Batch, error) {
+	// TODO: TEST CASE
+	var updatedAt time.Time
+
+	// TODO: Use introspection and reflection to set these rather than manually managing this?
+	query := db.Rebind(`UPDATE temperature_measurements SET ccreated_by_user_id = ?, batch_id = ?,
+		temperature_sensor_id = ?, fermenter_id = ?, temperature = ?, units = ?, recorded_at = ?, created_at = ?,
+		updated_at = NOW() WHERE id = ?) RETURNING updated_at`)
+	err := db.QueryRow(
+		query, tm.CreatedBy.Id, tm.Batch.Id, tm.TemperatureSensor.Id, tm.Fermenter.Id, tm.Temperature, tm.Units,
+		tm.RecordedAt, tm.CreatedAt, tm.UpdatedAt).Scan(&updatedAt)
+	if err != nil {
+		return b, err
+	}
+	tm.UpdatedAt = updatedAt
+	return tm, nil
 }
