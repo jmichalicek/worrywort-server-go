@@ -84,12 +84,12 @@ var Schema = `
 
 	type TemperatureMeasurement {
 		id: ID!
-		temeperature: Float!
+		temperature: Float!
 		units: TemperatureUnit!
-		TimeRecorded: String!
+		recordedAt: String!
 		Batch: Batch
-		TemperatureSensor: TemperatureSensor!
-		Fermenter: Fermenter
+		temperatureSensor: TemperatureSensor!
+		fermenter: Fermenter
 	}
 	`
 

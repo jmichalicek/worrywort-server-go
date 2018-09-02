@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS fermenters(
   updated_at timestamp with time zone
 );
 
-CREATE TABLE IF NOT EXISTS thermometers(
+CREATE TABLE IF NOT EXISTS temperature_sensors(
   id SERIAL PRIMARY KEY,
   created_by_user_id integer REFERENCES users (id) ON DELETE SET NULL,
   name text NOT NULL DEFAULT '',
@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS temperature_measurements(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   created_by_user_id integer REFERENCES users (id) ON DELETE SET NULL,
   batch_id integer REFERENCES batches (id) ON DELETE SET NULL,
-  thermometer_id integer REFERENCES thermometers (id) ON DELETE SET NULL,
+  temperature_sensor_id integer REFERENCES temperature_sensors (id) ON DELETE SET NULL,
   fermenter_id integer REFERENCES fermenters (id) ON DELETE SET NULL,
   temperature double precision NOT NULL DEFAULT 0.0,
   units integer NOT NULL DEFAULT 0,

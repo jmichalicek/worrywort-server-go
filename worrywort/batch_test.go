@@ -67,12 +67,15 @@ func TestNewTemperatureMeasurement(t *testing.T) {
 	updatedAt := time.Now()
 	timeRecorded := time.Now()
 	expected := TemperatureMeasurement{Id: "shouldbeauuid", Temperature: 64.26, Units: FAHRENHEIT,
-		TimeRecorded: timeRecorded, Batch: &b, TemperatureSensor: therm, Fermenter: &f, CreatedBy: u, CreatedAt: createdAt,
+		RecordedAt: timeRecorded, Batch: &b, TemperatureSensor: &therm, Fermenter: &f, CreatedBy: u, CreatedAt: createdAt,
 		UpdatedAt: updatedAt}
 
 	m := NewTemperatureMeasurement(
-		"shouldbeauuid", 64.26, FAHRENHEIT, &b, therm, &f, timeRecorded, createdAt, updatedAt, u)
+		"shouldbeauuid", 64.26, FAHRENHEIT, &b, &therm, &f, timeRecorded, createdAt, updatedAt, u)
 
+	// if !reflect.DeepEqual(NewTemperatureMeasurement, expected) {
+	// 	t.Errorf("Expected:\n%v\n\nGot:\n%v\n", expected, m)
+	// }
 	if m != expected {
 		t.Errorf("Expected:\n%v\n\nGot:\n%v\n", expected, m)
 	}

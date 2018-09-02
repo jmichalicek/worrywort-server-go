@@ -307,7 +307,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 		time.Now(), time.Now())
 	timeRecorded := time.Now().Add(time.Hour * time.Duration(-1))
 	measurement := worrywort.NewTemperatureMeasurement(
-		"shouldbeauuid", 64.26, worrywort.FAHRENHEIT, &batch, sensor, &fermenter, timeRecorded, time.Now(), time.Now(), u)
+		"shouldbeauuid", 64.26, worrywort.FAHRENHEIT, &batch, &sensor, &fermenter, timeRecorded, time.Now(), time.Now(), u)
 	resolver := temperatureMeasurementResolver{m: measurement}
 
 	t.Run("ID()", func(t *testing.T) {
@@ -366,7 +366,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 
 	t.Run("TemperatureSensor()", func(t *testing.T) {
 		ts := resolver.TemperatureSensor()
-		expected := temperatureSensorResolver{t: measurement.TemperatureSensor}
+		expected := temperatureSensorResolver{t: *(measurement.TemperatureSensor)}
 		if expected != ts {
 			t.Errorf("\nExpected: %v\ngot: %v", expected, ts)
 		}

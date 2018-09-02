@@ -235,18 +235,18 @@ func BatchesForUser(db *sqlx.DB, u User, count *int, after *int) (*[]Batch, erro
 type Fermenter struct {
 	// I could use name + user composite key for pk on these in the db, but I'm probably going to be lazy
 	// and take the standard ORM-ish route and use an int or uuid  Int for now.
-	Id            int
-	Name          string
-	Description   string
-	Volume        float64
-	VolumeUnits   VolumeUnitType
-	FermenterType FermenterStyleType
-	IsActive      bool
-	IsAvailable   bool
-	CreatedBy     User
+	Id            int                `db:"id"`
+	Name          string             `db:"name"`
+	Description   string             `db:"description"`
+	Volume        float64            `db:"volume"`
+	VolumeUnits   VolumeUnitType     `db:"volume_units"`
+	FermenterType FermenterStyleType `db:"fermenter_type"`
+	IsActive      bool               `db:"is_active"`
+	IsAvailable   bool               `db:"is_available"`
+	CreatedBy     User               `db:"created_by,prefix=u"`
 
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
 
 func NewFermenter(id int, name, description string, volume float64, volumeUnits VolumeUnitType,
@@ -263,12 +263,12 @@ func NewFermenter(id int, name, description string, volume float64, volumeUnits 
 // TODO: This may also want extra metadata such as model or type?  That is probably
 // going too far for now, so keep it simple.
 type TemperatureSensor struct {
-	Id        int
-	Name      string
-	CreatedBy User
+	Id        int    `db:"id"`
+	Name      string `db:"name"`
+	CreatedBy User   `db:"created_by,prefix=u"`
 
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
 
 // Returns a new TemperatureSensor
@@ -279,25 +279,25 @@ func NewTemperatureSensor(id int, name string, createdBy User, createdAt, update
 // A single recorded temperature measurement from a temperatureSensor
 // This may get some tweaking to play nicely with data stored in Postgres or Influxdb
 type TemperatureMeasurement struct {
-	Id                string // use a uuid
-	Temperature       float64
-	Units             TemperatureUnitType
-	TimeRecorded      time.Time // when the measurement was recorded
-	Batch             *Batch
-	TemperatureSensor TemperatureSensor
-	Fermenter         *Fermenter
+	Id                string              `db:"id"` // use a uuid
+	Temperature       float64             `db:"temperature"`
+	Units             TemperatureUnitType `db:"units"`
+	RecordedAt        time.Time           `db:"recorded_at"` // when the measurement was recorded
+	Batch             *Batch              `db:"batch,prefix=b"`
+	TemperatureSensor *TemperatureSensor  `db:"temperature_sensor,prefix=ts"`
+	Fermenter         *Fermenter          `db:"fermenter,prefix=f"`
 
 	// not sure createdBy is a useful name in this case vs just `user` but its consistent
-	CreatedBy User
+	CreatedBy User `db:"created_by,prefix=u"`
 
 	// when the record was created
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
 
 func NewTemperatureMeasurement(id string, temperature float64, units TemperatureUnitType, batch *Batch,
-	temperatureSensor TemperatureSensor, fermenter *Fermenter, timeRecorded, createdAt, updatedAt time.Time, createdBy User) TemperatureMeasurement {
+	temperatureSensor *TemperatureSensor, fermenter *Fermenter, recordedAt, createdAt, updatedAt time.Time, createdBy User) TemperatureMeasurement {
 	return TemperatureMeasurement{Id: id, Temperature: temperature, Units: units, Batch: batch,
-		TemperatureSensor: temperatureSensor, Fermenter: fermenter, TimeRecorded: timeRecorded, CreatedAt: createdAt,
+		TemperatureSensor: temperatureSensor, Fermenter: fermenter, RecordedAt: recordedAt, CreatedAt: createdAt,
 		UpdatedAt: updatedAt, CreatedBy: createdBy}
 }
