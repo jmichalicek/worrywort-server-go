@@ -315,7 +315,7 @@ func SaveTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempera
 // Inserts the passed in User into the database.
 // Returns a new copy of the user with any updated values set upon success.
 // Returns the same, unmodified User and errors on error
-func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Batch, error) {
+func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (TemperatureMeasurement, error) {
 	var updatedAt time.Time
 	var createdAt time.Time
 	var measurementId string
@@ -340,7 +340,7 @@ func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Batch
 // Saves the passed in user to the database using an UPDATE
 // Returns a new copy of the user with any updated values set upon success.
 // Returns the same, unmodified User and errors on error
-func UpdateTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Batch, error) {
+func UpdateTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (TemperatureMeasurement, error) {
 	// TODO: TEST CASE
 	var updatedAt time.Time
 
@@ -352,7 +352,7 @@ func UpdateTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Batch
 		query, tm.CreatedBy.Id, tm.Batch.Id, tm.TemperatureSensor.Id, tm.Fermenter.Id, tm.Temperature, tm.Units,
 		tm.RecordedAt, tm.CreatedAt, tm.UpdatedAt).Scan(&updatedAt)
 	if err != nil {
-		return b, err
+		return tm, err
 	}
 	tm.UpdatedAt = updatedAt
 	return tm, nil
