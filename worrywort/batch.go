@@ -180,7 +180,7 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	var updatedAt time.Time
 
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
-	query := db.Rebind(`UPDATE users SET created_by_user_id = ?, name = ?, brew_notes = ?, tasting_notes = ?,
+	query := db.Rebind(`UPDATE batches SET created_by_user_id = ?, name = ?, brew_notes = ?, tasting_notes = ?,
 		brewed_date = ?, bottled_date = ?, volume_boiled = ?, volume_in_fermenter = ?, volume_units = ?,
 		original_gravity = ?, final_gravity = ?, recipe_url = ?, max_temperature = ?, min_temperature = ?,
 		average_temperature = ?, updated_at = NOW() WHERE id = ?) RETURNING updated_at`)
@@ -235,18 +235,18 @@ func BatchesForUser(db *sqlx.DB, u User, count *int, after *int) (*[]Batch, erro
 type Fermenter struct {
 	// I could use name + user composite key for pk on these in the db, but I'm probably going to be lazy
 	// and take the standard ORM-ish route and use an int or uuid  Int for now.
-	Id            int
-	Name          string
-	Description   string
-	Volume        float64
-	VolumeUnits   VolumeUnitType
-	FermenterType FermenterStyleType
-	IsActive      bool
-	IsAvailable   bool
-	CreatedBy     User
+	Id            int                `db:"id"`
+	Name          string             `db:"name"`
+	Description   string             `db:"description"`
+	Volume        float64            `db:"volume"`
+	VolumeUnits   VolumeUnitType     `db:"volume_units"`
+	FermenterType FermenterStyleType `db:"fermenter_type"`
+	IsActive      bool               `db:"is_active"`
+	IsAvailable   bool               `db:"is_available"`
+	CreatedBy     User               `db:"created_by,prefix=u"`
 
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
 
 func NewFermenter(id int, name, description string, volume float64, volumeUnits VolumeUnitType,
@@ -263,12 +263,12 @@ func NewFermenter(id int, name, description string, volume float64, volumeUnits 
 // TODO: This may also want extra metadata such as model or type?  That is probably
 // going too far for now, so keep it simple.
 type TemperatureSensor struct {
-	Id        int
-	Name      string
-	CreatedBy User
+	Id        int    `db:"id"`
+	Name      string `db:"name"`
+	CreatedBy User   `db:"created_by,prefix=u"`
 
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
 
 // Returns a new TemperatureSensor
@@ -279,25 +279,81 @@ func NewTemperatureSensor(id int, name string, createdBy User, createdAt, update
 // A single recorded temperature measurement from a temperatureSensor
 // This may get some tweaking to play nicely with data stored in Postgres or Influxdb
 type TemperatureMeasurement struct {
-	Id                string // use a uuid
-	Temperature       float64
-	Units             TemperatureUnitType
-	TimeRecorded      time.Time // when the measurement was recorded
-	Batch             Batch
-	TemperatureSensor TemperatureSensor
-	Fermenter         Fermenter
+	Id                string              `db:"id"` // use a uuid
+	Temperature       float64             `db:"temperature"`
+	Units             TemperatureUnitType `db:"units"`
+	RecordedAt        time.Time           `db:"recorded_at"` // when the measurement was recorded
+	Batch             *Batch              `db:"batch,prefix=b"`
+	TemperatureSensor *TemperatureSensor  `db:"temperature_sensor,prefix=ts"`
+	Fermenter         *Fermenter          `db:"fermenter,prefix=f"`
 
 	// not sure createdBy is a useful name in this case vs just `user` but its consistent
-	CreatedBy User
+	CreatedBy User `db:"created_by,prefix=u"`
 
 	// when the record was created
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
 
-func NewTemperatureMeasurement(id string, temperature float64, units TemperatureUnitType, batch Batch,
-	temperatureSensor TemperatureSensor, fermenter Fermenter, timeRecorded, createdAt, updatedAt time.Time, createdBy User) TemperatureMeasurement {
+func NewTemperatureMeasurement(id string, temperature float64, units TemperatureUnitType, batch *Batch,
+	temperatureSensor *TemperatureSensor, fermenter *Fermenter, recordedAt, createdAt, updatedAt time.Time, createdBy User) TemperatureMeasurement {
 	return TemperatureMeasurement{Id: id, Temperature: temperature, Units: units, Batch: batch,
-		TemperatureSensor: temperatureSensor, Fermenter: fermenter, TimeRecorded: timeRecorded, CreatedAt: createdAt,
+		TemperatureSensor: temperatureSensor, Fermenter: fermenter, RecordedAt: recordedAt, CreatedAt: createdAt,
 		UpdatedAt: updatedAt, CreatedBy: createdBy}
+}
+
+// Save the User to the database.  If User.Id() is 0
+// then an insert is performed, otherwise an update on the User matching that id.
+func SaveTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (TemperatureMeasurement, error) {
+	if tm.Id != "" {
+		return UpdateTemperatureMeasurement(db, tm)
+	} else {
+		return InsertTemperatureMeasurement(db, tm)
+	}
+}
+
+// Inserts the passed in User into the database.
+// Returns a new copy of the user with any updated values set upon success.
+// Returns the same, unmodified User and errors on error
+func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (TemperatureMeasurement, error) {
+	var updatedAt time.Time
+	var createdAt time.Time
+	var measurementId string
+
+	query := db.Rebind(`INSERT INTO temperature_measurements (created_by_user_id, batch_id, temperature_sensor_id,
+		fermenter_id, temperature, units, recorded_at, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at`)
+	err := db.QueryRow(
+		query, tm.CreatedBy.Id, tm.Batch.Id, tm.TemperatureSensor.Id, tm.Fermenter.Id, tm.Temperature, tm.Units,
+		tm.RecordedAt, tm.CreatedAt, tm.UpdatedAt).Scan(&measurementId, &createdAt, &updatedAt)
+	if err != nil {
+		return tm, err
+	}
+
+	// TODO: Can I just assign these directly now in Scan()?
+	tm.Id = measurementId
+	tm.CreatedAt = createdAt
+	tm.UpdatedAt = updatedAt
+	return tm, nil
+}
+
+// Saves the passed in user to the database using an UPDATE
+// Returns a new copy of the user with any updated values set upon success.
+// Returns the same, unmodified User and errors on error
+func UpdateTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (TemperatureMeasurement, error) {
+	// TODO: TEST CASE
+	var updatedAt time.Time
+
+	// TODO: Use introspection and reflection to set these rather than manually managing this?
+	query := db.Rebind(`UPDATE temperature_measurements SET ccreated_by_user_id = ?, batch_id = ?,
+		temperature_sensor_id = ?, fermenter_id = ?, temperature = ?, units = ?, recorded_at = ?, created_at = ?,
+		updated_at = NOW() WHERE id = ?) RETURNING updated_at`)
+	err := db.QueryRow(
+		query, tm.CreatedBy.Id, tm.Batch.Id, tm.TemperatureSensor.Id, tm.Fermenter.Id, tm.Temperature, tm.Units,
+		tm.RecordedAt, tm.CreatedAt, tm.UpdatedAt).Scan(&updatedAt)
+	if err != nil {
+		return tm, err
+	}
+	tm.UpdatedAt = updatedAt
+	return tm, nil
 }

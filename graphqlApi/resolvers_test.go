@@ -300,43 +300,81 @@ func TestTemperatureSensorResolver(t *testing.T) {
 
 func TestTemperatureMeasurementResolver(t *testing.T) {
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	therm := worrywort.NewTemperatureSensor(1, "Therm1", u, time.Now(), time.Now())
-	b := worrywort.NewBatch(1, "Testing", time.Now(), time.Now(), 5, 4.5, worrywort.GALLON, 1.060, 1.020, u,
+	sensor := worrywort.NewTemperatureSensor(1, "Therm1", u, time.Now(), time.Now())
+	batch := worrywort.NewBatch(1, "Testing", time.Now(), time.Now(), 5, 4.5, worrywort.GALLON, 1.060, 1.020, u,
 		time.Now(), time.Now(), "Brew notes", "Taste notes", "http://example.org/beer")
-	f := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u,
+	fermenter := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u,
 		time.Now(), time.Now())
 	timeRecorded := time.Now().Add(time.Hour * time.Duration(-1))
-	m := worrywort.NewTemperatureMeasurement(
-		"shouldbeauuid", 64.26, worrywort.FAHRENHEIT, b, therm, f, timeRecorded, time.Now(), time.Now(), u)
-	r := temperatureMeasurementResolver{m: m}
+	measurement := worrywort.NewTemperatureMeasurement(
+		"shouldbeauuid", 64.26, worrywort.FAHRENHEIT, &batch, &sensor, &fermenter, timeRecorded, time.Now(), time.Now(), u)
+	resolver := temperatureMeasurementResolver{m: measurement}
 
 	t.Run("ID()", func(t *testing.T) {
-		var ID graphql.ID = r.ID()
-		expected := graphql.ID(m.Id)
+		var ID graphql.ID = resolver.ID()
+		expected := graphql.ID(measurement.Id)
 		if ID != expected {
 			t.Errorf("\nExpected: %v\ngot: %v", expected, ID)
 		}
 	})
 
 	t.Run("CreatedAt()", func(t *testing.T) {
-		var dt string = r.CreatedAt()
-		expected := m.CreatedAt.Format(time.RFC3339)
+		var dt string = resolver.CreatedAt()
+		expected := measurement.CreatedAt.Format(time.RFC3339)
 		if dt != expected {
 			t.Errorf("\nExpected: %v\ngot: %v", expected, dt)
 		}
 	})
 
 	t.Run("UpdatedAt()", func(t *testing.T) {
-		var dt string = r.UpdatedAt()
-		expected := m.UpdatedAt.Format(time.RFC3339)
+		var dt string = resolver.UpdatedAt()
+		expected := measurement.UpdatedAt.Format(time.RFC3339)
 		if dt != expected {
 			t.Errorf("\nExpected: %v\ngot %v", expected, dt)
 		}
 	})
 
+	t.Run("Temperature()", func(t *testing.T) {
+		temp := resolver.Temperature()
+		if measurement.Temperature != temp {
+			t.Errorf("\nExpected: %v\ngot: %v", measurement.Temperature, temp)
+		}
+	})
+
+	t.Run("Units()", func(t *testing.T) {
+		units := resolver.Units()
+		if measurement.Units != units {
+			t.Errorf("\nExpected: %v\ngot: %v", measurement.Units, units)
+		}
+	})
+
+	t.Run("Batch()", func(t *testing.T) {
+		b := resolver.Batch()
+		expected := batchResolver{b: *(measurement.Batch)}
+		if expected != *b {
+			t.Errorf("\nExpected: %v\ngot: %v", expected, *b)
+		}
+	})
+
+	t.Run("Fermenter()", func(t *testing.T) {
+		f := resolver.Fermenter()
+		expected := fermenterResolver{f: *(measurement.Fermenter)}
+		if expected != *f {
+			t.Errorf("\nExpected: %v\ngot: %v", expected, *f)
+		}
+	})
+
+	t.Run("TemperatureSensor()", func(t *testing.T) {
+		ts := resolver.TemperatureSensor()
+		expected := temperatureSensorResolver{t: *(measurement.TemperatureSensor)}
+		if expected != ts {
+			t.Errorf("\nExpected: %v\ngot: %v", expected, ts)
+		}
+	})
+
 	t.Run("CreatedBy()", func(t *testing.T) {
-		var actual *userResolver = r.CreatedBy()
-		expected := userResolver{u: m.CreatedBy}
+		var actual *userResolver = resolver.CreatedBy()
+		expected := userResolver{u: measurement.CreatedBy}
 		if *actual != expected {
 			t.Errorf("\nExpected: %v\ngot %v", expected, actual)
 		}
