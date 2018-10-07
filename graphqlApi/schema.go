@@ -87,9 +87,17 @@ var Schema = `
 		temperature: Float!
 		units: TemperatureUnit!
 		recordedAt: String!
-		Batch: Batch
+		batch: Batch
 		temperatureSensor: TemperatureSensor!
 		fermenter: Fermenter
+	}
+
+	input TemperatureMeasurementCreateInput {
+		temperature: Float!
+		recordedAt: String!
+		temperatureSensorId: ID!
+		units: TemperatureUnit!
+		batchId: ID
 	}
 	`
 

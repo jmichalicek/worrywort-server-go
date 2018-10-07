@@ -280,7 +280,25 @@ type authTokenResolver struct {
 func (a *authTokenResolver) ID() graphql.ID { return graphql.ID(a.t.ForAuthenticationHeader()) }
 func (a *authTokenResolver) Token() string  { return a.t.ForAuthenticationHeader() }
 
+
+// Input types
+// Create a temperatureMeasurement... review docs on how to really implement this
+type temperatureMeasurementCreateInput struct {
+	BatchId graphql.ID
+	RecordedAt float64
+	Temperature float64
+	TemperatureSensorId graphql.ID
+	Units worrywort.TemperatureUnitType
+}
+
+
 // Mutations
+
+// Create a temperature measurementId
+func (r *Resolver) temperatureMeasurementCreate(ctx context.Context, input temperatureMeasurementCreateInput) (*temperatureMeasurementResolver, error) {
+	// TODO: Actually do the stuff
+	return nil, nil
+}
 
 // TODO: Something here is not working.  It builds, but blows up.  Cannot tell for sure if it is
 // due to returning an error or maybe something in middleware
