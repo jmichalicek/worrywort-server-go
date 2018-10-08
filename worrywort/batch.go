@@ -295,11 +295,34 @@ type TemperatureMeasurement struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
-func NewTemperatureMeasurement(id string, temperature float64, units TemperatureUnitType, batch *Batch,
-	temperatureSensor *TemperatureSensor, fermenter *Fermenter, recordedAt, createdAt, updatedAt time.Time, createdBy User) TemperatureMeasurement {
-	return TemperatureMeasurement{Id: id, Temperature: temperature, Units: units, Batch: batch,
-		TemperatureSensor: temperatureSensor, Fermenter: fermenter, RecordedAt: recordedAt, CreatedAt: createdAt,
-		UpdatedAt: updatedAt, CreatedBy: createdBy}
+// func NewTemperatureMeasurement(id string, temperature float64, units TemperatureUnitType, batch *Batch,
+// 	temperatureSensor *TemperatureSensor, fermenter *Fermenter, recordedAt, createdAt, updatedAt time.Time, createdBy User) TemperatureMeasurement {
+func NewTemperatureMeasurement(params map[string]interface{}) TemperatureMeasurement {
+	// Not very go-like, but better than passing a million parameters all the time.
+	// TODO: return error also?
+	m := TemperatureMeasurement{}
+	var ok bool
+	for k, v := range params {
+		switch k {
+		case "Id":
+			m.Id, ok = v.(string)
+		case "Temperature":
+			m.Temperature, ok = v.(float64)
+		case "Units":
+			m.Units, ok = v.(TemperatureUnitType)
+		case "RecordedAt":
+			m.RecordedAt, ok = v.(time.Time)
+		case "Batch":
+			m.Batch, ok = v.(*Batch)
+		case "TemperatureSensor":
+			m.TemperatureSensor, ok = v.(*TemperatureSensor)
+		case "Fermenter":
+			m.Fermenter, ok = v.(*Fermenter)
+		case "CreatedBy":
+			m.CreatedBy, ok = v.(User)
+		}
+	}
+	return m
 }
 
 // Save the User to the database.  If User.Id() is 0
