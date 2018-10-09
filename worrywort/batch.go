@@ -4,6 +4,7 @@ package worrywort
 
 import (
 	// "net/url"
+	"errors"
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	"strings"
@@ -31,6 +32,21 @@ const (
 	CARBOY
 	CONICAL
 )
+
+// TODO: Is this a good idea?  An error for invalid values on functions which take
+// a map[string]interface{}
+// This could be its own error type with field name, field value, and an Error() which
+// formats nicely...
+var TypeError error = errors.New("Invalid type specified")
+
+// See ideas https://blog.golang.org/error-handling-and-go
+// in section about the json package
+// type MapParamTypeError struct {
+// 	field    string // the invalid field name
+// 	value interface{} // the invalid value
+// }
+
+func (e *SyntaxError) Error() string { return e.msg }
 
 // Should these be exportable if I am going to use factory methods?  NewBatch() etc?
 // as long as I provide a Batcher interface or whatever?
@@ -295,12 +311,11 @@ type TemperatureMeasurement struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
-// func NewTemperatureMeasurement(id string, temperature float64, units TemperatureUnitType, batch *Batch,
-// 	temperatureSensor *TemperatureSensor, fermenter *Fermenter, recordedAt, createdAt, updatedAt time.Time, createdBy User) TemperatureMeasurement {
-func NewTemperatureMeasurement(params map[string]interface{}) TemperatureMeasurement {
+func NewTemperatureMeasurement(params map[string]interface{}) (TemperatureMeasurement, map[string]error) {
 	// Not very go-like, but better than passing a million parameters all the time.
-	// TODO: return error also?
 	m := TemperatureMeasurement{}
+	err := []error{}
+	var errs = map[string]error{}
 	var ok bool
 	for k, v := range params {
 		switch k {
@@ -320,9 +335,17 @@ func NewTemperatureMeasurement(params map[string]interface{}) TemperatureMeasure
 			m.Fermenter, ok = v.(*Fermenter)
 		case "CreatedBy":
 			m.CreatedBy, ok = v.(User)
+		case "CreatedAt":
+			m.CreatedAt, ok = v.(time.Time)
+		case "UpdatedAt":
+			m.UpdatedAt, ok = v.(time.Time)
+		}
+		if !ok {
+			errs[k] = TypeError
 		}
 	}
-	return m
+
+	return m, errs
 }
 
 // Save the User to the database.  If User.Id() is 0

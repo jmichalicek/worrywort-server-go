@@ -306,8 +306,9 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	fermenter := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u,
 		time.Now(), time.Now())
 	timeRecorded := time.Now().Add(time.Hour * time.Duration(-1))
-	measurement := worrywort.NewTemperatureMeasurement(
-		"shouldbeauuid", 64.26, worrywort.FAHRENHEIT, &batch, &sensor, &fermenter, timeRecorded, time.Now(), time.Now(), u)
+	params := map[string]interface{}{"Id": "shouldbeauuid", "Temperature": 64.26, "Units": worrywort.FAHRENHEIT, "RecordedAt": timeRecorded,
+		"Batch": &batch, "TemperatureSensor": &sensor, "Fermenter": &fermenter, "CreatedBy": u, "CreatedAt": time.Now(), "UpdatedAt": time.Now()}
+	measurement, _ := worrywort.NewTemperatureMeasurement(params)
 	resolver := temperatureMeasurementResolver{m: measurement}
 
 	t.Run("ID()", func(t *testing.T) {
