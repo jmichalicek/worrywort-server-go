@@ -39,15 +39,6 @@ const (
 // formats nicely...
 var TypeError error = errors.New("Invalid type specified")
 
-// See ideas https://blog.golang.org/error-handling-and-go
-// in section about the json package
-// type MapParamTypeError struct {
-// 	field    string // the invalid field name
-// 	value interface{} // the invalid value
-// }
-
-func (e *SyntaxError) Error() string { return e.msg }
-
 // Should these be exportable if I am going to use factory methods?  NewBatch() etc?
 // as long as I provide a Batcher interface or whatever?
 type Batch struct {
@@ -309,43 +300,6 @@ type TemperatureMeasurement struct {
 	// when the record was created
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
-}
-
-func NewTemperatureMeasurement(params map[string]interface{}) (TemperatureMeasurement, map[string]error) {
-	// Not very go-like, but better than passing a million parameters all the time.
-	m := TemperatureMeasurement{}
-	err := []error{}
-	var errs = map[string]error{}
-	var ok bool
-	for k, v := range params {
-		switch k {
-		case "Id":
-			m.Id, ok = v.(string)
-		case "Temperature":
-			m.Temperature, ok = v.(float64)
-		case "Units":
-			m.Units, ok = v.(TemperatureUnitType)
-		case "RecordedAt":
-			m.RecordedAt, ok = v.(time.Time)
-		case "Batch":
-			m.Batch, ok = v.(*Batch)
-		case "TemperatureSensor":
-			m.TemperatureSensor, ok = v.(*TemperatureSensor)
-		case "Fermenter":
-			m.Fermenter, ok = v.(*Fermenter)
-		case "CreatedBy":
-			m.CreatedBy, ok = v.(User)
-		case "CreatedAt":
-			m.CreatedAt, ok = v.(time.Time)
-		case "UpdatedAt":
-			m.UpdatedAt, ok = v.(time.Time)
-		}
-		if !ok {
-			errs[k] = TypeError
-		}
-	}
-
-	return m, errs
 }
 
 // Save the User to the database.  If User.Id() is 0

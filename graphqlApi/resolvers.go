@@ -9,8 +9,6 @@ import (
 	"log"
 	// "os"
 	"database/sql"
-	"errors"
-	"fmt"
 	"strconv"
 	"time"
 )
@@ -128,24 +126,8 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 
 	tempId := "REMOVEME"
 	// TODO: This needs to save and THAT is whre the uuid should really be generated
-	params := map[string]interface{}{"Id": tempId, "Temperature": 64.26, "Units": worrywort.FAHRENHEIT, "RecordedAt": timeRecorded,
-		"Batch": &b, "TemperatureSensor": &therm, "Fermenter": &f, "CreatedBy": u, "CreatedAt": createdAt, "UpdatedAt": updatedAt}
-	m, errs := worrywort.NewTemperatureMeasurement(params)
-	// m, errs := worrywort.NewTemperatureMeasurement(
-	// 	tempId, 64.26, worrywort.FAHRENHEIT, &b, &therm, &f, timeRecorded, createdAt, updatedAt, u)
-	if len(errs) > 0 {
-		// TODO: ERROR LOGGING and then a guaranteed user friendly error?  Current errors will only be
-		// typecasting errors, which are programmer errors, not user error, at this point.
-		// TODO: figure out how to return map of errors for graphql-go
-		// may want to doa  shopify style userErrors for that? Unsure, but this is terrible
-		// error handling here
-		var currentErr error = nil
-		for k, v := range errs {
-			currentErr = errors.New(fmt.Sprintf("%s: %s", k, v.Error()))
-			break
-		}
-		return nil, currentErr
-	}
+	m := worrywort.TemperatureMeasurement{Id: tempId, Temperature: 64.26, Units: worrywort.FAHRENHEIT, RecordedAt: timeRecorded,
+		Batch: &b, TemperatureSensor: &therm, Fermenter: &f, CreatedBy: u, CreatedAt: createdAt, UpdatedAt: updatedAt}
 	return &temperatureMeasurementResolver{m: m}, nil
 }
 
