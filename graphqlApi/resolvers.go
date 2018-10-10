@@ -283,8 +283,8 @@ func (a *authTokenResolver) Token() string  { return a.t.ForAuthenticationHeader
 // Input types
 // Create a temperatureMeasurement... review docs on how to really implement this
 type temperatureMeasurementCreateInput struct {
-	BatchId             graphql.ID
-	RecordedAt          float64
+	BatchId             *graphql.ID
+	RecordedAt          time.Time
 	Temperature         float64
 	TemperatureSensorId graphql.ID
 	Units               worrywort.TemperatureUnitType
@@ -294,8 +294,41 @@ type temperatureMeasurementCreateInput struct {
 
 // Create a temperature measurementId
 func (r *Resolver) temperatureMeasurementCreate(ctx context.Context, input temperatureMeasurementCreateInput) (*temperatureMeasurementResolver, error) {
-	// TODO: Actually do the stuff
-	return nil, nil
+	u, _ := authMiddleware.UserFromContext(ctx)
+
+	// TODO:
+	// find the sensor... have to make sure it is owned by the user
+	// I wonder if there is a way I can do this and not care - just make it an arbitrary string
+	// and join up later?  meh.
+	tempSensorId, err := strconv.ParseInt(string(input.TemperatureSensorId), 10, 0)
+	s := worrywort.TemperatureSensor{Id: int(tempSensorId), CreatedBy: u}
+
+	var batchPtr *worrywort.Batch = nil
+	batchArgs := make(map[string]interface{})
+	if input.BatchId != nil {
+		batchArgs["created_by_user_id"] = u.Id
+		batchArgs["id"], err = strconv.ParseInt(string(*(input.BatchId)), 10, 0)
+		batchPtr, err = worrywort.FindBatch(batchArgs, r.db)
+	}
+
+	if err != nil {
+		if err != sql.ErrNoRows {
+			log.Printf("%v", err)
+		}
+		// return nil, errors.New("Batch not found") ?  Need a TemperatureMeasurementCreate type for that
+		// as TemperatureMeasurementCreate {userErrors: [UserError] temperatureMeasurement: TemperatureMeasurement}
+		return nil, nil
+	}
+
+	//ur := userResolver{u: u}
+	t := worrywort.TemperatureMeasurement{TemperatureSensor: &s, Temperature: input.Temperature, RecordedAt: input.RecordedAt, CreatedBy: u, Batch: batchPtr}
+	t, err = worrywort.SaveTemperatureMeasurement(r.db, t)
+	if err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	tr := temperatureMeasurementResolver{m: t}
+	return &tr, nil
 }
 
 // TODO: Something here is not working.  It builds, but blows up.  Cannot tell for sure if it is
