@@ -283,6 +283,41 @@ func NewTemperatureSensor(id int, name string, createdBy User, createdAt, update
 	return TemperatureSensor{Id: id, Name: name, CreatedBy: createdBy, CreatedAt: createdAt, UpdatedAt: updatedAt}
 }
 
+func FindTemperatureSensor(params map[string]interface{}, db *sqlx.DB) (*TemperatureSensor, error) {
+	t := TemperatureSensor{}
+	var values []interface{}
+	var where []string
+	for _, k := range []string{"id", "created_by_user_id"} {
+		if v, ok := params[k]; ok {
+			values = append(values, v)
+			// TODO: Deal with values from batch OR user table
+			where = append(where, fmt.Sprintf("b.%s = ?", k))
+		}
+	}
+
+	selectCols := ""
+	for _, k := range b.queryColumns() {
+		selectCols += fmt.Sprintf("b.%s, ", k)
+	}
+
+	u := User{}
+	for _, k := range u.queryColumns() {
+		selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
+	}
+
+	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM temperature_sensors b LEFT JOIN users u on u.id = b.created_by_user_id ` +
+		`WHERE ` + strings.Join(where, " AND ")
+
+	query := db.Rebind(q)
+	err := db.Get(&t, query, values...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &t, nil
+}
+
 // A single recorded temperature measurement from a temperatureSensor
 // This may get some tweaking to play nicely with data stored in Postgres or Influxdb
 type TemperatureMeasurement struct {
