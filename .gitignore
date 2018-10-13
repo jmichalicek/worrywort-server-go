@@ -17,3 +17,4 @@ vendor/
 
 # environment variable stuff
 .envrc
+**/*.code-workspace

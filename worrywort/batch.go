@@ -4,6 +4,7 @@ package worrywort
 
 import (
 	// "net/url"
+	"errors"
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	"strings"
@@ -31,6 +32,12 @@ const (
 	CARBOY
 	CONICAL
 )
+
+// TODO: Is this a good idea?  An error for invalid values on functions which take
+// a map[string]interface{}
+// This could be its own error type with field name, field value, and an Error() which
+// formats nicely...
+var TypeError error = errors.New("Invalid type specified")
 
 // Should these be exportable if I am going to use factory methods?  NewBatch() etc?
 // as long as I provide a Batcher interface or whatever?
@@ -293,13 +300,6 @@ type TemperatureMeasurement struct {
 	// when the record was created
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
-}
-
-func NewTemperatureMeasurement(id string, temperature float64, units TemperatureUnitType, batch *Batch,
-	temperatureSensor *TemperatureSensor, fermenter *Fermenter, recordedAt, createdAt, updatedAt time.Time, createdBy User) TemperatureMeasurement {
-	return TemperatureMeasurement{Id: id, Temperature: temperature, Units: units, Batch: batch,
-		TemperatureSensor: temperatureSensor, Fermenter: fermenter, RecordedAt: recordedAt, CreatedAt: createdAt,
-		UpdatedAt: updatedAt, CreatedBy: createdBy}
 }
 
 // Save the User to the database.  If User.Id() is 0

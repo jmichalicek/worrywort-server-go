@@ -22,6 +22,7 @@ var Schema = `
 
 	type Mutation {
 		login(username: String!, password: String!): AuthToken
+		createTemperatureMeasurement(input: CreateTemperatureMeasurementInput): CreateTemperatureMeasurementPayload
 	}
 
 	enum VolumeUnit {
@@ -78,7 +79,7 @@ var Schema = `
 
 	type TemperatureSensor {
 		id: ID!
-		name: String
+		name: String!
 		createdBy: User
 	}
 
@@ -87,9 +88,21 @@ var Schema = `
 		temperature: Float!
 		units: TemperatureUnit!
 		recordedAt: String!
-		Batch: Batch
+		batch: Batch
 		temperatureSensor: TemperatureSensor!
 		fermenter: Fermenter
+	}
+
+	type CreateTemperatureMeasurementPayload {
+		temperatureMeasurement: TemperatureMeasurement
+	}
+
+	input CreateTemperatureMeasurementInput {
+		temperature: Float!
+		recordedAt: String!
+		temperatureSensorId: ID!
+		units: TemperatureUnit!
+		batchId: ID
 	}
 	`
 

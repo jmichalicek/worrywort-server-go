@@ -7,9 +7,6 @@ import (
 	"time"
 )
 
-// Test that the schema parses, the same as is done at runtime when starting worrywortd.
-// Any issues here would probably also be caught by integration tests on worrywortd ensuring
-// http routing, responses, etc.
 func TestUserResolver(t *testing.T) {
 	createdAt := time.Now()
 	updatedAt := time.Now()
@@ -306,8 +303,8 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	fermenter := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u,
 		time.Now(), time.Now())
 	timeRecorded := time.Now().Add(time.Hour * time.Duration(-1))
-	measurement := worrywort.NewTemperatureMeasurement(
-		"shouldbeauuid", 64.26, worrywort.FAHRENHEIT, &batch, &sensor, &fermenter, timeRecorded, time.Now(), time.Now(), u)
+	measurement := worrywort.TemperatureMeasurement{Id: "shouldbeauuid", Temperature: 64.26, Units: worrywort.FAHRENHEIT, RecordedAt: timeRecorded,
+		Batch: &batch, TemperatureSensor: &sensor, Fermenter: &fermenter, CreatedBy: u, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	resolver := temperatureMeasurementResolver{m: measurement}
 
 	t.Run("ID()", func(t *testing.T) {

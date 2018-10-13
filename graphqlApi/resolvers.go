@@ -9,6 +9,7 @@ import (
 	"log"
 	// "os"
 	"database/sql"
+	"errors"
 	"strconv"
 	"time"
 )
@@ -126,8 +127,8 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 
 	tempId := "REMOVEME"
 	// TODO: This needs to save and THAT is whre the uuid should really be generated
-	m := worrywort.NewTemperatureMeasurement(
-		tempId, 64.26, worrywort.FAHRENHEIT, &b, &therm, &f, timeRecorded, createdAt, updatedAt, u)
+	m := worrywort.TemperatureMeasurement{Id: tempId, Temperature: 64.26, Units: worrywort.FAHRENHEIT, RecordedAt: timeRecorded,
+		Batch: &b, TemperatureSensor: &therm, Fermenter: &f, CreatedBy: u, CreatedAt: createdAt, UpdatedAt: updatedAt}
 	return &temperatureMeasurementResolver{m: m}, nil
 }
 
@@ -227,14 +228,15 @@ type temperatureSensorResolver struct {
 	t worrywort.TemperatureSensor
 }
 
-func (r *temperatureSensorResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.t.Id)) }
-func (r *temperatureSensorResolver) CreatedAt() string { return dateString(r.t.CreatedAt) }
-func (r *temperatureSensorResolver) UpdatedAt() string { return dateString(r.t.UpdatedAt) }
+func (r temperatureSensorResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.t.Id)) }
+func (r temperatureSensorResolver) CreatedAt() string { return dateString(r.t.CreatedAt) }
+func (r temperatureSensorResolver) UpdatedAt() string { return dateString(r.t.UpdatedAt) }
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
-func (r *temperatureSensorResolver) CreatedBy() *userResolver {
+func (r temperatureSensorResolver) CreatedBy() *userResolver {
 	return &userResolver{u: r.t.CreatedBy}
 }
+func (r temperatureSensorResolver) Name() string { return r.t.Name }
 
 // Resolve a worrywort.TemperatureMeasurement
 type temperatureMeasurementResolver struct {
@@ -260,10 +262,7 @@ func (r *temperatureMeasurementResolver) TemperatureSensor() temperatureSensorRe
 }
 
 func (r *temperatureMeasurementResolver) Fermenter() *fermenterResolver {
-	if r.m.Fermenter != nil {
-		return &fermenterResolver{f: *(r.m.Fermenter)}
-	}
-	return nil
+	return &fermenterResolver{f: *(r.m.Fermenter)}
 }
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
@@ -280,7 +279,77 @@ type authTokenResolver struct {
 func (a *authTokenResolver) ID() graphql.ID { return graphql.ID(a.t.ForAuthenticationHeader()) }
 func (a *authTokenResolver) Token() string  { return a.t.ForAuthenticationHeader() }
 
+// Input types
+// Create a temperatureMeasurement... review docs on how to really implement this
+type createTemperatureMeasurementInput struct {
+	BatchId             *graphql.ID
+	RecordedAt          time.Time
+	Temperature         float64
+	TemperatureSensorId graphql.ID
+	Units               string // it seems this graphql server cannot handle mapping enum to struct inputs
+}
+
+// Mutation Payloads
+type createTemperatureMeasurementPayload struct {
+	t *temperatureMeasurementResolver
+}
+
+func (c *createTemperatureMeasurementPayload) TemperatureMeasurement() *temperatureMeasurementResolver {
+	return c.t
+}
+
 // Mutations
+
+// Create a temperature measurementId
+func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struct {
+	Input *createTemperatureMeasurementInput
+}) (*createTemperatureMeasurementPayload, error) {
+	u, _ := authMiddleware.UserFromContext(ctx)
+
+	var inputPtr *createTemperatureMeasurementInput = args.Input
+	var input createTemperatureMeasurementInput = *inputPtr
+	var unitType worrywort.TemperatureUnitType
+
+	// bleh.  Too bad this lib doesn't map the input types with enums/iota correctly
+	if input.Units == "FAHRENHEIT" {
+		unitType = worrywort.FAHRENHEIT
+	} else {
+		unitType = worrywort.CELSIUS
+	}
+	// TODO: REALLY LOOK UP TEH SENSOR
+	// find the sensor... have to make sure it is owned by the user
+	// I wonder if there is a way I can do this and not care - just make it an arbitrary string
+	// and join up later?  meh.
+	tempSensorId, err := strconv.ParseInt(string(input.TemperatureSensorId), 10, 0)
+	s := worrywort.TemperatureSensor{Id: int(tempSensorId), CreatedBy: u, Name: "FAKE SENSOR"}
+
+	var batchPtr *worrywort.Batch = nil
+	batchArgs := make(map[string]interface{})
+	if input.BatchId != nil {
+		batchArgs["created_by_user_id"] = u.Id
+		batchArgs["id"], err = strconv.ParseInt(string(*(input.BatchId)), 10, 0)
+		batchPtr, err = worrywort.FindBatch(batchArgs, r.db)
+	}
+
+	if err != nil {
+		if err != sql.ErrNoRows {
+			log.Printf("%v", err)
+		}
+		// return nil, errors.New("Batch not found") ?  Need a TemperatureMeasurementCreate type for that
+		// as TemperatureMeasurementCreate {userErrors: [UserError] temperatureMeasurement: TemperatureMeasurement}
+		return nil, errors.New("Specified Batch does not exist.")
+	}
+
+	t := worrywort.TemperatureMeasurement{TemperatureSensor: &s, Temperature: input.Temperature, Units: unitType, RecordedAt: input.RecordedAt, CreatedBy: u, Batch: batchPtr}
+	t, err = worrywort.SaveTemperatureMeasurement(r.db, t)
+	if err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	tr := temperatureMeasurementResolver{m: t}
+	result := createTemperatureMeasurementPayload{t: &tr}
+	return &result, nil
+}
 
 // TODO: Something here is not working.  It builds, but blows up.  Cannot tell for sure if it is
 // due to returning an error or maybe something in middleware
