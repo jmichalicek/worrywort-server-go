@@ -9,6 +9,7 @@ import (
 	"log"
 	// "os"
 	"database/sql"
+	"errors"
 	"strconv"
 	"time"
 )
@@ -235,6 +236,7 @@ func (r *temperatureSensorResolver) UpdatedAt() string { return dateString(r.t.U
 func (r *temperatureSensorResolver) CreatedBy() *userResolver {
 	return &userResolver{u: r.t.CreatedBy}
 }
+func (r *temperatureSensorResolver) Name() string { return r.t.Name }
 
 // Resolve a worrywort.TemperatureMeasurement
 type temperatureMeasurementResolver struct {
@@ -255,8 +257,8 @@ func (r *temperatureMeasurementResolver) Batch() *batchResolver {
 	return nil
 }
 
-func (r *temperatureMeasurementResolver) TemperatureSensor() temperatureSensorResolver {
-	return temperatureSensorResolver{t: *(r.m.TemperatureSensor)}
+func (r *temperatureMeasurementResolver) TemperatureSensor() *temperatureSensorResolver {
+	return &temperatureSensorResolver{t: *r.m.TemperatureSensor}
 }
 
 func (r *temperatureMeasurementResolver) Fermenter() *fermenterResolver {
@@ -282,26 +284,47 @@ func (a *authTokenResolver) Token() string  { return a.t.ForAuthenticationHeader
 
 // Input types
 // Create a temperatureMeasurement... review docs on how to really implement this
-type temperatureMeasurementCreateInput struct {
+type createTemperatureMeasurementInput struct {
 	BatchId             *graphql.ID
 	RecordedAt          time.Time
 	Temperature         float64
 	TemperatureSensorId graphql.ID
-	Units               worrywort.TemperatureUnitType
+	Units               string // it seems this graphql server cannot handle mapping enum to struct inputs
+}
+
+// Mutation Payloads
+type createTemperatureMeasurementPayload struct {
+	t *temperatureMeasurementResolver
+}
+
+func (c *createTemperatureMeasurementPayload) TemperatureMeasurement() *temperatureMeasurementResolver {
+	return c.t
 }
 
 // Mutations
 
 // Create a temperature measurementId
-func (r *Resolver) temperatureMeasurementCreate(ctx context.Context, input temperatureMeasurementCreateInput) (*temperatureMeasurementResolver, error) {
+func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struct {
+	Input *createTemperatureMeasurementInput
+}) (*createTemperatureMeasurementPayload, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
 
-	// TODO:
+	var inputPtr *createTemperatureMeasurementInput = args.Input
+	var input createTemperatureMeasurementInput = *inputPtr
+	var unitType worrywort.TemperatureUnitType
+
+	// bleh.  Too bad this lib doesn't map the input types with enums/iota correctly
+	if input.Units == "FAHRENHEIT" {
+		unitType = worrywort.FAHRENHEIT
+	} else {
+		unitType = worrywort.CELSIUS
+	}
+	// TODO: REALLY LOOK UP TEH SENSOR
 	// find the sensor... have to make sure it is owned by the user
 	// I wonder if there is a way I can do this and not care - just make it an arbitrary string
 	// and join up later?  meh.
 	tempSensorId, err := strconv.ParseInt(string(input.TemperatureSensorId), 10, 0)
-	s := worrywort.TemperatureSensor{Id: int(tempSensorId), CreatedBy: u}
+	s := worrywort.TemperatureSensor{Id: int(tempSensorId), CreatedBy: u, Name: "FAKE SENSOR"}
 
 	var batchPtr *worrywort.Batch = nil
 	batchArgs := make(map[string]interface{})
@@ -317,18 +340,18 @@ func (r *Resolver) temperatureMeasurementCreate(ctx context.Context, input tempe
 		}
 		// return nil, errors.New("Batch not found") ?  Need a TemperatureMeasurementCreate type for that
 		// as TemperatureMeasurementCreate {userErrors: [UserError] temperatureMeasurement: TemperatureMeasurement}
-		return nil, nil
+		return nil, errors.New("Specified Batch does not exist.")
 	}
 
-	//ur := userResolver{u: u}
-	t := worrywort.TemperatureMeasurement{TemperatureSensor: &s, Temperature: input.Temperature, RecordedAt: input.RecordedAt, CreatedBy: u, Batch: batchPtr}
+	t := worrywort.TemperatureMeasurement{TemperatureSensor: &s, Temperature: input.Temperature, Units: unitType, RecordedAt: input.RecordedAt, CreatedBy: u, Batch: batchPtr}
 	t, err = worrywort.SaveTemperatureMeasurement(r.db, t)
 	if err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
 	tr := temperatureMeasurementResolver{m: t}
-	return &tr, nil
+	result := createTemperatureMeasurementPayload{t: &tr}
+	return &result, nil
 }
 
 // TODO: Something here is not working.  It builds, but blows up.  Cannot tell for sure if it is

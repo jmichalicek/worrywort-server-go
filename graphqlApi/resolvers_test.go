@@ -7,9 +7,6 @@ import (
 	"time"
 )
 
-// Test that the schema parses, the same as is done at runtime when starting worrywortd.
-// Any issues here would probably also be caught by integration tests on worrywortd ensuring
-// http routing, responses, etc.
 func TestUserResolver(t *testing.T) {
 	createdAt := time.Now()
 	updatedAt := time.Now()
