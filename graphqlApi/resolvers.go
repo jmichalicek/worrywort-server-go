@@ -228,15 +228,15 @@ type temperatureSensorResolver struct {
 	t worrywort.TemperatureSensor
 }
 
-func (r *temperatureSensorResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.t.Id)) }
-func (r *temperatureSensorResolver) CreatedAt() string { return dateString(r.t.CreatedAt) }
-func (r *temperatureSensorResolver) UpdatedAt() string { return dateString(r.t.UpdatedAt) }
+func (r temperatureSensorResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.t.Id)) }
+func (r temperatureSensorResolver) CreatedAt() string { return dateString(r.t.CreatedAt) }
+func (r temperatureSensorResolver) UpdatedAt() string { return dateString(r.t.UpdatedAt) }
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
-func (r *temperatureSensorResolver) CreatedBy() *userResolver {
+func (r temperatureSensorResolver) CreatedBy() *userResolver {
 	return &userResolver{u: r.t.CreatedBy}
 }
-func (r *temperatureSensorResolver) Name() string { return r.t.Name }
+func (r temperatureSensorResolver) Name() string { return r.t.Name }
 
 // Resolve a worrywort.TemperatureMeasurement
 type temperatureMeasurementResolver struct {
@@ -257,15 +257,12 @@ func (r *temperatureMeasurementResolver) Batch() *batchResolver {
 	return nil
 }
 
-func (r *temperatureMeasurementResolver) TemperatureSensor() *temperatureSensorResolver {
-	return &temperatureSensorResolver{t: *r.m.TemperatureSensor}
+func (r *temperatureMeasurementResolver) TemperatureSensor() temperatureSensorResolver {
+	return temperatureSensorResolver{t: *(r.m.TemperatureSensor)}
 }
 
 func (r *temperatureMeasurementResolver) Fermenter() *fermenterResolver {
-	if r.m.Fermenter != nil {
-		return &fermenterResolver{f: *(r.m.Fermenter)}
-	}
-	return nil
+	return &fermenterResolver{f: *(r.m.Fermenter)}
 }
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
