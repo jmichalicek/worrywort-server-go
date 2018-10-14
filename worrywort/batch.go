@@ -190,7 +190,7 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	query := db.Rebind(`UPDATE batches SET created_by_user_id = ?, name = ?, brew_notes = ?, tasting_notes = ?,
 		brewed_date = ?, bottled_date = ?, volume_boiled = ?, volume_in_fermenter = ?, volume_units = ?,
 		original_gravity = ?, final_gravity = ?, recipe_url = ?, max_temperature = ?, min_temperature = ?,
-		average_temperature = ?, updated_at = NOW() WHERE id = ?) RETURNING updated_at`)
+		average_temperature = ?, updated_at = NOW() WHERE id = ? RETURNING updated_at`)
 	err := db.QueryRow(
 		query, b.CreatedBy.Id, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
 		b.VolumeBoiled, b.VolumeInFermenter, b.VolumeUnits, b.OriginalGravity, b.FinalGravity, b.RecipeURL,
@@ -281,7 +281,7 @@ type TemperatureSensor struct {
 // Returns a list of the db columns to use for a SELECT query
 func (t TemperatureSensor) queryColumns() []string {
 	// TODO: Way to dynamically build this using the `db` tag and reflection/introspection
-	return []string{"id", "name", "created_by", "created_at", "updated_at"}
+	return []string{"id", "name", "created_by_user_id", "created_at", "updated_at"}
 }
 
 // Returns a new TemperatureSensor
@@ -357,15 +357,15 @@ func InsertTemperatureSensor(db *sqlx.DB, t TemperatureSensor) (TemperatureSenso
 func UpdateTemperatureSensor(db *sqlx.DB, t TemperatureSensor) (TemperatureSensor, error) {
 	// TODO: TEST CASE
 	var updatedAt time.Time
-
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
 	query := db.Rebind(`UPDATE temperature_sensors SET created_by_user_id = ?, name = ?, updated_at = NOW()
-		WHERE id = ?) RETURNING updated_at`)
+		WHERE id = ? RETURNING updated_at`)
 	err := db.QueryRow(
-		query, t.CreatedBy.Id, t.Name, t.UpdatedAt).Scan(&updatedAt)
+		query, t.CreatedBy.Id, t.Name, t.Id).Scan(&updatedAt)
 	if err == nil {
 		t.UpdatedAt = updatedAt
 	}
+	t.UpdatedAt = updatedAt
 	return t, err
 }
 
@@ -408,7 +408,7 @@ func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 
 	query := db.Rebind(`INSERT INTO temperature_measurements (created_by_user_id, batch_id, temperature_sensor_id,
 		fermenter_id, temperature, units, recorded_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at`)
+		VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW() RETURNING id, created_at, updated_at`)
 	err := db.QueryRow(
 		query, tm.CreatedBy.Id, tm.Batch.Id, tm.TemperatureSensor.Id, tm.Fermenter.Id, tm.Temperature, tm.Units,
 		tm.RecordedAt, tm.CreatedAt, tm.UpdatedAt).Scan(&measurementId, &createdAt, &updatedAt)
