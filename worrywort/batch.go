@@ -334,11 +334,39 @@ func SaveTemperatureSensor(db *sqlx.DB, tm TemperatureSensor) (TemperatureSensor
 	}
 }
 
-func UpdateTemperatureSensor(db *sqlx.DB, tm TemperatureSensor) (TemperatureSensor, error) {
-	return tm, nil
+func InsertTemperatureSensor(db *sqlx.DB, t TemperatureSensor) (TemperatureSensor, error) {
+	var updatedAt time.Time
+	var createdAt time.Time
+	var sensorId int
+
+	query := db.Rebind(`INSERT INTO temperature_sensors (created_by_user_id, name, updated_at)
+		VALUES (?, ?, NOW()) RETURNING id, created_at, updated_at`)
+	err := db.QueryRow(
+		query, t.CreatedBy.Id, t.Name).Scan(&sensorId, &createdAt, &updatedAt)
+	if err != nil {
+		return t, err
+	}
+
+	// TODO: Can I just assign these directly now in Scan()?
+	t.Id = sensorId
+	t.CreatedAt = createdAt
+	t.UpdatedAt = updatedAt
+	return t, nil
 }
-func InsertTemperatureSensor(db *sqlx.DB, tm TemperatureSensor) (TemperatureSensor, error) {
-	return tm, nil
+
+func UpdateTemperatureSensor(db *sqlx.DB, t TemperatureSensor) (TemperatureSensor, error) {
+	// TODO: TEST CASE
+	var updatedAt time.Time
+
+	// TODO: Use introspection and reflection to set these rather than manually managing this?
+	query := db.Rebind(`UPDATE temperature_sensors SET created_by_user_id = ?, name = ?, updated_at = NOW()
+		WHERE id = ?) RETURNING updated_at`)
+	err := db.QueryRow(
+		query, t.CreatedBy.Id, t.Name, t.UpdatedAt).Scan(&updatedAt)
+	if err == nil {
+		t.UpdatedAt = updatedAt
+	}
+	return t, err
 }
 
 // A single recorded temperature measurement from a temperatureSensor
@@ -403,7 +431,7 @@ func UpdateTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 	var updatedAt time.Time
 
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
-	query := db.Rebind(`UPDATE temperature_measurements SET ccreated_by_user_id = ?, batch_id = ?,
+	query := db.Rebind(`UPDATE temperature_measurements SET created_by_user_id = ?, batch_id = ?,
 		temperature_sensor_id = ?, fermenter_id = ?, temperature = ?, units = ?, recorded_at = ?, created_at = ?,
 		updated_at = NOW() WHERE id = ?) RETURNING updated_at`)
 	err := db.QueryRow(
