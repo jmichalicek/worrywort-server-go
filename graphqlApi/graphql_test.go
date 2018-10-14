@@ -301,3 +301,71 @@ func TestBatchQuery(t *testing.T) {
 		}
 	})
 }
+
+func TestCreateTemperatureMeasurementMutation(t *testing.T) {
+	const DefaultUserKey string = "user"
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := worrywort.NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err = worrywort.SaveUser(db, u)
+
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	sensor, err := worrywort.SaveTemperatureSensor(db, worrywort.TemperatureSensor{Name: "Test Sensor", CreatedBy: u})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	batch, err := worrywort.SaveBatch(db, worrywort.Batch{CreatedBy: u, Name: "Test batch"})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	u2 := worrywort.NewUser(0, "user2@example.com", "Justin", "M", time.Now(), time.Now())
+	u2, err = worrywort.SaveUser(db, u2)
+
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	// TODO: Can this become global to these tests?
+	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	t.Run("Test measurement is created with valid data", func(t *testing.T) {
+		variables := map[string]interface{}{
+			"input": map[string]interface{}{
+				"batchId":             strconv.Itoa(batch.Id),
+				"temperatureSensorId": strconv.Itoa(sensor.Id),
+				"units":               "FAHRENHEIT",
+				"temperature":         70.0,
+				"recordedAt":          "2018-10-14T15:26:00+00:00",
+			},
+		}
+		query := `
+			mutation addMeasurement($input: CreateTemperatureMeasurementInput) {
+				createTemperatureMeasurement(input: $input) {
+					__typename
+					temperatureMeasurement {
+						__typename
+						id
+					}
+				}
+			}`
+		operationName := ""
+		context := context.Background()
+		result := worrywortSchema.Exec(context, query, operationName, variables)
+		// THIS IS REALLY FAILING
+		t.Errorf("%s", result.Data)
+		var expected interface{}
+		// should we actually return auth errors rather than nothing?
+		err := json.Unmarshal([]byte(`{"batches":[]}`), &expected)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+	})
+}
