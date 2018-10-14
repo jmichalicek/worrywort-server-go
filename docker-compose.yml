@@ -36,6 +36,9 @@ services:
       DATABASE_USER: ${POSTGRES_USER:-developer}
       REDIS_HOST: redis
       PGPASSWORD: ${POSTGRES_PASSWORD:-developer}
+      PGUSER: developer
+      PGDATABASE: worrywort
+      PGHOST: database
     ports:
       - "8080:8080"  # May muck with port.  I do not really care, it was just on 8080 from initial sample I used as starting point.
     restart: on-failure
