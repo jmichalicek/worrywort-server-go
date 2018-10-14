@@ -87,7 +87,7 @@ var Schema = `
 		createdBy: User
 	}
 
-	# Words
+	# A measurement taken by a TemperatureSensor
 	type TemperatureMeasurement {
 		id: ID!
 		# The recorded temperature
@@ -108,6 +108,7 @@ var Schema = `
 		temperatureMeasurement: TemperatureMeasurement
 	}
 
+	# Input data to create a TemperatureMeasurement
 	input CreateTemperatureMeasurementInput {
 		# The temperature taken
 		temperature: Float!

@@ -2,6 +2,7 @@ package graphqlApi
 
 import (
 	"context"
+	// "fmt"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
@@ -283,7 +284,7 @@ func (a *authTokenResolver) Token() string  { return a.t.ForAuthenticationHeader
 // Create a temperatureMeasurement... review docs on how to really implement this
 type createTemperatureMeasurementInput struct {
 	BatchId             *graphql.ID
-	RecordedAt          time.Time
+	RecordedAt          string //time.Time
 	Temperature         float64
 	TemperatureSensorId graphql.ID
 	Units               string // it seems this graphql server cannot handle mapping enum to struct inputs
@@ -294,7 +295,7 @@ type createTemperatureMeasurementPayload struct {
 	t *temperatureMeasurementResolver
 }
 
-func (c *createTemperatureMeasurementPayload) TemperatureMeasurement() *temperatureMeasurementResolver {
+func (c createTemperatureMeasurementPayload) TemperatureMeasurement() *temperatureMeasurementResolver {
 	return c.t
 }
 
@@ -316,31 +317,48 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 	} else {
 		unitType = worrywort.CELSIUS
 	}
-	// TODO: REALLY LOOK UP TEH SENSOR
-	// find the sensor... have to make sure it is owned by the user
-	// I wonder if there is a way I can do this and not care - just make it an arbitrary string
-	// and join up later?  meh.
+
 	tempSensorId, err := strconv.ParseInt(string(input.TemperatureSensorId), 10, 0)
-	s := worrywort.TemperatureSensor{Id: int(tempSensorId), CreatedBy: u, Name: "FAKE SENSOR"}
-
-	var batchPtr *worrywort.Batch = nil
-	batchArgs := make(map[string]interface{})
-	if input.BatchId != nil {
-		batchArgs["created_by_user_id"] = u.Id
-		batchArgs["id"], err = strconv.ParseInt(string(*(input.BatchId)), 10, 0)
-		batchPtr, err = worrywort.FindBatch(batchArgs, r.db)
-	}
-
+	sensorPtr, err := worrywort.FindTemperatureSensor(map[string]interface{}{"id": tempSensorId, "created_by_user_id": u.Id}, r.db)
 	if err != nil {
+		// TODO: Probably need a friendlier error here or for our payload to have a shopify style userErrors
+		// and then not ever return nil from this either way...maybe
 		if err != sql.ErrNoRows {
 			log.Printf("%v", err)
 		}
-		// return nil, errors.New("Batch not found") ?  Need a TemperatureMeasurementCreate type for that
-		// as TemperatureMeasurementCreate {userErrors: [UserError] temperatureMeasurement: TemperatureMeasurement}
-		return nil, errors.New("Specified Batch does not exist.")
+		// TODO: only return THIS error if it really does not exist.  May need other errors
+		// for other stuff
+		return nil, errors.New("Specified TemperatureSensor does not exist.")
 	}
 
-	t := worrywort.TemperatureMeasurement{TemperatureSensor: &s, Temperature: input.Temperature, Units: unitType, RecordedAt: input.RecordedAt, CreatedBy: u, Batch: batchPtr}
+	var batchPtr *worrywort.Batch = nil
+	if input.BatchId != nil {
+		batchId, err := strconv.ParseInt(string(*(input.BatchId)), 10, 0)
+		if err != nil {
+			return nil, err
+		}
+		batchPtr, err = worrywort.FindBatch(map[string]interface{}{"created_by_user_id": u.Id, "id": batchId}, r.db)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				log.Printf("%v", err)
+			}
+			// return nil, errors.New("Batch not found") ?  Need a TemperatureMeasurementCreate type for that
+			// as TemperatureMeasurementCreate {userErrors: [UserError] temperatureMeasurement: TemperatureMeasurement}
+			return nil, errors.New("Specified Batch does not exist.")
+		}
+	}
+	// err becomes nil here if it was set within `if input.BatchId` stuff so we have to catch ALL of the errors in there
+	// golang variable scoping I need to learn about?
+
+	// for actual iso 8601, use "2006-01-02T15:04:05-0700"
+	// TODO: test parsing both
+	recordedAt, err := time.Parse(time.RFC3339, input.RecordedAt)
+	if err != nil {
+		// TODO: See what the actual error types are and try to return friendlier errors which are not golang specific messaging
+		return nil, err
+	}
+
+	t := worrywort.TemperatureMeasurement{TemperatureSensor: sensorPtr, Temperature: input.Temperature, Units: unitType, RecordedAt: recordedAt, CreatedBy: u, Batch: batchPtr}
 	t, err = worrywort.SaveTemperatureMeasurement(r.db, t)
 	if err != nil {
 		log.Printf("%v", err)
@@ -351,8 +369,6 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 	return &result, nil
 }
 
-// TODO: Something here is not working.  It builds, but blows up.  Cannot tell for sure if it is
-// due to returning an error or maybe something in middleware
 func (r *Resolver) Login(args *struct {
 	Username string
 	Password string
