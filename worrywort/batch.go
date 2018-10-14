@@ -190,7 +190,7 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	query := db.Rebind(`UPDATE batches SET created_by_user_id = ?, name = ?, brew_notes = ?, tasting_notes = ?,
 		brewed_date = ?, bottled_date = ?, volume_boiled = ?, volume_in_fermenter = ?, volume_units = ?,
 		original_gravity = ?, final_gravity = ?, recipe_url = ?, max_temperature = ?, min_temperature = ?,
-		average_temperature = ?, updated_at = NOW() WHERE id = ?) RETURNING updated_at`)
+		average_temperature = ?, updated_at = NOW() WHERE id = ? RETURNING updated_at`)
 	err := db.QueryRow(
 		query, b.CreatedBy.Id, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
 		b.VolumeBoiled, b.VolumeInFermenter, b.VolumeUnits, b.OriginalGravity, b.FinalGravity, b.RecipeURL,
@@ -278,9 +278,102 @@ type TemperatureSensor struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
+// Returns a list of the db columns to use for a SELECT query
+func (t TemperatureSensor) queryColumns() []string {
+	// TODO: Way to dynamically build this using the `db` tag and reflection/introspection
+	// TODO: Add created_by_user_id in here somehow?  Keep user id and user separate
+	// on the struct?
+	return []string{"id", "name", "created_at", "updated_at"}
+}
+
 // Returns a new TemperatureSensor
 func NewTemperatureSensor(id int, name string, createdBy User, createdAt, updatedAt time.Time) TemperatureSensor {
 	return TemperatureSensor{Id: id, Name: name, CreatedBy: createdBy, CreatedAt: createdAt, UpdatedAt: updatedAt}
+}
+
+// Look up a TemperatureSensor in the database and returns it
+func FindTemperatureSensor(params map[string]interface{}, db *sqlx.DB) (*TemperatureSensor, error) {
+	// TODO: Find a way to just pass in created_by sanely - maybe just manually map that to created_by_user_id if needed
+	// sqlx may have a good way to do that already.
+	t := TemperatureSensor{}
+	var values []interface{}
+	var where []string
+	for _, k := range []string{"id", "created_by_user_id"} {
+		if v, ok := params[k]; ok {
+			values = append(values, v)
+			// TODO: Deal with values from temperature_sensor OR user table
+			where = append(where, fmt.Sprintf("t.%s = ?", k))
+		}
+	}
+
+	selectCols := ""
+	for _, k := range t.queryColumns() {
+		selectCols += fmt.Sprintf("t.%s, ", k)
+	}
+
+	// TODO: improve user join (and other join in general) to
+	// be less duplicated
+	u := User{}
+	for _, k := range u.queryColumns() {
+		selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
+	}
+
+	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM temperature_sensors t LEFT JOIN users u on u.id = t.created_by_user_id ` +
+		`WHERE ` + strings.Join(where, " AND ")
+
+	query := db.Rebind(q)
+	err := db.Get(&t, query, values...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &t, nil
+}
+
+// Save the User to the database.  If User.Id() is 0
+// then an insert is performed, otherwise an update on the User matching that id.
+func SaveTemperatureSensor(db *sqlx.DB, tm TemperatureSensor) (TemperatureSensor, error) {
+	if tm.Id != 0 {
+		return UpdateTemperatureSensor(db, tm)
+	} else {
+		return InsertTemperatureSensor(db, tm)
+	}
+}
+
+func InsertTemperatureSensor(db *sqlx.DB, t TemperatureSensor) (TemperatureSensor, error) {
+	var updatedAt time.Time
+	var createdAt time.Time
+	var sensorId int
+
+	query := db.Rebind(`INSERT INTO temperature_sensors (created_by_user_id, name, updated_at)
+		VALUES (?, ?, NOW()) RETURNING id, created_at, updated_at`)
+	err := db.QueryRow(
+		query, t.CreatedBy.Id, t.Name).Scan(&sensorId, &createdAt, &updatedAt)
+	if err != nil {
+		return t, err
+	}
+
+	// TODO: Can I just assign these directly now in Scan()?
+	t.Id = sensorId
+	t.CreatedAt = createdAt
+	t.UpdatedAt = updatedAt
+	return t, nil
+}
+
+func UpdateTemperatureSensor(db *sqlx.DB, t TemperatureSensor) (TemperatureSensor, error) {
+	// TODO: TEST CASE
+	var updatedAt time.Time
+	// TODO: Use introspection and reflection to set these rather than manually managing this?
+	query := db.Rebind(`UPDATE temperature_sensors SET created_by_user_id = ?, name = ?, updated_at = NOW()
+		WHERE id = ? RETURNING updated_at`)
+	err := db.QueryRow(
+		query, t.CreatedBy.Id, t.Name, t.Id).Scan(&updatedAt)
+	if err == nil {
+		t.UpdatedAt = updatedAt
+	}
+	t.UpdatedAt = updatedAt
+	return t, err
 }
 
 // A single recorded temperature measurement from a temperatureSensor
@@ -320,12 +413,35 @@ func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 	var createdAt time.Time
 	var measurementId string
 
-	query := db.Rebind(`INSERT INTO temperature_measurements (created_by_user_id, batch_id, temperature_sensor_id,
-		fermenter_id, temperature, units, recorded_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at`)
-	err := db.QueryRow(
-		query, tm.CreatedBy.Id, tm.Batch.Id, tm.TemperatureSensor.Id, tm.Fermenter.Id, tm.Temperature, tm.Units,
-		tm.RecordedAt, tm.CreatedAt, tm.UpdatedAt).Scan(&measurementId, &createdAt, &updatedAt)
+	insertVals := []interface{}{tm.CreatedBy.Id, tm.Temperature, tm.Units, tm.RecordedAt}
+
+	// TODO: This feels like a very unmaintainable way to handle foreign keys overall throughout the system
+	// Once again considering keeping the FK's id as a separate value on the struct as a NullInt, etc.
+	if tm.TemperatureSensor != nil {
+		insertVals = append(insertVals, tm.TemperatureSensor.Id)
+	} else {
+		insertVals = append(insertVals, nil)
+	}
+
+	if tm.Batch != nil {
+		insertVals = append(insertVals, tm.Batch.Id)
+	} else {
+		insertVals = append(insertVals, nil)
+	}
+
+	if tm.Fermenter != nil {
+		insertVals = append(insertVals, tm.Fermenter.Id)
+	} else {
+		insertVals = append(insertVals, nil)
+	}
+
+	query := db.Rebind(`INSERT INTO temperature_measurements (created_by_user_id, temperature, units, recorded_at, created_at,
+		updated_at, batch_id, temperature_sensor_id, fermenter_id)
+		VALUES (?, ?, ?, ?, NOW(), NOW(), ?, ?, ?) RETURNING id, created_at, updated_at`)
+	err := db.QueryRow(query, insertVals...).Scan(&measurementId, &createdAt, &updatedAt)
+	// err := db.QueryRow(
+	// 	query, tm.CreatedBy.Id, tm.Batch.Id, tm.TemperatureSensor.Id, tm.Fermenter.Id, tm.Temperature, tm.Units,
+	// 	tm.RecordedAt, tm.CreatedAt, tm.UpdatedAt).Scan(&measurementId, &createdAt, &updatedAt)
 	if err != nil {
 		return tm, err
 	}
@@ -345,7 +461,7 @@ func UpdateTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 	var updatedAt time.Time
 
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
-	query := db.Rebind(`UPDATE temperature_measurements SET ccreated_by_user_id = ?, batch_id = ?,
+	query := db.Rebind(`UPDATE temperature_measurements SET created_by_user_id = ?, batch_id = ?,
 		temperature_sensor_id = ?, fermenter_id = ?, temperature = ?, units = ?, recorded_at = ?, created_at = ?,
 		updated_at = NOW() WHERE id = ?) RETURNING updated_at`)
 	err := db.QueryRow(

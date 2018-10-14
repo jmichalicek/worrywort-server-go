@@ -56,6 +56,85 @@ func TestNewTemperatureSensor(t *testing.T) {
 
 }
 
+func TestFindTemperatureSensor(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err = SaveUser(db, u)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	sensor := TemperatureSensor{Name: "Test Sensor", CreatedBy: u}
+	sensor, err = SaveTemperatureSensor(db, sensor)
+	params := make(map[string]interface{})
+	params["created_by_user_id"] = u.Id
+	params["id"] = sensor.Id
+	foundSensor, err := FindTemperatureSensor(params, db)
+	// foundSensor, err := FindTemperatureSensor(map[string]interface{}{"created_by_user_id": u.Id, "id": sensor.Id}, db)
+	if err != nil {
+		t.Errorf("%v", err)
+	}
+	if *foundSensor != sensor {
+		t.Errorf("Expected: %v\nGot: %v", sensor, foundSensor)
+	}
+
+}
+
+func TestSaveTemperatureSensor(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err = SaveUser(db, u)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	t.Run("Save New Sensor", func(t *testing.T) {
+		sensor, err := SaveTemperatureSensor(db, TemperatureSensor{Name: "Test Sensor", CreatedBy: u})
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+		if sensor.Id == 0 {
+			t.Errorf("SaveTemperatureSensor did not set id on new TemperatureSensor")
+		}
+
+		if sensor.UpdatedAt.IsZero() {
+			t.Errorf("SaveTemperatureSensor did not set UpdatedAt")
+		}
+
+		if sensor.CreatedAt.IsZero() {
+			t.Errorf("SaveTemperatureSensor did not set CreatedAt")
+		}
+	})
+
+	t.Run("Update Sensor", func(t *testing.T) {
+		sensor, err := SaveTemperatureSensor(db, TemperatureSensor{Name: "Test Sensor", CreatedBy: u})
+		// set date back in the past so that our date comparison consistenyly works
+		sensor.UpdatedAt = sensor.UpdatedAt.AddDate(0, 0, -1)
+		sensor.Name = "Updated Name"
+		updatedSensor, err := SaveTemperatureSensor(db, sensor)
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+		if updatedSensor.Name != "Updated Name" {
+			t.Errorf("SaveTemperatureSensor did not update Name")
+		}
+
+		if sensor.UpdatedAt == updatedSensor.UpdatedAt {
+			t.Errorf("SaveTemperatureSensor did not update UpdatedAt")
+		}
+	})
+}
+
 func TestFindBatch(t *testing.T) {
 	// Set up the db using sql.Open() and sqlx.NewDb() rather than sqlx.Open() so that the custom
 	// `txdb` db type may be used with Open() but can still be registered as postgres with sqlx

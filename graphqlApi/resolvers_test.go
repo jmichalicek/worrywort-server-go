@@ -364,7 +364,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	t.Run("TemperatureSensor()", func(t *testing.T) {
 		ts := resolver.TemperatureSensor()
 		expected := temperatureSensorResolver{t: *(measurement.TemperatureSensor)}
-		if expected != ts {
+		if expected != *ts {
 			t.Errorf("\nExpected: %v\ngot: %v", expected, ts)
 		}
 	})
