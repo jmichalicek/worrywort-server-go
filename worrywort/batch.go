@@ -458,13 +458,30 @@ func UpdateTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 	// TODO: TEST CASE
 	var updatedAt time.Time
 
+	paramVals := []interface{}{tm.CreatedBy.Id, tm.Temperature, tm.Units, tm.RecordedAt}
+
+	if tm.Batch != nil {
+		paramVals = append(paramVals, tm.Batch.Id)
+	} else {
+		paramVals = append(paramVals, nil)
+	}
+
+	if tm.TemperatureSensor != nil {
+		paramVals = append(paramVals, tm.TemperatureSensor.Id)
+	} else {
+		paramVals = append(paramVals, nil)
+	}
+
+	if tm.Fermenter != nil {
+		paramVals = append(paramVals, tm.Fermenter.Id)
+	} else {
+		paramVals = append(paramVals, nil)
+	}
+	paramVals = append(paramVals, tm.Id)
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
-	query := db.Rebind(`UPDATE temperature_measurements SET created_by_user_id = ?, batch_id = ?,
-		temperature_sensor_id = ?, fermenter_id = ?, temperature = ?, units = ?, recorded_at = ?, created_at = ?,
-		updated_at = NOW() WHERE id = ?) RETURNING updated_at`)
-	err := db.QueryRow(
-		query, tm.CreatedBy.Id, tm.Batch.Id, tm.TemperatureSensor.Id, tm.Fermenter.Id, tm.Temperature, tm.Units,
-		tm.RecordedAt, tm.CreatedAt, tm.UpdatedAt).Scan(&updatedAt)
+	query := db.Rebind(`UPDATE temperature_measurements SET created_by_user_id = ?, temperature = ?, units = ?,
+		recorded_at = ?, updated_at = NOW(), batch_id = ?, temperature_sensor_id = ?, fermenter_id = ? WHERE id = ? RETURNING updated_at`)
+	err := db.QueryRow(query, paramVals...).Scan(&updatedAt)
 	if err != nil {
 		return tm, err
 	}

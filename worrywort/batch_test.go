@@ -193,21 +193,66 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 		}
 	})
 
-	t.Run("Update Sensor", func(t *testing.T) {
-		sensor, err := SaveTemperatureSensor(db, TemperatureSensor{Name: "Test Sensor", CreatedBy: u})
-		// set date back in the past so that our date comparison consistenyly works
-		sensor.UpdatedAt = sensor.UpdatedAt.AddDate(0, 0, -1)
-		sensor.Name = "Updated Name"
-		updatedSensor, err := SaveTemperatureSensor(db, sensor)
+	t.Run("Save New Measurement Without Optional Fields", func(t *testing.T) {
+		m, err := SaveTemperatureMeasurement(db,
+			TemperatureMeasurement{CreatedBy: u, TemperatureSensor: &sensor, Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()})
 		if err != nil {
 			t.Errorf("%v", err)
 		}
-		if updatedSensor.Name != "Updated Name" {
-			t.Errorf("SaveTemperatureSensor did not update Name")
+		if m.Id == "" {
+			t.Errorf("SaveTemperatureMeasurement did not set id on new TemperatureMeasurement")
 		}
 
-		if sensor.UpdatedAt == updatedSensor.UpdatedAt {
+		if m.UpdatedAt.IsZero() {
+			t.Errorf("SaveTemperatureMeasurement did not set UpdatedAt")
+		}
+
+		if m.CreatedAt.IsZero() {
+			t.Errorf("SaveTemperatureMeasurement did not set CreatedAt")
+		}
+
+		newMeasurement := TemperatureMeasurement{}
+		selectCols := ""
+		for _, k := range u.queryColumns() {
+			selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
+		}
+		selectCols += fmt.Sprintf("ts.id \"temperature_sensor.id\", ts.name \"temperature_sensor.name\", ")
+		q := `SELECT tm.temperature, tm.units,  ` + strings.Trim(selectCols, ", ") + ` from temperature_measurements tm LEFT JOIN users u ON u.id = tm.created_by_user_id LEFT JOIN temperature_sensors ts ON ts.id = tm.temperature_sensor_id WHERE tm.id = ? AND tm.created_by_user_id = ? AND tm.temperature_sensor_id = ?`
+		query := db.Rebind(q)
+		err = db.Get(&newMeasurement, query, m.Id, u.Id, sensor.Id)
+
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+	})
+
+	t.Run("Update Temperature Measurement", func(t *testing.T) {
+		m, err := SaveTemperatureMeasurement(db,
+			TemperatureMeasurement{CreatedBy: u, TemperatureSensor: &sensor, Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()})
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+		// set date back in the past so that our date comparison consistenyly works
+		m.UpdatedAt = sensor.UpdatedAt.AddDate(0, 0, -1)
+		// TODO: Intend to change this so that we set BatchId and save to update the Batch, not assign an object
+		m.Batch = &b
+		updatedMeasurement, err := SaveTemperatureMeasurement(db, m)
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+		if updatedMeasurement.Batch != &b {
+			t.Errorf("SaveTemperatureMeasurement did not update the Batch")
+		}
+
+		if m.UpdatedAt == updatedMeasurement.UpdatedAt {
 			t.Errorf("SaveTemperatureSensor did not update UpdatedAt")
+		}
+
+		// Now unset the batch, just to see
+		m.Batch = nil
+		updatedMeasurement, err = SaveTemperatureMeasurement(db, m)
+		if updatedMeasurement.Batch != nil {
+			t.Errorf("SaveTemperatureMeasurement did not remove the Batch")
 		}
 	})
 }
