@@ -281,7 +281,9 @@ type TemperatureSensor struct {
 // Returns a list of the db columns to use for a SELECT query
 func (t TemperatureSensor) queryColumns() []string {
 	// TODO: Way to dynamically build this using the `db` tag and reflection/introspection
-	return []string{"id", "name", "created_by_user_id", "created_at", "updated_at"}
+	// TODO: Add created_by_user_id in here somehow?  Keep user id and user separate
+	// on the struct?
+	return []string{"id", "name", "created_at", "updated_at"}
 }
 
 // Returns a new TemperatureSensor
@@ -306,6 +308,8 @@ func FindTemperatureSensor(params map[string]interface{}, db *sqlx.DB) (*Tempera
 		selectCols += fmt.Sprintf("t.%s, ", k)
 	}
 
+	// TODO: improve user join (and other join in general) to
+	// be less duplicated
 	u := User{}
 	for _, k := range u.queryColumns() {
 		selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)

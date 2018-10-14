@@ -71,6 +71,17 @@ func TestFindTemperatureSensor(t *testing.T) {
 
 	sensor := TemperatureSensor{Name: "Test Sensor", CreatedBy: u}
 	sensor, err = SaveTemperatureSensor(db, sensor)
+	params := make(map[string]interface{})
+	params["created_by_user_id"] = u.Id
+	params["id"] = sensor.Id
+	foundSensor, err := FindTemperatureSensor(params, db)
+	// foundSensor, err := FindTemperatureSensor(map[string]interface{}{"created_by_user_id": u.Id, "id": sensor.Id}, db)
+	if err != nil {
+		t.Errorf("%v", err)
+	}
+	if *foundSensor != sensor {
+		t.Errorf("Expected: %v\nGot: %v", sensor, foundSensor)
+	}
 
 }
 
