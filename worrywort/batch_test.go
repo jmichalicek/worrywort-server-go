@@ -175,15 +175,6 @@ func TestFindBatch(t *testing.T) {
 	} else if !b.StrictEqual(*found) {
 		t.Errorf("Expected: %v\nGot: %v\n", b, *found)
 	}
-
-	// var count int = 0
-	// err = db.QueryRow("SELECT COUNT(id) FROM users").Scan(&count)
-	// if err != nil {
-	// 	t.Fatalf("failed to count users: %s", err)
-	// }
-	// if count != 3 {
-	// 	t.Fatalf("expected 3 users to be in database, but got %d", count)
-	// }
 }
 
 func TestBatchesForUser(t *testing.T) {
