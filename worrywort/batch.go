@@ -278,6 +278,12 @@ type TemperatureSensor struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
+// Returns a list of the db columns to use for a SELECT query
+func (t TemperatureSensor) queryColumns() []string {
+	// TODO: Way to dynamically build this using the `db` tag and reflection/introspection
+	return []string{"id", "name", "created_by", "created_at", "updated_at"}
+}
+
 // Returns a new TemperatureSensor
 func NewTemperatureSensor(id int, name string, createdBy User, createdAt, updatedAt time.Time) TemperatureSensor {
 	return TemperatureSensor{Id: id, Name: name, CreatedBy: createdBy, CreatedAt: createdAt, UpdatedAt: updatedAt}
@@ -290,14 +296,14 @@ func FindTemperatureSensor(params map[string]interface{}, db *sqlx.DB) (*Tempera
 	for _, k := range []string{"id", "created_by_user_id"} {
 		if v, ok := params[k]; ok {
 			values = append(values, v)
-			// TODO: Deal with values from batch OR user table
-			where = append(where, fmt.Sprintf("b.%s = ?", k))
+			// TODO: Deal with values from temperature_sensor OR user table
+			where = append(where, fmt.Sprintf("t.%s = ?", k))
 		}
 	}
 
 	selectCols := ""
-	for _, k := range b.queryColumns() {
-		selectCols += fmt.Sprintf("b.%s, ", k)
+	for _, k := range t.queryColumns() {
+		selectCols += fmt.Sprintf("t.%s, ", k)
 	}
 
 	u := User{}
@@ -305,7 +311,7 @@ func FindTemperatureSensor(params map[string]interface{}, db *sqlx.DB) (*Tempera
 		selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
 	}
 
-	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM temperature_sensors b LEFT JOIN users u on u.id = b.created_by_user_id ` +
+	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM temperature_sensors t LEFT JOIN users u on u.id = t.created_by_user_id ` +
 		`WHERE ` + strings.Join(where, " AND ")
 
 	query := db.Rebind(q)
@@ -316,6 +322,23 @@ func FindTemperatureSensor(params map[string]interface{}, db *sqlx.DB) (*Tempera
 	}
 
 	return &t, nil
+}
+
+// Save the User to the database.  If User.Id() is 0
+// then an insert is performed, otherwise an update on the User matching that id.
+func SaveTemperatureSensor(db *sqlx.DB, tm TemperatureSensor) (TemperatureSensor, error) {
+	if tm.Id != 0 {
+		return UpdateTemperatureSensor(db, tm)
+	} else {
+		return InsertTemperatureSensor(db, tm)
+	}
+}
+
+func UpdateTemperatureSensor(db *sqlx.DB, tm TemperatureSensor) (TemperatureSensor, error) {
+	return tm, nil
+}
+func InsertTemperatureSensor(db *sqlx.DB, tm TemperatureSensor) (TemperatureSensor, error) {
+	return tm, nil
 }
 
 // A single recorded temperature measurement from a temperatureSensor

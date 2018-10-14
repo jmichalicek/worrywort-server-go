@@ -257,8 +257,8 @@ func (r *temperatureMeasurementResolver) Batch() *batchResolver {
 	return nil
 }
 
-func (r *temperatureMeasurementResolver) TemperatureSensor() temperatureSensorResolver {
-	return temperatureSensorResolver{t: *(r.m.TemperatureSensor)}
+func (r *temperatureMeasurementResolver) TemperatureSensor() *temperatureSensorResolver {
+	return &temperatureSensorResolver{t: *(r.m.TemperatureSensor)}
 }
 
 func (r *temperatureMeasurementResolver) Fermenter() *fermenterResolver {

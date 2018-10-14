@@ -56,6 +56,24 @@ func TestNewTemperatureSensor(t *testing.T) {
 
 }
 
+func TestFindTemperatureSensor(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err = SaveUser(db, u)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	sensor := TemperatureSensor{Name: "Test Sensor", CreatedBy: u}
+	sensor, err = SaveTemperatureSensor(db, sensor)
+
+}
+
 func TestFindBatch(t *testing.T) {
 	// Set up the db using sql.Open() and sqlx.NewDb() rather than sqlx.Open() so that the custom
 	// `txdb` db type may be used with Open() but can still be registered as postgres with sqlx
