@@ -4,7 +4,9 @@ import (
 	"testing"
 	"time"
 	// "reflect"
+	"fmt"
 	"github.com/davecgh/go-spew/spew"
+	"strings"
 )
 
 // Test that NewBatch() returns a batch with the expected values
@@ -135,6 +137,126 @@ func TestSaveTemperatureSensor(t *testing.T) {
 	})
 }
 
+func TestSaveTemperatureMeasurement(t *testing.T) {
+	// TODO: Add fermenter to the saved measurement!  Currently saving a fermenter has not been implemented
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u, err := SaveUser(db, User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	sensor, err := SaveTemperatureSensor(db, TemperatureSensor{Name: "Test Sensor", CreatedBy: u})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	b, err := SaveBatch(db, Batch{CreatedBy: u, Name: "Test batch"})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	t.Run("Save New Measurement With All Fields", func(t *testing.T) {
+		m, err := SaveTemperatureMeasurement(db,
+			TemperatureMeasurement{CreatedBy: u, TemperatureSensor: &sensor, Temperature: 70.0, Units: FAHRENHEIT, Batch: &b, RecordedAt: time.Now()})
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+		if m.Id == "" {
+			t.Errorf("SaveTemperatureMeasurement did not set id on new TemperatureMeasurement")
+		}
+
+		if m.UpdatedAt.IsZero() {
+			t.Errorf("SaveTemperatureMeasurement did not set UpdatedAt")
+		}
+
+		if m.CreatedAt.IsZero() {
+			t.Errorf("SaveTemperatureMeasurement did not set CreatedAt")
+		}
+		// TODO: Just query for the expected measurement
+		newMeasurement := TemperatureMeasurement{}
+		selectCols := ""
+		for _, k := range u.queryColumns() {
+			selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
+		}
+		selectCols += fmt.Sprintf("ts.id \"temperature_sensor.id\", ts.name \"temperature_sensor.name\", ")
+		q := `SELECT tm.temperature, tm.units,  ` + strings.Trim(selectCols, ", ") + ` from temperature_measurements tm LEFT JOIN users u ON u.id = tm.created_by_user_id LEFT JOIN temperature_sensors ts ON ts.id = tm.temperature_sensor_id WHERE tm.id = ? AND tm.created_by_user_id = ? AND tm.temperature_sensor_id = ?`
+		query := db.Rebind(q)
+		err = db.Get(&newMeasurement, query, m.Id, u.Id, sensor.Id)
+
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+	})
+
+	t.Run("Save New Measurement Without Optional Fields", func(t *testing.T) {
+		m, err := SaveTemperatureMeasurement(db,
+			TemperatureMeasurement{CreatedBy: u, TemperatureSensor: &sensor, Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()})
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+		if m.Id == "" {
+			t.Errorf("SaveTemperatureMeasurement did not set id on new TemperatureMeasurement")
+		}
+
+		if m.UpdatedAt.IsZero() {
+			t.Errorf("SaveTemperatureMeasurement did not set UpdatedAt")
+		}
+
+		if m.CreatedAt.IsZero() {
+			t.Errorf("SaveTemperatureMeasurement did not set CreatedAt")
+		}
+
+		newMeasurement := TemperatureMeasurement{}
+		selectCols := ""
+		for _, k := range u.queryColumns() {
+			selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
+		}
+		selectCols += fmt.Sprintf("ts.id \"temperature_sensor.id\", ts.name \"temperature_sensor.name\", ")
+		q := `SELECT tm.temperature, tm.units,  ` + strings.Trim(selectCols, ", ") + ` from temperature_measurements tm LEFT JOIN users u ON u.id = tm.created_by_user_id LEFT JOIN temperature_sensors ts ON ts.id = tm.temperature_sensor_id WHERE tm.id = ? AND tm.created_by_user_id = ? AND tm.temperature_sensor_id = ?`
+		query := db.Rebind(q)
+		err = db.Get(&newMeasurement, query, m.Id, u.Id, sensor.Id)
+
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+	})
+
+	t.Run("Update Temperature Measurement", func(t *testing.T) {
+		m, err := SaveTemperatureMeasurement(db,
+			TemperatureMeasurement{CreatedBy: u, TemperatureSensor: &sensor, Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()})
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+		// set date back in the past so that our date comparison consistenyly works
+		m.UpdatedAt = sensor.UpdatedAt.AddDate(0, 0, -1)
+		// TODO: Intend to change this so that we set BatchId and save to update the Batch, not assign an object
+		m.Batch = &b
+		updatedMeasurement, err := SaveTemperatureMeasurement(db, m)
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+		if updatedMeasurement.Batch != &b {
+			t.Errorf("SaveTemperatureMeasurement did not update the Batch")
+		}
+
+		if m.UpdatedAt == updatedMeasurement.UpdatedAt {
+			t.Errorf("SaveTemperatureSensor did not update UpdatedAt")
+		}
+
+		// Now unset the batch, just to see
+		m.Batch = nil
+		updatedMeasurement, err = SaveTemperatureMeasurement(db, m)
+		if updatedMeasurement.Batch != nil {
+			t.Errorf("SaveTemperatureMeasurement did not remove the Batch")
+		}
+	})
+}
+
 func TestFindBatch(t *testing.T) {
 	// Set up the db using sql.Open() and sqlx.NewDb() rather than sqlx.Open() so that the custom
 	// `txdb` db type may be used with Open() but can still be registered as postgres with sqlx
@@ -175,15 +297,6 @@ func TestFindBatch(t *testing.T) {
 	} else if !b.StrictEqual(*found) {
 		t.Errorf("Expected: %v\nGot: %v\n", b, *found)
 	}
-
-	// var count int = 0
-	// err = db.QueryRow("SELECT COUNT(id) FROM users").Scan(&count)
-	// if err != nil {
-	// 	t.Fatalf("failed to count users: %s", err)
-	// }
-	// if count != 3 {
-	// 	t.Fatalf("expected 3 users to be in database, but got %d", count)
-	// }
 }
 
 func TestBatchesForUser(t *testing.T) {

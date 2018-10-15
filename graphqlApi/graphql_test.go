@@ -16,6 +16,7 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -299,5 +300,113 @@ func TestBatchQuery(t *testing.T) {
 		if !reflect.DeepEqual(expected, f) {
 			t.Errorf("\nExpected: %v\nGot: %v", expected, f)
 		}
+	})
+}
+
+func TestCreateTemperatureMeasurementMutation(t *testing.T) {
+	const DefaultUserKey string = "user"
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := worrywort.NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err = worrywort.SaveUser(db, u)
+
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	sensor, err := worrywort.SaveTemperatureSensor(db, worrywort.TemperatureSensor{Name: "Test Sensor", CreatedBy: u})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	batch, err := worrywort.SaveBatch(db, worrywort.Batch{CreatedBy: u, Name: "Test batch"})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	u2 := worrywort.NewUser(0, "user2@example.com", "Justin", "M", time.Now(), time.Now())
+	u2, err = worrywort.SaveUser(db, u2)
+
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	// TODO: Can this become global to these tests?
+	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	t.Run("Test measurement is created with valid data", func(t *testing.T) {
+		variables := map[string]interface{}{
+			"input": map[string]interface{}{
+				"batchId":             strconv.Itoa(batch.Id),
+				"temperatureSensorId": strconv.Itoa(sensor.Id),
+				"units":               "FAHRENHEIT",
+				"temperature":         70.0,
+				"recordedAt":          "2018-10-14T15:26:00+00:00",
+			},
+		}
+		query := `
+			mutation addMeasurement($input: CreateTemperatureMeasurementInput) {
+				createTemperatureMeasurement(input: $input) {
+					__typename
+					temperatureMeasurement {
+						__typename
+						id
+					}
+				}
+			}`
+		operationName := ""
+		ctx := context.Background()
+		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
+
+		// Some structs so that the json can be unmarshalled
+		type tm struct {
+			Typename string `json:"__typename"`
+			Id       string `json:"id"`
+		}
+		type createTemperatureMeasurementPayload struct {
+			Typename               string `json:"__typename"`
+			TemperatureMeasurement tm     `json:"temperatureMeasurement"`
+		}
+
+		type createTemperatureMeasurement struct {
+			CreateTemperatureMeasurement createTemperatureMeasurementPayload `json:"createTemperatureMeasurement"`
+		}
+
+		var result createTemperatureMeasurement
+		err = json.Unmarshal(resultData.Data, &result)
+		if err != nil {
+			t.Fatalf("%v", result)
+		}
+
+		// Test the returned graphql types
+		if result.CreateTemperatureMeasurement.Typename != "CreateTemperatureMeasurementPayload" {
+			t.Errorf("createTemperatureMeasurement returned unexpected type: %s", result.CreateTemperatureMeasurement.Typename)
+		}
+
+		if result.CreateTemperatureMeasurement.TemperatureMeasurement.Typename != "TemperatureMeasurement" {
+			t.Errorf("createTemperatureMeasurement returned unexpected type for TemperatureMeasurement: %s", result.CreateTemperatureMeasurement.TemperatureMeasurement.Typename)
+		}
+
+		// Look up the object in the db to be sure it was created
+		var measurementId string = result.CreateTemperatureMeasurement.TemperatureMeasurement.Id
+		// TODO: implement FindTemperatureMeasurement
+		// measurement, err := worrywort.FindTemperatureMeasurement(db,
+		// 	map[string]interface{}{"created_by_user_id": u.Id, "id": measurementId})
+		measurement := &worrywort.TemperatureMeasurement{}
+		selectCols := fmt.Sprintf("u.id \"created_by.id\", ts.id \"temperature_sensor.id\", ts.name \"temperature_sensor.name\", ")
+		q := `SELECT tm.temperature, tm.units,  ` + strings.Trim(selectCols, ", ") + ` from temperature_measurements tm LEFT JOIN users u ON u.id = tm.created_by_user_id LEFT JOIN temperature_sensors ts ON ts.id = tm.temperature_sensor_id WHERE tm.id = ? AND tm.created_by_user_id = ? AND tm.temperature_sensor_id = ?`
+		query = db.Rebind(q)
+		err = db.Get(measurement, query, measurementId, u.Id, sensor.Id)
+
+		if err == sql.ErrNoRows {
+			t.Error("Measurement was not saved to the database. Query returned no results.")
+		} else if err != nil {
+			t.Errorf("%v", err)
+		}
+
 	})
 }

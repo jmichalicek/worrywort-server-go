@@ -49,7 +49,7 @@ type Batch struct {
 	TastingNotes       string         `db:"tasting_notes"`
 	BrewedDate         time.Time      `db:"brewed_date"`
 	BottledDate        time.Time      `db:"bottled_date"`
-	VolumeBoiled       float64        `db:"volume_boiled"`
+	VolumeBoiled       float64        `db:"volume_boiled"` // sql nullfloats?
 	VolumeInFermenter  float64        `db:"volume_in_fermenter"`
 	VolumeUnits        VolumeUnitType `db:"volume_units"`
 	OriginalGravity    float64        `db:"original_gravity"`
@@ -164,6 +164,7 @@ func InsertBatch(db *sqlx.DB, b Batch) (Batch, error) {
 		min_temperature, average_temperature, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at`)
 	// TODO: Make the dates strings for sql to be happy
+
 	err := db.QueryRow(
 		query, b.CreatedBy.Id, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
 		b.VolumeBoiled, b.VolumeInFermenter, b.VolumeUnits, b.OriginalGravity, b.FinalGravity, b.RecipeURL,
@@ -385,7 +386,7 @@ type TemperatureMeasurement struct {
 	RecordedAt        time.Time           `db:"recorded_at"` // when the measurement was recorded
 	Batch             *Batch              `db:"batch,prefix=b"`
 	TemperatureSensor *TemperatureSensor  `db:"temperature_sensor,prefix=ts"`
-	Fermenter         *Fermenter          `db:"fermenter,prefix=f"`
+	Fermenter         *Fermenter          `db:"fermenter,prefix=f"` // Do I really care? I might for history.
 
 	// not sure createdBy is a useful name in this case vs just `user` but its consistent
 	CreatedBy User `db:"created_by,prefix=u"`
@@ -417,14 +418,14 @@ func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 
 	// TODO: This feels like a very unmaintainable way to handle foreign keys overall throughout the system
 	// Once again considering keeping the FK's id as a separate value on the struct as a NullInt, etc.
-	if tm.TemperatureSensor != nil {
-		insertVals = append(insertVals, tm.TemperatureSensor.Id)
+	if tm.Batch != nil {
+		insertVals = append(insertVals, tm.Batch.Id)
 	} else {
 		insertVals = append(insertVals, nil)
 	}
 
-	if tm.Batch != nil {
-		insertVals = append(insertVals, tm.Batch.Id)
+	if tm.TemperatureSensor != nil {
+		insertVals = append(insertVals, tm.TemperatureSensor.Id)
 	} else {
 		insertVals = append(insertVals, nil)
 	}
@@ -439,9 +440,6 @@ func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 		updated_at, batch_id, temperature_sensor_id, fermenter_id)
 		VALUES (?, ?, ?, ?, NOW(), NOW(), ?, ?, ?) RETURNING id, created_at, updated_at`)
 	err := db.QueryRow(query, insertVals...).Scan(&measurementId, &createdAt, &updatedAt)
-	// err := db.QueryRow(
-	// 	query, tm.CreatedBy.Id, tm.Batch.Id, tm.TemperatureSensor.Id, tm.Fermenter.Id, tm.Temperature, tm.Units,
-	// 	tm.RecordedAt, tm.CreatedAt, tm.UpdatedAt).Scan(&measurementId, &createdAt, &updatedAt)
 	if err != nil {
 		return tm, err
 	}
@@ -460,13 +458,30 @@ func UpdateTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 	// TODO: TEST CASE
 	var updatedAt time.Time
 
+	paramVals := []interface{}{tm.CreatedBy.Id, tm.Temperature, tm.Units, tm.RecordedAt}
+
+	if tm.Batch != nil {
+		paramVals = append(paramVals, tm.Batch.Id)
+	} else {
+		paramVals = append(paramVals, nil)
+	}
+
+	if tm.TemperatureSensor != nil {
+		paramVals = append(paramVals, tm.TemperatureSensor.Id)
+	} else {
+		paramVals = append(paramVals, nil)
+	}
+
+	if tm.Fermenter != nil {
+		paramVals = append(paramVals, tm.Fermenter.Id)
+	} else {
+		paramVals = append(paramVals, nil)
+	}
+	paramVals = append(paramVals, tm.Id)
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
-	query := db.Rebind(`UPDATE temperature_measurements SET created_by_user_id = ?, batch_id = ?,
-		temperature_sensor_id = ?, fermenter_id = ?, temperature = ?, units = ?, recorded_at = ?, created_at = ?,
-		updated_at = NOW() WHERE id = ?) RETURNING updated_at`)
-	err := db.QueryRow(
-		query, tm.CreatedBy.Id, tm.Batch.Id, tm.TemperatureSensor.Id, tm.Fermenter.Id, tm.Temperature, tm.Units,
-		tm.RecordedAt, tm.CreatedAt, tm.UpdatedAt).Scan(&updatedAt)
+	query := db.Rebind(`UPDATE temperature_measurements SET created_by_user_id = ?, temperature = ?, units = ?,
+		recorded_at = ?, updated_at = NOW(), batch_id = ?, temperature_sensor_id = ?, fermenter_id = ? WHERE id = ? RETURNING updated_at`)
+	err := db.QueryRow(query, paramVals...).Scan(&updatedAt)
 	if err != nil {
 		return tm, err
 	}
