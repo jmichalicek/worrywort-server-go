@@ -360,45 +360,52 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 		operationName := ""
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
-		result_data := worrywortSchema.Exec(ctx, query, operationName, variables)
+		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
 
+		// Some structs so that the json can be unmarshalled
 		type tm struct {
 			Typename string `json:"__typename"`
 			Id       string `json:"id"`
 		}
-		type createTemperatureMeasurement struct {
+		type createTemperatureMeasurementPayload struct {
 			Typename               string `json:"__typename"`
 			TemperatureMeasurement tm     `json:"temperatureMeasurement"`
 		}
 
+		type createTemperatureMeasurement struct {
+			CreateTemperatureMeasurement createTemperatureMeasurementPayload `json:"createTemperatureMeasurement"`
+		}
+
 		var result createTemperatureMeasurement
-		err = json.Unmarshal(result_data.Data, &result)
+		err = json.Unmarshal(resultData.Data, &result)
 		if err != nil {
 			t.Fatalf("%v", result)
 		}
 
-		measurementId, err := strconv.ParseInt(
-			string(result.TemperatureMeasurement.Id), 10, 0)
+		// Test the returned graphql types
+		if result.CreateTemperatureMeasurement.Typename != "CreateTemperatureMeasurementPayload" {
+			t.Errorf("createTemperatureMeasurement returned unexpected type: %s", result.CreateTemperatureMeasurement.Typename)
+		}
+
+		if result.CreateTemperatureMeasurement.TemperatureMeasurement.Typename != "TemperatureMeasurement" {
+			t.Errorf("createTemperatureMeasurement returned unexpected type for TemperatureMeasurement: %s", result.CreateTemperatureMeasurement.TemperatureMeasurement.Typename)
+		}
+
+		// Look up the object in the db to be sure it was created
+		var measurementId string = result.CreateTemperatureMeasurement.TemperatureMeasurement.Id
 		// TODO: implement FindTemperatureMeasurement
 		// measurement, err := worrywort.FindTemperatureMeasurement(db,
 		// 	map[string]interface{}{"created_by_user_id": u.Id, "id": measurementId})
 		measurement := &worrywort.TemperatureMeasurement{}
 		selectCols := fmt.Sprintf("u.id \"created_by.id\", ts.id \"temperature_sensor.id\", ts.name \"temperature_sensor.name\", ")
-
 		q := `SELECT tm.temperature, tm.units,  ` + strings.Trim(selectCols, ", ") + ` from temperature_measurements tm LEFT JOIN users u ON u.id = tm.created_by_user_id LEFT JOIN temperature_sensors ts ON ts.id = tm.temperature_sensor_id WHERE tm.id = ? AND tm.created_by_user_id = ? AND tm.temperature_sensor_id = ?`
 		query = db.Rebind(q)
 		err = db.Get(measurement, query, measurementId, u.Id, sensor.Id)
 
-		if measurement == nil {
-			t.Errorf("Measurement not created. Query returned error: %v", err)
-		}
-
-		if result.Typename != "CreateTemperatureMeasuermentPayload" {
-			t.Errorf("createTemperatureMeasurement returned unexpected type: %s", result.Typename)
-		}
-
-		if result.TemperatureMeasurement.Typename != "TemperatureMeasuerment" {
-			t.Errorf("createTemperatureMeasurement returned unexpected type for TemperatureMeasurement: %s", result.TemperatureMeasurement.Typename)
+		if err == sql.ErrNoRows {
+			t.Error("Measurement was not saved to the database. Query returned no results.")
+		} else if err != nil {
+			t.Errorf("%v", err)
 		}
 
 	})
