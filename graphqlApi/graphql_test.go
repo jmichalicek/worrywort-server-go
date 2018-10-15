@@ -16,6 +16,7 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -357,15 +358,48 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 				}
 			}`
 		operationName := ""
-		context := context.Background()
-		result := worrywortSchema.Exec(context, query, operationName, variables)
-		// THIS IS REALLY FAILING
-		t.Errorf("%s", result.Data)
-		var expected interface{}
-		// should we actually return auth errors rather than nothing?
-		err := json.Unmarshal([]byte(`{"batches":[]}`), &expected)
-		if err != nil {
-			t.Fatalf("%v", err)
+		ctx := context.Background()
+		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+		result_data := worrywortSchema.Exec(ctx, query, operationName, variables)
+
+		type tm struct {
+			Typename string `json:"__typename"`
+			Id       string `json:"id"`
 		}
+		type createTemperatureMeasurement struct {
+			Typename               string `json:"__typename"`
+			TemperatureMeasurement tm     `json:"temperatureMeasurement"`
+		}
+
+		var result createTemperatureMeasurement
+		err = json.Unmarshal(result_data.Data, &result)
+		if err != nil {
+			t.Fatalf("%v", result)
+		}
+
+		measurementId, err := strconv.ParseInt(
+			string(result.TemperatureMeasurement.Id), 10, 0)
+		// TODO: implement FindTemperatureMeasurement
+		// measurement, err := worrywort.FindTemperatureMeasurement(db,
+		// 	map[string]interface{}{"created_by_user_id": u.Id, "id": measurementId})
+		measurement := &worrywort.TemperatureMeasurement{}
+		selectCols := fmt.Sprintf("u.id \"created_by.id\", ts.id \"temperature_sensor.id\", ts.name \"temperature_sensor.name\", ")
+
+		q := `SELECT tm.temperature, tm.units,  ` + strings.Trim(selectCols, ", ") + ` from temperature_measurements tm LEFT JOIN users u ON u.id = tm.created_by_user_id LEFT JOIN temperature_sensors ts ON ts.id = tm.temperature_sensor_id WHERE tm.id = ? AND tm.created_by_user_id = ? AND tm.temperature_sensor_id = ?`
+		query = db.Rebind(q)
+		err = db.Get(measurement, query, measurementId, u.Id, sensor.Id)
+
+		if measurement == nil {
+			t.Errorf("Measurement not created. Query returned error: %v", err)
+		}
+
+		if result.Typename != "CreateTemperatureMeasuermentPayload" {
+			t.Errorf("createTemperatureMeasurement returned unexpected type: %s", result.Typename)
+		}
+
+		if result.TemperatureMeasurement.Typename != "TemperatureMeasuerment" {
+			t.Errorf("createTemperatureMeasurement returned unexpected type for TemperatureMeasurement: %s", result.TemperatureMeasurement.Typename)
+		}
+
 	})
 }
