@@ -3,6 +3,7 @@ package worrywort
 // Models and functions for brew batch management
 
 import (
+	"database/sql"
 	// "net/url"
 	"errors"
 	"fmt"
@@ -43,7 +44,8 @@ var TypeError error = errors.New("Invalid type specified")
 // as long as I provide a Batcher interface or whatever?
 type Batch struct {
 	Id                 int            `db:"id"`
-	CreatedBy          User           `db:"created_by,prefix=u"`
+	CreatedBy          User           `db:"created_by,prefix=u"` // TODO: think I will change this to User
+	UserId             sql.NullInt64  `db:"created_by_user_id"`
 	Name               string         `db:"name"`
 	BrewNotes          string         `db:"brew_notes"`
 	TastingNotes       string         `db:"tasting_notes"`
@@ -53,7 +55,7 @@ type Batch struct {
 	VolumeInFermenter  float64        `db:"volume_in_fermenter"`
 	VolumeUnits        VolumeUnitType `db:"volume_units"`
 	OriginalGravity    float64        `db:"original_gravity"`
-	FinalGravity       float64        `db:"final_gravity"`
+	FinalGravity       float64        `db:"final_gravity"` // TODO: sql.nullfloat64?
 	MaxTemperature     float64        `db:"max_temperature"`
 	MinTemperature     float64        `db:"min_temperature"`
 	AverageTemperature float64        `db:"average_temperature"`
@@ -252,6 +254,9 @@ type Fermenter struct {
 	IsActive      bool               `db:"is_active"`
 	IsAvailable   bool               `db:"is_available"`
 	CreatedBy     User               `db:"created_by,prefix=u"`
+	UserId        sql.NullInt64      `db:"created_by_user_id"`
+
+	// TODO: id and fk for current batch if it is attached to a batch?
 
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
@@ -271,9 +276,11 @@ func NewFermenter(id int, name, description string, volume float64, volumeUnits 
 // TODO: This may also want extra metadata such as model or type?  That is probably
 // going too far for now, so keep it simple.
 type TemperatureSensor struct {
-	Id        int    `db:"id"`
-	Name      string `db:"name"`
-	CreatedBy User   `db:"created_by,prefix=u"`
+	Id        int           `db:"id"`
+	Name      string        `db:"name"`
+	CreatedBy User          `db:"created_by,prefix=u"`
+	UserId    sql.NullInt64 `db:"created_by_user_id"`
+	// TODO: fk/id for current fermenter and current batch if attached to them?
 
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
@@ -380,16 +387,19 @@ func UpdateTemperatureSensor(db *sqlx.DB, t TemperatureSensor) (TemperatureSenso
 // A single recorded temperature measurement from a temperatureSensor
 // This may get some tweaking to play nicely with data stored in Postgres or Influxdb
 type TemperatureMeasurement struct {
-	Id                string              `db:"id"` // use a uuid
-	Temperature       float64             `db:"temperature"`
-	Units             TemperatureUnitType `db:"units"`
-	RecordedAt        time.Time           `db:"recorded_at"` // when the measurement was recorded
-	Batch             *Batch              `db:"batch,prefix=b"`
-	TemperatureSensor *TemperatureSensor  `db:"temperature_sensor,prefix=ts"`
-	Fermenter         *Fermenter          `db:"fermenter,prefix=f"` // Do I really care? I might for history.
+	Id                  string              `db:"id"` // use a uuid
+	Temperature         float64             `db:"temperature"`
+	Units               TemperatureUnitType `db:"units"`
+	RecordedAt          time.Time           `db:"recorded_at"` // when the measurement was recorded
+	Batch               *Batch              `db:"batch,prefix=b"`
+	BatchId             sql.NullInt64       `db:"batch_id"`
+	TemperatureSensor   *TemperatureSensor  `db:"temperature_sensor,prefix=ts"`
+	TemperatureSensorId sql.NullInt64       `db:"temperature_sensor_id"`
+	Fermenter           *Fermenter          `db:"fermenter,prefix=f"` // Do I really care? I might for history.
 
 	// not sure createdBy is a useful name in this case vs just `user` but its consistent
-	CreatedBy User `db:"created_by,prefix=u"`
+	CreatedBy User          `db:"created_by,prefix=u"`
+	UserId    sql.NullInt64 `db:"created_by_user_id"`
 
 	// when the record was created
 	CreatedAt time.Time `db:"created_at"`
