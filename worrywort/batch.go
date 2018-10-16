@@ -72,7 +72,7 @@ func (b Batch) queryColumns() []string {
 	// TODO: Way to dynamically build this using the `db` tag and reflection/introspection
 	return []string{"id", "name", "brew_notes", "tasting_notes", "brewed_date", "bottled_date",
 		"volume_boiled", "volume_in_fermenter", "volume_units", "original_gravity", "final_gravity", "recipe_url",
-		"max_temperature", "min_temperature", "average_temperature", "created_at", "updated_at"}
+		"max_temperature", "min_temperature", "average_temperature", "created_at", "updated_at", "created_by_user_id"}
 }
 
 // Performs a comparison of all attributes of the Batches.  Related structs have only their Id compared.
@@ -168,7 +168,7 @@ func InsertBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	// TODO: Make the dates strings for sql to be happy
 
 	err := db.QueryRow(
-		query, b.CreatedBy.Id, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
+		query, b.UserId, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
 		b.VolumeBoiled, b.VolumeInFermenter, b.VolumeUnits, b.OriginalGravity, b.FinalGravity, b.RecipeURL,
 		b.MaxTemperature, b.MinTemperature, b.AverageTemperature).Scan(&batchId, &createdAt, &updatedAt)
 	if err != nil {
@@ -195,7 +195,7 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 		original_gravity = ?, final_gravity = ?, recipe_url = ?, max_temperature = ?, min_temperature = ?,
 		average_temperature = ?, updated_at = NOW() WHERE id = ? RETURNING updated_at`)
 	err := db.QueryRow(
-		query, b.CreatedBy.Id, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
+		query, b.UserId, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
 		b.VolumeBoiled, b.VolumeInFermenter, b.VolumeUnits, b.OriginalGravity, b.FinalGravity, b.RecipeURL,
 		b.MaxTemperature, b.MinTemperature, b.AverageTemperature).Scan(&updatedAt)
 	if err != nil {
