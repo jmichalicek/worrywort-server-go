@@ -149,32 +149,34 @@ func TestBatchQuery(t *testing.T) {
 	// TODO: Can this become global to these tests?
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
 
-	createdAt := time.Now().Round(time.Microsecond)
-	updatedAt := time.Now().Round(time.Microsecond)
-	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
-	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
+	// TODO: Move to reusable package
+	addMinutes := func(d time.Time, increment int) time.Time {
+		return d.Add(time.Duration(increment) * time.Minute).Round(time.Microsecond)
+	}
 
-	b := worrywort.NewBatch(0, "Testing", brewedDate, bottledDate, 5, 4.5, worrywort.GALLON, 1.060, 1.020, u, createdAt, updatedAt,
-		"Brew notes", "Taste notes", "http://example.org/beer")
+	b := worrywort.Batch{Name: "Testing", BrewedDate: addMinutes(time.Now(), 1), BottledDate: addMinutes(time.Now(), 10), VolumeBoiled: 5,
+		VolumeInFermenter: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
+		UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, CreatedBy: u, BrewNotes: "Brew notes",
+		TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer"}
 	b, err = worrywort.SaveBatch(db, b)
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
 
-	b2 := worrywort.NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1)*time.Minute).Round(time.Microsecond),
-		time.Now().Add(time.Duration(5)*time.Minute).Round(time.Microsecond), 5, 4.5,
-		worrywort.GALLON, 1.060, 1.020, u, createdAt, updatedAt, "Brew notes", "Taste notes",
-		"http://example.org/beer")
+	b2 := worrywort.Batch{Name: "Testing 2", BrewedDate: addMinutes(time.Now(), 1), BottledDate: addMinutes(time.Now(), 5),
+		VolumeBoiled: 5, VolumeInFermenter: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
+		UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, CreatedBy: u, BrewNotes: "Brew notes",
+		TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer"}
 	b2, err = worrywort.SaveBatch(db, b2)
 
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
 
-	u2batch := worrywort.NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1)*time.Minute).Round(time.Microsecond),
-		time.Now().Add(time.Duration(5)*time.Minute).Round(time.Microsecond), 5, 4.5,
-		worrywort.GALLON, 1.060, 1.020, u2, createdAt, updatedAt, "Brew notes", "Taste notes",
-		"http://example.org/beer")
+	u2batch := worrywort.Batch{Name: "Testing 2", BrewedDate: addMinutes(time.Now(), 1), BottledDate: addMinutes(time.Now(), 5),
+		VolumeBoiled: 5, VolumeInFermenter: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
+		UserId: sql.NullInt64{Int64: int64(u2.Id), Valid: true}, CreatedBy: u2, BrewNotes: "Brew notes",
+		TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer"}
 	u2batch, err = worrywort.SaveBatch(db, u2batch)
 
 	if err != nil {
@@ -217,7 +219,7 @@ func TestBatchQuery(t *testing.T) {
 
 	t.Run("Test query for batch(id: ID!) which does not exist returns null", func(t *testing.T) {
 		variables := map[string]interface{}{
-			"id": "fake",
+			"id": "-1",
 		}
 		query := `
 			query getBatch($id: ID!) {
@@ -313,17 +315,19 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 
 	u := worrywort.NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	u, err = worrywort.SaveUser(db, u)
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor, err := worrywort.SaveTemperatureSensor(db, worrywort.TemperatureSensor{Name: "Test Sensor", CreatedBy: u})
+	sensor, err := worrywort.SaveTemperatureSensor(db, worrywort.TemperatureSensor{UserId: userId, Name: "Test Sensor", CreatedBy: u})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	batch, err := worrywort.SaveBatch(db, worrywort.Batch{CreatedBy: u, Name: "Test batch"})
+	batch, err := worrywort.SaveBatch(
+		db, worrywort.Batch{UserId: userId, CreatedBy: u, Name: "Test batch"})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
