@@ -72,7 +72,8 @@ func TestFindTemperatureSensor(t *testing.T) {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor := TemperatureSensor{Name: "Test Sensor", CreatedBy: u}
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
+	sensor := TemperatureSensor{Name: "Test Sensor", UserId: userId}
 	sensor, err = SaveTemperatureSensor(db, sensor)
 	params := make(map[string]interface{})
 	params["created_by_user_id"] = u.Id

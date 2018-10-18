@@ -59,6 +59,8 @@ func main() {
 	tokenAuthHandler := authMiddleware.NewTokenAuthHandler(newTokenAuthLookup(db))
 	// Does this need a Schema pointer?
 	// can we do non-relay
+	// based on https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/server.go
+	// can I just addContext to relay.hanlder or do I need a custom handler and then I can attach db there
 	http.Handle("/graphql", tokenAuthHandler(&relay.Handler{Schema: schema}))
 	uri, uriSet := os.LookupEnv("WORRYWORTD_HOST")
 	if !uriSet {

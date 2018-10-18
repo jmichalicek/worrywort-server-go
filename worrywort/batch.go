@@ -291,7 +291,7 @@ func (t TemperatureSensor) queryColumns() []string {
 	// TODO: Way to dynamically build this using the `db` tag and reflection/introspection
 	// TODO: Add created_by_user_id in here somehow?  Keep user id and user separate
 	// on the struct?
-	return []string{"id", "name", "created_at", "updated_at"}
+	return []string{"id", "name", "created_at", "updated_at", "created_by_user_id"}
 }
 
 // Returns a new TemperatureSensor
@@ -299,7 +299,7 @@ func NewTemperatureSensor(id int, name string, createdBy User, createdAt, update
 	return TemperatureSensor{Id: id, Name: name, CreatedBy: createdBy, CreatedAt: createdAt, UpdatedAt: updatedAt}
 }
 
-// Look up a TemperatureSensor in the database and returns it
+// Look up temperature sensor
 func FindTemperatureSensor(params map[string]interface{}, db *sqlx.DB) (*TemperatureSensor, error) {
 	// TODO: Find a way to just pass in created_by sanely - maybe just manually map that to created_by_user_id if needed
 	// sqlx may have a good way to do that already.
@@ -319,15 +319,8 @@ func FindTemperatureSensor(params map[string]interface{}, db *sqlx.DB) (*Tempera
 		selectCols += fmt.Sprintf("t.%s, ", k)
 	}
 
-	// TODO: improve user join (and other join in general) to
-	// be less duplicated
-	u := User{}
-	for _, k := range u.queryColumns() {
-		selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
-	}
-
-	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM temperature_sensors t LEFT JOIN users u on u.id = t.created_by_user_id ` +
-		`WHERE ` + strings.Join(where, " AND ")
+	// TODO: Can I easily dynamically add in joining and attaching the User to this without overcomplicating the code?
+	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM temperature_sensors t WHERE ` + strings.Join(where, " AND ")
 
 	query := db.Rebind(q)
 	err := db.Get(&t, query, values...)
@@ -338,6 +331,41 @@ func FindTemperatureSensor(params map[string]interface{}, db *sqlx.DB) (*Tempera
 
 	return &t, nil
 }
+
+// Look up a TemperatureSensor in the database and returns it with user joined.
+// I should delete this rather than leaving commented, but leaving it here for easy reference for now.
+// func FindTemperatureSensor(params map[string]interface{}, db *sqlx.DB) (*TemperatureSensor, error) {
+// 	// TODO: Find a way to just pass in created_by sanely - maybe just manually map that to created_by_user_id if needed
+// 	// sqlx may have a good way to do that already.
+// 	t := TemperatureSensor{}
+// 	var values []interface{}
+// 	var where []string
+// 	for _, k := range []string{"id", "created_by_user_id"} {
+// 		if v, ok := params[k]; ok {
+// 			values = append(values, v)
+// 			// TODO: Deal with values from temperature_sensor OR user table
+// 			where = append(where, fmt.Sprintf("t.%s = ?", k))
+// 		}
+// 	}
+// 	selectCols := ""
+// 	for _, k := range t.queryColumns() {
+// 		selectCols += fmt.Sprintf("t.%s, ", k)
+// 	}
+// 	// TODO: improve user join (and other join in general) to
+// 	// be less duplicated
+// 	u := User{}
+// 	for _, k := range u.queryColumns() {
+// 		selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
+// 	}
+// 	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM temperature_sensors t LEFT JOIN users u on u.id = t.created_by_user_id ` +
+// 		`WHERE ` + strings.Join(where, " AND ")
+// 	query := db.Rebind(q)
+// 	err := db.Get(&t, query, values...)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return &t, nil
+// }
 
 // Save the User to the database.  If User.Id() is 0
 // then an insert is performed, otherwise an update on the User matching that id.
@@ -356,8 +384,7 @@ func InsertTemperatureSensor(db *sqlx.DB, t TemperatureSensor) (TemperatureSenso
 
 	query := db.Rebind(`INSERT INTO temperature_sensors (created_by_user_id, name, updated_at)
 		VALUES (?, ?, NOW()) RETURNING id, created_at, updated_at`)
-	err := db.QueryRow(
-		query, t.CreatedBy.Id, t.Name).Scan(&sensorId, &createdAt, &updatedAt)
+	err := db.QueryRow(query, t.UserId, t.Name).Scan(&sensorId, &createdAt, &updatedAt)
 	if err != nil {
 		return t, err
 	}

@@ -104,6 +104,7 @@ func (r *Resolver) Fermenter(ctx context.Context, args struct{ ID graphql.ID }) 
 func (r *Resolver) TemperatureSensor(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureSensorResolver, error) {
 	// authUser, _ := authMiddleware.UserFromContext(ctx)
 	// TODO: panic on error, no user, etc.
+	// TODO: really implement this
 
 	createdAt := time.Now()
 	updatedAt := time.Now()
@@ -115,7 +116,7 @@ func (r *Resolver) TemperatureSensor(ctx context.Context, args struct{ ID graphq
 func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureMeasurementResolver, error) {
 	// authUser, _ := authMiddleware.UserFromContext(ctx)
 	// TODO: panic on error, no user, etc.
-	// TODO: REALLY LOOK THIS UP!
+	// TODO: REALLY IMPLEMENT THIS!
 
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	b := worrywort.NewBatch(1, "Testing", time.Now(), time.Now(), 5, 4.5, worrywort.GALLON, 1.060, 1.020, u, time.Now(), time.Now(),
@@ -210,7 +211,19 @@ func (r *batchResolver) CreatedAt() string { return dateString(r.b.CreatedAt) }
 func (r *batchResolver) UpdatedAt() string { return dateString(r.b.UpdatedAt) }
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
-func (r *batchResolver) CreatedBy() *userResolver { return &userResolver{u: r.b.CreatedBy} }
+func (r *batchResolver) CreatedBy() (*userResolver, error) {
+	// IMPLEMENT DATALOADER
+	// TODO: yeah, maybe make Batch.CreatedBy and others a pointer... or a function with a private pointer to cache
+	if r.b.CreatedBy.Id != 0 {
+		return &userResolver{u: r.b.CreatedBy}, nil
+	}
+	// HOW DO I GET TO THE DB WITHOUT A GLOBAL CONFIG/DB OBJECT?
+	// Looking at https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/service/user_service.go#L23
+	// and https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/server.go#L20
+	// I will just want to put the db in my context even though it seems like many things say do not do that.
+	user, err := worrywort.LookupUser(int(r.b.UserId.Int64), r.db)
+	return &userResolver{u: user}, err
+}
 
 // Resolve a worrywort.Fermenter
 type fermenterResolver struct {
