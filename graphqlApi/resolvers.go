@@ -30,6 +30,7 @@ func dateString(dt time.Time) string {
 
 type Resolver struct {
 	// todo: should be Db?
+	// do not really need this now that it is coming in on context
 	db *sqlx.DB
 }
 
@@ -211,7 +212,7 @@ func (r *batchResolver) CreatedAt() string { return dateString(r.b.CreatedAt) }
 func (r *batchResolver) UpdatedAt() string { return dateString(r.b.UpdatedAt) }
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
-func (r *batchResolver) CreatedBy() (*userResolver, error) {
+func (r *batchResolver) CreatedBy(ctx context.Context) (*userResolver, error) {
 	// IMPLEMENT DATALOADER
 	// TODO: yeah, maybe make Batch.CreatedBy and others a pointer... or a function with a private pointer to cache
 	if r.b.CreatedBy.Id != 0 {
@@ -221,7 +222,7 @@ func (r *batchResolver) CreatedBy() (*userResolver, error) {
 	// Looking at https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/service/user_service.go#L23
 	// and https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/server.go#L20
 	// I will just want to put the db in my context even though it seems like many things say do not do that.
-	user, err := worrywort.LookupUser(int(r.b.UserId.Int64), r.db)
+	user, err := worrywort.LookupUser(int(r.b.UserId.Int64), ctx.db)
 	return &userResolver{u: user}, err
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
@@ -37,6 +38,12 @@ func newTokenAuthLookup(db *sqlx.DB) func(token string) (worrywort.User, error) 
 	}
 }
 
+func AddContext(ctx context.Context, h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 func main() {
 
 	// For now, force postgres
@@ -61,7 +68,13 @@ func main() {
 	// can we do non-relay
 	// based on https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/server.go
 	// can I just addContext to relay.hanlder or do I need a custom handler and then I can attach db there
-	http.Handle("/graphql", tokenAuthHandler(&relay.Handler{Schema: schema}))
+	// try it.  My understanding is that this can be frowned upon... but it seems nicer than
+	// having to pass the db around through EVERY resolver I create/use
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "db", db)
+	// can add logging similarly
+
+	http.Handle("/graphql", addContext(ctx, tokenAuthHandler(&relay.Handler{Schema: schema})))
 	uri, uriSet := os.LookupEnv("WORRYWORTD_HOST")
 	if !uriSet {
 		uri = ":8080"
