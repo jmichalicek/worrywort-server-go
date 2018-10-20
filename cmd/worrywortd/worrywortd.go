@@ -9,11 +9,10 @@ import (
 	"github.com/jmichalicek/worrywort-server-go/graphqlApi"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 	"log"
 	"net/http"
 	"os"
-
-	_ "github.com/lib/pq"
 )
 
 var schema *graphql.Schema
@@ -74,7 +73,7 @@ func main() {
 	ctx = context.WithValue(ctx, "db", db)
 	// can add logging similarly
 
-	http.Handle("/graphql", addContext(ctx, tokenAuthHandler(&relay.Handler{Schema: schema})))
+	http.Handle("/graphql", AddContext(ctx, tokenAuthHandler(&relay.Handler{Schema: schema})))
 	uri, uriSet := os.LookupEnv("WORRYWORTD_HOST")
 	if !uriSet {
 		uri = ":8080"

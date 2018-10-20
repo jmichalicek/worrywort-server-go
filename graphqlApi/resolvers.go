@@ -15,6 +15,8 @@ import (
 	"time"
 )
 
+var SERVER_ERROR = errors.New("Unexpected server error.")
+
 // Takes a time.Time and returns nil if the time is zero or pointer to the time string formatted as RFC3339
 func nullableDateString(dt time.Time) *string {
 	if dt.IsZero() {
@@ -222,7 +224,14 @@ func (r *batchResolver) CreatedBy(ctx context.Context) (*userResolver, error) {
 	// Looking at https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/service/user_service.go#L23
 	// and https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/server.go#L20
 	// I will just want to put the db in my context even though it seems like many things say do not do that.
-	user, err := worrywort.LookupUser(int(r.b.UserId.Int64), ctx.db)
+	// Not sure I like this at all, but I also do not want to have to attach the db from resolver to every other
+	// resolver/type struct I create.
+	db, ok := ctx.Value("db").(*sqlx.DB)
+	if !ok {
+		log.Printf("No database in context")
+		return nil, SERVER_ERROR
+	}
+	user, err := worrywort.LookupUser(int(r.b.UserId.Int64), db)
 	return &userResolver{u: user}, err
 }
 

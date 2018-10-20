@@ -1,11 +1,50 @@
 package graphqlApi
 
 import (
+	"context"
+	"database/sql"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"testing"
 	"time"
 )
+
+// TODO: testmain and setUpTestDb are duplicated all over.  Can this be
+// de-duplicated?  I suspect so.
+func TestMain(m *testing.M) {
+	dbUser, _ := os.LookupEnv("DATABASE_USER")
+	dbPassword, _ := os.LookupEnv("DATABASE_PASSWORD")
+	dbHost, _ := os.LookupEnv("DATABASE_HOST")
+	// we register an sql driver txdb
+	connString := fmt.Sprintf("host=%s port=5432 user=%s dbname=worrywort_test sslmode=disable", dbHost,
+		dbUser)
+	if dbPassword != "" {
+		connString += fmt.Sprintf(" password=%s", dbPassword)
+	}
+	txdb.Register("txdb", "postgres", connString)
+	retCode := m.Run()
+	os.Exit(retCode)
+}
+
+func setUpTestDb() (*sqlx.DB, error) {
+	_db, err := sql.Open("txdb", "one")
+	if err != nil {
+		return nil, err
+	}
+
+	db := sqlx.NewDb(_db, "postgres")
+	if err != nil {
+		return nil, err
+	}
+
+	return db, nil
+}
+
+// utility to add a given number of minutes to a time.Time and round to match
+// what postgres returns
+func addMinutes(d time.Time, increment int) time.Time {
+	return d.Add(time.Duration(increment) * time.Minute).Round(time.Microsecond)
+}
 
 func TestUserResolver(t *testing.T) {
 	createdAt := time.Now()
@@ -63,6 +102,12 @@ func TestUserResolver(t *testing.T) {
 }
 
 func TestBatchResolver(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", createdAt, updatedAt)
@@ -70,6 +115,11 @@ func TestBatchResolver(t *testing.T) {
 		createdAt, updatedAt, "Brew notes", "Taste notes", "http://example.org/beer")
 	unbrewed := worrywort.NewBatch(2, "Testing", time.Time{}, time.Time{}, 5, 4.5, worrywort.GALLON, 1.060, 1.020,
 		worrywort.User{}, createdAt, updatedAt, "Brew notes", "Taste notes", "http://example.org/beer")
+
+	batchNouser := worrywort.Batch{Name: "Testing", BrewedDate: addMinutes(time.Now(), 1), BottledDate: addMinutes(time.Now(), 10), VolumeBoiled: 5,
+		VolumeInFermenter: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
+		UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewNotes: "Brew notes",
+		TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer"}
 	br := batchResolver{b: brewed}
 	unbr := batchResolver{b: unbrewed}
 
@@ -209,11 +259,25 @@ func TestBatchResolver(t *testing.T) {
 		}
 	})
 
-	t.Run("CreatedBy()", func(t *testing.T) {
-		var actual *userResolver = br.CreatedBy()
+	t.Run("CreatedBy() with User struct populated", func(t *testing.T) {
+		ctx := context.Background()
+		ctx = context.WithValue(ctx, "db", db)
+
+		var actual *userResolver = br.CreatedBy(ctx)
 		expected := userResolver{u: brewed.CreatedBy}
 		if *actual != expected {
 			t.Errorf("Expected: %v, got %v", expected, actual)
+		}
+	})
+
+	t.Run("CreatedBy() without User populated", func(t *testing.T) {
+		ctx := context.Background()
+		ctx = context.WithValue(ctx, "db", db)
+		r := batchResolver{b: batchNoUser}
+		var actual *userResolver = r.CreatedBy(ctx)
+		expected := userResolver{u: u}
+		if *actual != expected {
+			t.Errorf("\nExpected: %v\ngot %v", expected, actual)
 		}
 	})
 }
@@ -369,13 +433,15 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 		}
 	})
 
-	t.Run("CreatedBy()", func(t *testing.T) {
+	t.Run("CreatedBy() with User attached", func(t *testing.T) {
+		// TODO: This test with user not already populated
 		var actual *userResolver = resolver.CreatedBy()
 		expected := userResolver{u: measurement.CreatedBy}
 		if *actual != expected {
 			t.Errorf("\nExpected: %v\ngot %v", expected, actual)
 		}
 	})
+
 }
 
 func TestAuthTokenResolver(t *testing.T) {
