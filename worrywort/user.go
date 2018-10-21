@@ -123,7 +123,6 @@ func LookupUser(id int, db *sqlx.DB) (User, error) {
 	if err != nil {
 		return User{}, err
 	}
-	// this seems dumb, but it ensures correctness by using the standard NewUser interface
 	return u, nil
 }
 

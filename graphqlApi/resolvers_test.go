@@ -5,26 +5,10 @@ import (
 	"database/sql"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
+	"github.com/jmoiron/sqlx"
 	"testing"
 	"time"
 )
-
-// TODO: testmain and setUpTestDb are duplicated all over.  Can this be
-// de-duplicated?  I suspect so.
-func TestMain(m *testing.M) {
-	dbUser, _ := os.LookupEnv("DATABASE_USER")
-	dbPassword, _ := os.LookupEnv("DATABASE_PASSWORD")
-	dbHost, _ := os.LookupEnv("DATABASE_HOST")
-	// we register an sql driver txdb
-	connString := fmt.Sprintf("host=%s port=5432 user=%s dbname=worrywort_test sslmode=disable", dbHost,
-		dbUser)
-	if dbPassword != "" {
-		connString += fmt.Sprintf(" password=%s", dbPassword)
-	}
-	txdb.Register("txdb", "postgres", connString)
-	retCode := m.Run()
-	os.Exit(retCode)
-}
 
 func setUpTestDb() (*sqlx.DB, error) {
 	_db, err := sql.Open("txdb", "one")
@@ -44,6 +28,19 @@ func setUpTestDb() (*sqlx.DB, error) {
 // what postgres returns
 func addMinutes(d time.Time, increment int) time.Time {
 	return d.Add(time.Duration(increment) * time.Minute).Round(time.Microsecond)
+}
+
+// Make a standard, generic batch for testing
+// optionally attach the user
+func makeTestBatch(u worrywort.User, attachUser bool) worrywort.Batch {
+	b := worrywort.Batch{Name: "Testing", BrewedDate: addMinutes(time.Now(), 1), BottledDate: addMinutes(time.Now(), 10), VolumeBoiled: 5,
+		VolumeInFermenter: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
+		UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewNotes: "Brew notes",
+		TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer"}
+	if attachUser {
+		b.CreatedBy = u
+	}
+	return b
 }
 
 func TestUserResolver(t *testing.T) {
@@ -108,20 +105,15 @@ func TestBatchResolver(t *testing.T) {
 	}
 	defer db.Close()
 
-	createdAt := time.Now()
-	updatedAt := time.Now()
-	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", createdAt, updatedAt)
-	brewed := worrywort.NewBatch(1, "Testing", time.Now(), time.Now(), 5, 4.5, worrywort.GALLON, 1.060, 1.020, u,
-		createdAt, updatedAt, "Brew notes", "Taste notes", "http://example.org/beer")
-	unbrewed := worrywort.NewBatch(2, "Testing", time.Time{}, time.Time{}, 5, 4.5, worrywort.GALLON, 1.060, 1.020,
-		worrywort.User{}, createdAt, updatedAt, "Brew notes", "Taste notes", "http://example.org/beer")
+	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	brewed := makeTestBatch(u, true)
+	brewed.Id = 1
+	unbrewed := makeTestBatch(u, true)
+	unbrewed.BrewedDate = time.Time{}
+	unbrewed.BottledDate = time.Time{}
 
-	batchNouser := worrywort.Batch{Name: "Testing", BrewedDate: addMinutes(time.Now(), 1), BottledDate: addMinutes(time.Now(), 10), VolumeBoiled: 5,
-		VolumeInFermenter: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
-		UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewNotes: "Brew notes",
-		TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer"}
-	br := batchResolver{b: brewed}
-	unbr := batchResolver{b: unbrewed}
+	br := batchResolver{b: &brewed}
+	unbr := batchResolver{b: &unbrewed}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = br.ID()
@@ -263,7 +255,10 @@ func TestBatchResolver(t *testing.T) {
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, "db", db)
 
-		var actual *userResolver = br.CreatedBy(ctx)
+		actual, err := br.CreatedBy(ctx)
+		if err != nil {
+			t.Errorf("%v", err)
+		}
 		expected := userResolver{u: brewed.CreatedBy}
 		if *actual != expected {
 			t.Errorf("Expected: %v, got %v", expected, actual)
@@ -271,10 +266,18 @@ func TestBatchResolver(t *testing.T) {
 	})
 
 	t.Run("CreatedBy() without User populated", func(t *testing.T) {
+		batchNoUser := makeTestBatch(u, false)
+		batchNoUser, err = worrywort.SaveBatch(db, batchNoUser)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, "db", db)
-		r := batchResolver{b: batchNoUser}
-		var actual *userResolver = r.CreatedBy(ctx)
+		r := batchResolver{b: &batchNoUser}
+		actual, err := r.CreatedBy(ctx)
+		if err != nil {
+			t.Errorf("%v", err)
+		}
 		expected := userResolver{u: u}
 		if *actual != expected {
 			t.Errorf("\nExpected: %v\ngot %v", expected, actual)
@@ -411,7 +414,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 
 	t.Run("Batch()", func(t *testing.T) {
 		b := resolver.Batch()
-		expected := batchResolver{b: *(measurement.Batch)}
+		expected := batchResolver{b: measurement.Batch}
 		if expected != *b {
 			t.Errorf("\nExpected: %v\ngot: %v", expected, *b)
 		}

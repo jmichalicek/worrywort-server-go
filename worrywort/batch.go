@@ -165,7 +165,6 @@ func InsertBatch(db *sqlx.DB, b Batch) (Batch, error) {
 		volume_boiled, volume_in_fermenter, volume_units, original_gravity, final_gravity, recipe_url, max_temperature,
 		min_temperature, average_temperature, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at`)
-	// TODO: Make the dates strings for sql to be happy
 
 	err := db.QueryRow(
 		query, b.UserId, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,

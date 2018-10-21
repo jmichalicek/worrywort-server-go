@@ -75,21 +75,26 @@ func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*ba
 		}
 		return nil, nil
 	}
-	return &batchResolver{b: *batchPtr}, nil
+	return &batchResolver{b: batchPtr}, nil
 }
 
 func (r *Resolver) Batches(ctx context.Context) (*[]*batchResolver, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
-	var resolvedBatches []*batchResolver
+	var resolvedBatches []*batchResolver = []*batchResolver{}
 	batchesPtr, err := worrywort.BatchesForUser(r.db, u, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, batch := range *batchesPtr {
-		resolvedBatches = append(resolvedBatches, &batchResolver{b: batch})
+	for idx, _ := range *batchesPtr {
+		// makes sense, but not obvious to me at first:
+		// the 2nd value in the range is a variable - but that variable gets reassigned a copy of
+		// whatever is being iterated over, not the actual instance itself.  So rather than
+		// using it, we use the index to get the real thing we are looking for
+		br := batchResolver{b: &(*batchesPtr)[idx]}
+		resolvedBatches = append(resolvedBatches, &br)
 	}
-	return &resolvedBatches, err
+	return &(resolvedBatches), err
 }
 
 func (r *Resolver) Fermenter(ctx context.Context, args struct{ ID graphql.ID }) (*fermenterResolver, error) {
@@ -153,16 +158,20 @@ func (r *userResolver) CreatedAt() string { return dateString(r.u.CreatedAt) }
 func (r *userResolver) UpdatedAt() string { return dateString(r.u.UpdatedAt) }
 
 type batchResolver struct {
-	b worrywort.Batch
+	b *worrywort.Batch
 }
 
-func (r *batchResolver) ID() graphql.ID       { return graphql.ID(strconv.Itoa(r.b.Id)) }
+func (r *batchResolver) ID() graphql.ID {
+	return graphql.ID(strconv.Itoa(r.b.Id))
+}
 func (r *batchResolver) Name() string         { return r.b.Name }
 func (r *batchResolver) BrewNotes() string    { return r.b.BrewNotes }
 func (r *batchResolver) TastingNotes() string { return r.b.TastingNotes }
 
 // TODO: I should make an actual DateTime type which can be null or a valid datetime string
-func (r *batchResolver) BrewedDate() *string  { return nullableDateString(r.b.BrewedDate) }
+func (r *batchResolver) BrewedDate() *string {
+	return nullableDateString(r.b.BrewedDate)
+}
 func (r *batchResolver) BottledDate() *string { return nullableDateString(r.b.BottledDate) }
 func (r *batchResolver) VolumeBoiled() *float64 {
 	// If the value is optional/nullable in the GraphQL schema then we must return a pointer
@@ -220,7 +229,7 @@ func (r *batchResolver) CreatedBy(ctx context.Context) (*userResolver, error) {
 	if r.b.CreatedBy.Id != 0 {
 		return &userResolver{u: r.b.CreatedBy}, nil
 	}
-	// HOW DO I GET TO THE DB WITHOUT A GLOBAL CONFIG/DB OBJECT?
+
 	// Looking at https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/service/user_service.go#L23
 	// and https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/server.go#L20
 	// I will just want to put the db in my context even though it seems like many things say do not do that.
@@ -276,7 +285,7 @@ func (r *temperatureMeasurementResolver) Temperature() float64                 {
 func (r *temperatureMeasurementResolver) Units() worrywort.TemperatureUnitType { return r.m.Units }
 func (r *temperatureMeasurementResolver) Batch() *batchResolver {
 	if r.m.Batch != nil {
-		return &batchResolver{b: *(r.m.Batch)}
+		return &batchResolver{b: r.m.Batch}
 	}
 	return nil
 }

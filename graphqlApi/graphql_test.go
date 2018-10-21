@@ -250,6 +250,7 @@ func TestBatchQuery(t *testing.T) {
 		`
 		operationName := ""
 		ctx := context.Background()
+		ctx = context.WithValue(ctx, "db", db)
 		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
 		result := worrywortSchema.Exec(ctx, query, operationName, nil)
 
