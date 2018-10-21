@@ -59,10 +59,10 @@ func TestFindTemperatureSensor(t *testing.T) {
 	sensor := TemperatureSensor{Name: "Test Sensor", UserId: userId}
 	sensor, err = SaveTemperatureSensor(db, sensor)
 	params := make(map[string]interface{})
-	params["created_by_user_id"] = u.Id
+	params["user_id"] = u.Id
 	params["id"] = sensor.Id
 	foundSensor, err := FindTemperatureSensor(params, db)
-	// foundSensor, err := FindTemperatureSensor(map[string]interface{}{"created_by_user_id": u.Id, "id": sensor.Id}, db)
+	// foundSensor, err := FindTemperatureSensor(map[string]interface{}{"user_id": u.Id, "id": sensor.Id}, db)
 	if err != nil {
 		t.Errorf("%v", err)
 	}
@@ -173,7 +173,7 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 			selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
 		}
 		selectCols += fmt.Sprintf("ts.id \"temperature_sensor.id\", ts.name \"temperature_sensor.name\", ")
-		q := `SELECT tm.temperature, tm.units,  ` + strings.Trim(selectCols, ", ") + ` from temperature_measurements tm LEFT JOIN users u ON u.id = tm.created_by_user_id LEFT JOIN temperature_sensors ts ON ts.id = tm.temperature_sensor_id WHERE tm.id = ? AND tm.created_by_user_id = ? AND tm.temperature_sensor_id = ?`
+		q := `SELECT tm.temperature, tm.units,  ` + strings.Trim(selectCols, ", ") + ` from temperature_measurements tm LEFT JOIN users u ON u.id = tm.user_id LEFT JOIN temperature_sensors ts ON ts.id = tm.temperature_sensor_id WHERE tm.id = ? AND tm.user_id = ? AND tm.temperature_sensor_id = ?`
 		query := db.Rebind(q)
 		err = db.Get(&newMeasurement, query, m.Id, u.Id, sensor.Id)
 
@@ -201,7 +201,7 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 		}
 
 		newMeasurement := TemperatureMeasurement{}
-		q := `SELECT tm.temperature, tm.units, tm.created_by_user_id, tm.temperature_sensor_id from temperature_measurements tm LEFT JOIN users u ON u.id = tm.created_by_user_id LEFT JOIN temperature_sensors ts ON ts.id = tm.temperature_sensor_id WHERE tm.id = ? AND tm.created_by_user_id = ? AND tm.temperature_sensor_id = ?`
+		q := `SELECT tm.temperature, tm.units, tm.user_id, tm.temperature_sensor_id from temperature_measurements tm LEFT JOIN users u ON u.id = tm.user_id LEFT JOIN temperature_sensors ts ON ts.id = tm.temperature_sensor_id WHERE tm.id = ? AND tm.user_id = ? AND tm.temperature_sensor_id = ?`
 		query := db.Rebind(q)
 		err = db.Get(&newMeasurement, query, m.Id, u.Id, sensor.Id)
 
@@ -274,7 +274,7 @@ func TestFindBatch(t *testing.T) {
 	}
 
 	batchArgs := make(map[string]interface{})
-	batchArgs["created_by_user_id"] = u.Id
+	batchArgs["user_id"] = u.Id
 	batchArgs["id"] = b.Id
 	found, err := FindBatch(batchArgs, db)
 	if err != nil {

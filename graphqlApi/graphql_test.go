@@ -409,11 +409,11 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 		var measurementId string = result.CreateTemperatureMeasurement.TemperatureMeasurement.Id
 		// TODO: implement FindTemperatureMeasurement
 		// measurement, err := worrywort.FindTemperatureMeasurement(db,
-		// 	map[string]interface{}{"created_by_user_id": u.Id, "id": measurementId})
+		// 	map[string]interface{}{"user_id": u.Id, "id": measurementId})
 		measurement := &worrywort.TemperatureMeasurement{}
 
-		selectCols := fmt.Sprintf("tm.created_by_user_id, tm.temperature_sensor_id")
-		q := `SELECT tm.temperature, tm.units,  ` + strings.Trim(selectCols, ", ") + ` from temperature_measurements tm LEFT JOIN users u ON u.id = tm.created_by_user_id LEFT JOIN temperature_sensors ts ON ts.id = tm.temperature_sensor_id WHERE tm.id = ? AND tm.created_by_user_id = ? AND tm.temperature_sensor_id = ?`
+		selectCols := fmt.Sprintf("tm.user_id, tm.temperature_sensor_id")
+		q := `SELECT tm.temperature, tm.units,  ` + strings.Trim(selectCols, ", ") + ` from temperature_measurements tm WHERE tm.id = ? AND tm.user_id = ? AND tm.temperature_sensor_id = ?`
 		query = db.Rebind(q)
 		err = db.Get(measurement, query, measurementId, userId, sensorId)
 
