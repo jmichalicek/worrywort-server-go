@@ -138,7 +138,7 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 	tempId := "REMOVEME"
 	// TODO: This needs to save and THAT is whre the uuid should really be generated
 	m := worrywort.TemperatureMeasurement{Id: tempId, Temperature: 64.26, Units: worrywort.FAHRENHEIT, RecordedAt: timeRecorded,
-		Batch: &b, TemperatureSensor: &therm, Fermenter: &f, CreatedBy: u, CreatedAt: createdAt, UpdatedAt: updatedAt}
+		Batch: &b, TemperatureSensor: &therm, Fermenter: &f, CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt}
 	return &temperatureMeasurementResolver{m: m}, nil
 }
 
@@ -300,7 +300,7 @@ func (r *temperatureMeasurementResolver) Fermenter() *fermenterResolver {
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
 func (r *temperatureMeasurementResolver) CreatedBy() *userResolver {
-	return &userResolver{u: r.m.CreatedBy}
+	return &userResolver{u: *r.m.CreatedBy}
 }
 
 // An auth token returned after logging in to use in Authentication headers
@@ -390,7 +390,8 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 		return nil, err
 	}
 
-	t := worrywort.TemperatureMeasurement{TemperatureSensor: sensorPtr, Temperature: input.Temperature, Units: unitType, RecordedAt: recordedAt, CreatedBy: u, Batch: batchPtr}
+	t := worrywort.TemperatureMeasurement{TemperatureSensor: sensorPtr, Temperature: input.Temperature, Units: unitType,
+		RecordedAt: recordedAt, CreatedBy: &u, Batch: batchPtr}
 	t, err = worrywort.SaveTemperatureMeasurement(r.db, t)
 	if err != nil {
 		log.Printf("%v", err)

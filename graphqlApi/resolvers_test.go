@@ -371,7 +371,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 		time.Now(), time.Now())
 	timeRecorded := time.Now().Add(time.Hour * time.Duration(-1))
 	measurement := worrywort.TemperatureMeasurement{Id: "shouldbeauuid", Temperature: 64.26, Units: worrywort.FAHRENHEIT, RecordedAt: timeRecorded,
-		Batch: &batch, TemperatureSensor: &sensor, Fermenter: &fermenter, CreatedBy: u, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+		Batch: &batch, TemperatureSensor: &sensor, Fermenter: &fermenter, CreatedBy: &u, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	resolver := temperatureMeasurementResolver{m: measurement}
 
 	t.Run("ID()", func(t *testing.T) {
@@ -439,7 +439,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	t.Run("CreatedBy() with User attached", func(t *testing.T) {
 		// TODO: This test with user not already populated
 		var actual *userResolver = resolver.CreatedBy()
-		expected := userResolver{u: measurement.CreatedBy}
+		expected := userResolver{u: *(measurement.CreatedBy)}
 		if *actual != expected {
 			t.Errorf("\nExpected: %v\ngot %v", expected, actual)
 		}
