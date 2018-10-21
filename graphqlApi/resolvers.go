@@ -61,7 +61,7 @@ func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*ba
 	var err error
 	batchArgs := make(map[string]interface{})
 	// TODO: Or if batch is publicly readable by anyone?
-	batchArgs["created_by_user_id"] = u.Id
+	batchArgs["user_id"] = u.Id
 	batchArgs["id"], err = strconv.ParseInt(string(args.ID), 10, 0)
 
 	if err != nil {
@@ -357,7 +357,7 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 
 	sensorId := ToNullInt64(string(input.TemperatureSensorId))
 	tempSensorId, err := strconv.ParseInt(string(input.TemperatureSensorId), 10, 0)
-	sensorPtr, err := worrywort.FindTemperatureSensor(map[string]interface{}{"id": tempSensorId, "created_by_user_id": u.Id}, r.db)
+	sensorPtr, err := worrywort.FindTemperatureSensor(map[string]interface{}{"id": tempSensorId, "user_id": u.Id}, r.db)
 	if err != nil {
 		// TODO: Probably need a friendlier error here or for our payload to have a shopify style userErrors
 		// and then not ever return nil from this either way...maybe
@@ -373,7 +373,7 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 	var batchId sql.NullInt64
 	if input.BatchId != nil {
 		batchId = ToNullInt64(string(*input.BatchId))
-		batchPtr, err = worrywort.FindBatch(map[string]interface{}{"created_by_user_id": u.Id, "id": batchId}, r.db)
+		batchPtr, err = worrywort.FindBatch(map[string]interface{}{"user_id": u.Id, "id": batchId}, r.db)
 		if err != nil {
 			if err != sql.ErrNoRows {
 				log.Printf("%v", err)

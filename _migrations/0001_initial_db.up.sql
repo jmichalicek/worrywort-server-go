@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS user_authtokens(
 */
 CREATE TABLE IF NOT EXISTS batches(
   id SERIAL PRIMARY KEY,
-  created_by_user_id integer REFERENCES users (id) ON DELETE SET NULL,
+  user_id integer REFERENCES users (id) ON DELETE SET NULL,
   name text NOT NULL DEFAULT '',
   brew_notes text NOT NULL DEFAULT '',
   tasting_notes text NOT NULL DEFAULT '',
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS batches(
 
 CREATE TABLE IF NOT EXISTS fermenters(
   id SERIAL PRIMARY KEY,
-  created_by_user_id integer REFERENCES users (id) ON DELETE SET NULL,
+  user_id integer REFERENCES users (id) ON DELETE SET NULL,
   name text NOT NULL DEFAULT '',
   description text NOT NULL DEFAULT '',
   volume double precision NOT NULL DEFAULT 0.0,
@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS fermenters(
 
 CREATE TABLE IF NOT EXISTS temperature_sensors(
   id SERIAL PRIMARY KEY,
-  created_by_user_id integer REFERENCES users (id) ON DELETE SET NULL,
+  user_id integer REFERENCES users (id) ON DELETE SET NULL,
   name text NOT NULL DEFAULT '',
   description text NOT NULL DEFAULT '',
 
@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS temperature_sensors(
 CREATE TABLE IF NOT EXISTS temperature_measurements(
   -- use a UUID, there will be a LOT of these
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_by_user_id integer REFERENCES users (id) ON DELETE SET NULL,
+  user_id integer REFERENCES users (id) ON DELETE SET NULL,
   batch_id integer REFERENCES batches (id) ON DELETE SET NULL,
   temperature_sensor_id integer REFERENCES temperature_sensors (id) ON DELETE SET NULL,
   fermenter_id integer REFERENCES fermenters (id) ON DELETE SET NULL,
