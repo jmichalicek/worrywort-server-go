@@ -50,6 +50,25 @@ func setUpTestDb() (*sqlx.DB, error) {
 	return db, nil
 }
 
+// Make a standard, generic batch for testing
+// optionally attach the user
+func makeTestBatch(u worrywort.User, attachUser bool) worrywort.Batch {
+	b := worrywort.Batch{Name: "Testing", BrewedDate: addMinutes(time.Now(), 1), BottledDate: addMinutes(time.Now(), 10), VolumeBoiled: 5,
+		VolumeInFermenter: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
+		UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewNotes: "Brew notes",
+		TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer"}
+	if attachUser {
+		b.CreatedBy = &u
+	}
+	return b
+}
+
+// utility to add a given number of minutes to a time.Time and round to match
+// what postgres returns
+func addMinutes(d time.Time, increment int) time.Time {
+	return d.Add(time.Duration(increment) * time.Minute).Round(time.Microsecond)
+}
+
 func TestLoginMutation(t *testing.T) {
 	db, err := setUpTestDb()
 	if err != nil {
@@ -149,32 +168,20 @@ func TestBatchQuery(t *testing.T) {
 	// TODO: Can this become global to these tests?
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
 
-	createdAt := time.Now().Round(time.Microsecond)
-	updatedAt := time.Now().Round(time.Microsecond)
-	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
-	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
-
-	b := worrywort.NewBatch(0, "Testing", brewedDate, bottledDate, 5, 4.5, worrywort.GALLON, 1.060, 1.020, u, createdAt, updatedAt,
-		"Brew notes", "Taste notes", "http://example.org/beer")
+	b := makeTestBatch(u, true)
 	b, err = worrywort.SaveBatch(db, b)
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
 
-	b2 := worrywort.NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1)*time.Minute).Round(time.Microsecond),
-		time.Now().Add(time.Duration(5)*time.Minute).Round(time.Microsecond), 5, 4.5,
-		worrywort.GALLON, 1.060, 1.020, u, createdAt, updatedAt, "Brew notes", "Taste notes",
-		"http://example.org/beer")
+	b2 := makeTestBatch(u, true)
 	b2, err = worrywort.SaveBatch(db, b2)
 
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
 
-	u2batch := worrywort.NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1)*time.Minute).Round(time.Microsecond),
-		time.Now().Add(time.Duration(5)*time.Minute).Round(time.Microsecond), 5, 4.5,
-		worrywort.GALLON, 1.060, 1.020, u2, createdAt, updatedAt, "Brew notes", "Taste notes",
-		"http://example.org/beer")
+	u2batch := makeTestBatch(u2, true)
 	u2batch, err = worrywort.SaveBatch(db, u2batch)
 
 	if err != nil {
@@ -217,7 +224,7 @@ func TestBatchQuery(t *testing.T) {
 
 	t.Run("Test query for batch(id: ID!) which does not exist returns null", func(t *testing.T) {
 		variables := map[string]interface{}{
-			"id": "fake",
+			"id": "-1",
 		}
 		query := `
 			query getBatch($id: ID!) {
@@ -248,6 +255,7 @@ func TestBatchQuery(t *testing.T) {
 		`
 		operationName := ""
 		ctx := context.Background()
+		ctx = context.WithValue(ctx, "db", db)
 		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
 		result := worrywortSchema.Exec(ctx, query, operationName, nil)
 
@@ -313,20 +321,24 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 
 	u := worrywort.NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	u, err = worrywort.SaveUser(db, u)
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor, err := worrywort.SaveTemperatureSensor(db, worrywort.TemperatureSensor{Name: "Test Sensor", CreatedBy: u})
+	sensor, err := worrywort.SaveTemperatureSensor(db, worrywort.TemperatureSensor{UserId: userId, Name: "Test Sensor", CreatedBy: &u})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	sensorId := sql.NullInt64{Valid: true, Int64: int64(sensor.Id)}
 
-	batch, err := worrywort.SaveBatch(db, worrywort.Batch{CreatedBy: u, Name: "Test batch"})
+	batch, err := worrywort.SaveBatch(
+		db, worrywort.Batch{UserId: userId, CreatedBy: &u, Name: "Test batch"})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	batchId := sql.NullInt64{Valid: true, Int64: int64(batch.Id)}
 
 	u2 := worrywort.NewUser(0, "user2@example.com", "Justin", "M", time.Now(), time.Now())
 	u2, err = worrywort.SaveUser(db, u2)
@@ -340,8 +352,8 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 	t.Run("Test measurement is created with valid data", func(t *testing.T) {
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":             strconv.Itoa(batch.Id),
-				"temperatureSensorId": strconv.Itoa(sensor.Id),
+				"batchId":             strconv.Itoa(int(batchId.Int64)),
+				"temperatureSensorId": strconv.Itoa(int(sensorId.Int64)),
 				"units":               "FAHRENHEIT",
 				"temperature":         70.0,
 				"recordedAt":          "2018-10-14T15:26:00+00:00",
@@ -357,9 +369,11 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 					}
 				}
 			}`
+
 		operationName := ""
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+		ctx = context.WithValue(ctx, "db", db)
 		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
 
 		// Some structs so that the json can be unmarshalled
@@ -397,10 +411,11 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 		// measurement, err := worrywort.FindTemperatureMeasurement(db,
 		// 	map[string]interface{}{"created_by_user_id": u.Id, "id": measurementId})
 		measurement := &worrywort.TemperatureMeasurement{}
-		selectCols := fmt.Sprintf("u.id \"created_by.id\", ts.id \"temperature_sensor.id\", ts.name \"temperature_sensor.name\", ")
+
+		selectCols := fmt.Sprintf("tm.created_by_user_id, tm.temperature_sensor_id")
 		q := `SELECT tm.temperature, tm.units,  ` + strings.Trim(selectCols, ", ") + ` from temperature_measurements tm LEFT JOIN users u ON u.id = tm.created_by_user_id LEFT JOIN temperature_sensors ts ON ts.id = tm.temperature_sensor_id WHERE tm.id = ? AND tm.created_by_user_id = ? AND tm.temperature_sensor_id = ?`
 		query = db.Rebind(q)
-		err = db.Get(measurement, query, measurementId, u.Id, sensor.Id)
+		err = db.Get(measurement, query, measurementId, userId, sensorId)
 
 		if err == sql.ErrNoRows {
 			t.Error("Measurement was not saved to the database. Query returned no results.")

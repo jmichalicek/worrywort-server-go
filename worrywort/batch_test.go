@@ -1,33 +1,14 @@
 package worrywort
 
 import (
-	"testing"
-	"time"
-	// "reflect"
+	"database/sql"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
+	"reflect"
 	"strings"
+	"testing"
+	"time"
 )
-
-// Test that NewBatch() returns a batch with the expected values
-func TestNewBatch(t *testing.T) {
-	createdAt := time.Now()
-	updatedAt := time.Now()
-	brewedDate := time.Now().Add(time.Duration(1) * time.Minute)
-	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute)
-	u := NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-
-	expectedBatch := Batch{Id: 1, Name: "Testing", BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
-		VolumeInFermenter: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedBy: u,
-		CreatedAt: createdAt, UpdatedAt: updatedAt, BrewNotes: "Brew notes", TastingNotes: "Taste notes",
-		RecipeURL: "http://example.org/beer"}
-	b := NewBatch(1, "Testing", brewedDate, bottledDate, 5, 4.5, GALLON, 1.060, 1.020, u, createdAt, updatedAt,
-		"Brew notes", "Taste notes", "http://example.org/beer")
-
-	if b != expectedBatch {
-		t.Errorf("Expected: %v\n\nGot: %v", expectedBatch, b)
-	}
-}
 
 func TestNewFermenter(t *testing.T) {
 
@@ -35,22 +16,25 @@ func TestNewFermenter(t *testing.T) {
 	updatedAt := time.Now()
 	u := NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	expected := Fermenter{Id: 1, Name: "Ferm", Description: "A Fermenter", Volume: 5.0, VolumeUnits: GALLON,
-		FermenterType: BUCKET, IsActive: true, IsAvailable: true, CreatedBy: u, CreatedAt: createdAt, UpdatedAt: updatedAt}
+		FermenterType: BUCKET, IsActive: true, IsAvailable: true, CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt}
 
 	f := NewFermenter(1, "Ferm", "A Fermenter", 5.0, GALLON, BUCKET, true, true, u, createdAt, updatedAt)
 
-	if f != expected {
-		t.Errorf("Expected:\n%v\n\nGot:\n%v\n", expected, f)
+	if !reflect.DeepEqual(f, expected) {
+		t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(f))
 	}
+	// if f != expected {
+	// 	t.Errorf("Expected:\n%v\n\nGot:\n%v\n", expected, f)
+	// }
 }
 
 func TestNewTemperatureSensor(t *testing.T) {
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	u := NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	expected := TemperatureSensor{Id: 1, Name: "Therm1", CreatedBy: u, CreatedAt: createdAt, UpdatedAt: updatedAt}
+	expected := TemperatureSensor{Id: 1, Name: "Therm1", CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt}
 
-	therm := NewTemperatureSensor(1, "Therm1", u, createdAt, updatedAt)
+	therm := NewTemperatureSensor(1, "Therm1", &u, createdAt, updatedAt)
 
 	if therm != expected {
 		t.Errorf("Expected:\n%v\n\nGot:\n%v\n", expected, therm)
@@ -71,7 +55,8 @@ func TestFindTemperatureSensor(t *testing.T) {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor := TemperatureSensor{Name: "Test Sensor", CreatedBy: u}
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
+	sensor := TemperatureSensor{Name: "Test Sensor", UserId: userId}
 	sensor, err = SaveTemperatureSensor(db, sensor)
 	params := make(map[string]interface{})
 	params["created_by_user_id"] = u.Id
@@ -101,7 +86,7 @@ func TestSaveTemperatureSensor(t *testing.T) {
 	}
 
 	t.Run("Save New Sensor", func(t *testing.T) {
-		sensor, err := SaveTemperatureSensor(db, TemperatureSensor{Name: "Test Sensor", CreatedBy: u})
+		sensor, err := SaveTemperatureSensor(db, TemperatureSensor{Name: "Test Sensor", CreatedBy: &u})
 		if err != nil {
 			t.Errorf("%v", err)
 		}
@@ -119,7 +104,7 @@ func TestSaveTemperatureSensor(t *testing.T) {
 	})
 
 	t.Run("Update Sensor", func(t *testing.T) {
-		sensor, err := SaveTemperatureSensor(db, TemperatureSensor{Name: "Test Sensor", CreatedBy: u})
+		sensor, err := SaveTemperatureSensor(db, TemperatureSensor{Name: "Test Sensor", CreatedBy: &u})
 		// set date back in the past so that our date comparison consistenyly works
 		sensor.UpdatedAt = sensor.UpdatedAt.AddDate(0, 0, -1)
 		sensor.Name = "Updated Name"
@@ -149,20 +134,24 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 
-	sensor, err := SaveTemperatureSensor(db, TemperatureSensor{Name: "Test Sensor", CreatedBy: u})
+	sensor, err := SaveTemperatureSensor(db, TemperatureSensor{Name: "Test Sensor", CreatedBy: &u})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	sensorId := sql.NullInt64{Valid: true, Int64: int64(sensor.Id)}
 
-	b, err := SaveBatch(db, Batch{CreatedBy: u, Name: "Test batch"})
+	b, err := SaveBatch(db, Batch{CreatedBy: &u, Name: "Test batch"})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	batchId := sql.NullInt64{Valid: true, Int64: int64(b.Id)}
 
 	t.Run("Save New Measurement With All Fields", func(t *testing.T) {
 		m, err := SaveTemperatureMeasurement(db,
-			TemperatureMeasurement{CreatedBy: u, TemperatureSensor: &sensor, Temperature: 70.0, Units: FAHRENHEIT, Batch: &b, RecordedAt: time.Now()})
+			TemperatureMeasurement{CreatedBy: &u, UserId: userId, TemperatureSensor: &sensor, TemperatureSensorId: sensorId,
+				Temperature: 70.0, Units: FAHRENHEIT, Batch: &b, BatchId: batchId, RecordedAt: time.Now()})
 		if err != nil {
 			t.Errorf("%v", err)
 		}
@@ -195,7 +184,7 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 
 	t.Run("Save New Measurement Without Optional Fields", func(t *testing.T) {
 		m, err := SaveTemperatureMeasurement(db,
-			TemperatureMeasurement{CreatedBy: u, TemperatureSensor: &sensor, Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()})
+			TemperatureMeasurement{CreatedBy: &u, UserId: userId, TemperatureSensorId: sensorId, TemperatureSensor: &sensor, Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()})
 		if err != nil {
 			t.Errorf("%v", err)
 		}
@@ -212,12 +201,7 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 		}
 
 		newMeasurement := TemperatureMeasurement{}
-		selectCols := ""
-		for _, k := range u.queryColumns() {
-			selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
-		}
-		selectCols += fmt.Sprintf("ts.id \"temperature_sensor.id\", ts.name \"temperature_sensor.name\", ")
-		q := `SELECT tm.temperature, tm.units,  ` + strings.Trim(selectCols, ", ") + ` from temperature_measurements tm LEFT JOIN users u ON u.id = tm.created_by_user_id LEFT JOIN temperature_sensors ts ON ts.id = tm.temperature_sensor_id WHERE tm.id = ? AND tm.created_by_user_id = ? AND tm.temperature_sensor_id = ?`
+		q := `SELECT tm.temperature, tm.units, tm.created_by_user_id, tm.temperature_sensor_id from temperature_measurements tm LEFT JOIN users u ON u.id = tm.created_by_user_id LEFT JOIN temperature_sensors ts ON ts.id = tm.temperature_sensor_id WHERE tm.id = ? AND tm.created_by_user_id = ? AND tm.temperature_sensor_id = ?`
 		query := db.Rebind(q)
 		err = db.Get(&newMeasurement, query, m.Id, u.Id, sensor.Id)
 
@@ -228,7 +212,7 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 
 	t.Run("Update Temperature Measurement", func(t *testing.T) {
 		m, err := SaveTemperatureMeasurement(db,
-			TemperatureMeasurement{CreatedBy: u, TemperatureSensor: &sensor, Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()})
+			TemperatureMeasurement{CreatedBy: &u, UserId: userId, TemperatureSensorId: sensorId, TemperatureSensor: &sensor, Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()})
 		if err != nil {
 			t.Errorf("%v", err)
 		}
@@ -245,7 +229,7 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 		}
 
 		if m.UpdatedAt == updatedMeasurement.UpdatedAt {
-			t.Errorf("SaveTemperatureSensor did not update UpdatedAt")
+			t.Errorf("SaveTemperatureSensor did not update UpdatedAt. Expected: %v\nGot: %v", m.UpdatedAt, updatedMeasurement.UpdatedAt)
 		}
 
 		// Now unset the batch, just to see
@@ -281,8 +265,9 @@ func TestFindBatch(t *testing.T) {
 	// is nanosecond, so we round these for easy comparison
 	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
 	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
-	b := NewBatch(0, "Testing", brewedDate, bottledDate, 5, 4.5, GALLON, 1.060, 1.020, u, createdAt, updatedAt,
-		"Brew notes", "Taste notes", "http://example.org/beer")
+	b := Batch{UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5, VolumeInFermenter: 4.5,
+		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt,
+		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
 	b, err = SaveBatch(db, b)
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
@@ -308,6 +293,7 @@ func TestBatchesForUser(t *testing.T) {
 
 	u := NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	u, err = SaveUser(db, u)
+	userPtr := &u
 
 	u2 := NewUser(0, "user2@example.com", "Justin", "M", time.Now(), time.Now())
 	u2, err = SaveUser(db, u2)
@@ -322,20 +308,20 @@ func TestBatchesForUser(t *testing.T) {
 	// is nanosecond, so we round these for easy comparison
 	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
 	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
-	b := NewBatch(0, "Testing", brewedDate, bottledDate, 5, 4.5, GALLON, 1.060, 1.020, u, createdAt, updatedAt,
-		"Brew notes", "Taste notes", "http://example.org/beer")
+	b := Batch{Name: "Testing", UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5, VolumeInFermenter: 4.5,
+		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedBy: userPtr, CreatedAt: createdAt, UpdatedAt: updatedAt,
+		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
 	b, err = SaveBatch(db, b)
 
-	b2 := NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1)*time.Minute).Round(time.Microsecond),
-		time.Now().Add(time.Duration(5)*time.Minute).Round(time.Microsecond), 5, 4.5,
-		GALLON, 1.060, 1.020, u, createdAt, updatedAt, "Brew notes", "Taste notes",
-		"http://example.org/beer")
+	b2 := Batch{Name: "Testing 2", UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewedDate: time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond), VolumeBoiled: 5, VolumeInFermenter: 4.5,
+		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedBy: userPtr, CreatedAt: createdAt, UpdatedAt: updatedAt,
+		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer", BottledDate: time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond)}
 	b2, err = SaveBatch(db, b2)
 
-	u2batch := NewBatch(0, "Testing 2", time.Now().Add(time.Duration(1)*time.Minute).Round(time.Microsecond),
-		time.Now().Add(time.Duration(5)*time.Minute).Round(time.Microsecond), 5, 4.5,
-		GALLON, 1.060, 1.020, u2, createdAt, updatedAt, "Brew notes", "Taste notes",
-		"http://example.org/beer")
+	u2batch := Batch{Name: "Testing 2", UserId: sql.NullInt64{Int64: int64(u2.Id), Valid: true}, BrewedDate: time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond), VolumeBoiled: 5, VolumeInFermenter: 4.5,
+		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedBy: &u2, CreatedAt: createdAt, UpdatedAt: updatedAt,
+		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer", BottledDate: time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond)}
+
 	u2batch, err = SaveBatch(db, u2batch)
 
 	if err != nil {

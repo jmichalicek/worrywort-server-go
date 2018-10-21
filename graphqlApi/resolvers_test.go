@@ -1,11 +1,47 @@
 package graphqlApi
 
 import (
+	"context"
+	"database/sql"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
+	"github.com/jmoiron/sqlx"
 	"testing"
 	"time"
 )
+
+func setUpTestDb() (*sqlx.DB, error) {
+	_db, err := sql.Open("txdb", "one")
+	if err != nil {
+		return nil, err
+	}
+
+	db := sqlx.NewDb(_db, "postgres")
+	if err != nil {
+		return nil, err
+	}
+
+	return db, nil
+}
+
+// utility to add a given number of minutes to a time.Time and round to match
+// what postgres returns
+func addMinutes(d time.Time, increment int) time.Time {
+	return d.Add(time.Duration(increment) * time.Minute).Round(time.Microsecond)
+}
+
+// Make a standard, generic batch for testing
+// optionally attach the user
+func makeTestBatch(u worrywort.User, attachUser bool) worrywort.Batch {
+	b := worrywort.Batch{Name: "Testing", BrewedDate: addMinutes(time.Now(), 1), BottledDate: addMinutes(time.Now(), 10), VolumeBoiled: 5,
+		VolumeInFermenter: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
+		UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewNotes: "Brew notes",
+		TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer"}
+	if attachUser {
+		b.CreatedBy = &u
+	}
+	return b
+}
 
 func TestUserResolver(t *testing.T) {
 	createdAt := time.Now()
@@ -63,15 +99,21 @@ func TestUserResolver(t *testing.T) {
 }
 
 func TestBatchResolver(t *testing.T) {
-	createdAt := time.Now()
-	updatedAt := time.Now()
-	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", createdAt, updatedAt)
-	brewed := worrywort.NewBatch(1, "Testing", time.Now(), time.Now(), 5, 4.5, worrywort.GALLON, 1.060, 1.020, u,
-		createdAt, updatedAt, "Brew notes", "Taste notes", "http://example.org/beer")
-	unbrewed := worrywort.NewBatch(2, "Testing", time.Time{}, time.Time{}, 5, 4.5, worrywort.GALLON, 1.060, 1.020,
-		worrywort.User{}, createdAt, updatedAt, "Brew notes", "Taste notes", "http://example.org/beer")
-	br := batchResolver{b: brewed}
-	unbr := batchResolver{b: unbrewed}
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	brewed := makeTestBatch(u, true)
+	brewed.Id = 1
+	unbrewed := makeTestBatch(u, true)
+	unbrewed.BrewedDate = time.Time{}
+	unbrewed.BottledDate = time.Time{}
+
+	br := batchResolver{b: &brewed}
+	unbr := batchResolver{b: &unbrewed}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = br.ID()
@@ -209,11 +251,36 @@ func TestBatchResolver(t *testing.T) {
 		}
 	})
 
-	t.Run("CreatedBy()", func(t *testing.T) {
-		var actual *userResolver = br.CreatedBy()
-		expected := userResolver{u: brewed.CreatedBy}
+	t.Run("CreatedBy() with User struct populated", func(t *testing.T) {
+		ctx := context.Background()
+		ctx = context.WithValue(ctx, "db", db)
+
+		actual, err := br.CreatedBy(ctx)
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+		expected := userResolver{u: *brewed.CreatedBy}
 		if *actual != expected {
 			t.Errorf("Expected: %v, got %v", expected, actual)
+		}
+	})
+
+	t.Run("CreatedBy() without User populated", func(t *testing.T) {
+		batchNoUser := makeTestBatch(u, false)
+		batchNoUser, err = worrywort.SaveBatch(db, batchNoUser)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		ctx := context.Background()
+		ctx = context.WithValue(ctx, "db", db)
+		r := batchResolver{b: &batchNoUser}
+		actual, err := r.CreatedBy(ctx)
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+		expected := userResolver{u: u}
+		if *actual != expected {
+			t.Errorf("\nExpected: %v\ngot %v", expected, actual)
 		}
 	})
 }
@@ -250,7 +317,7 @@ func TestFermenterResolver(t *testing.T) {
 
 	t.Run("CreatedBy()", func(t *testing.T) {
 		var actual *userResolver = r.CreatedBy()
-		expected := userResolver{u: f.CreatedBy}
+		expected := userResolver{u: *f.CreatedBy}
 		if *actual != expected {
 			t.Errorf("Expected: %v, got %v", expected, actual)
 		}
@@ -259,7 +326,7 @@ func TestFermenterResolver(t *testing.T) {
 
 func TestTemperatureSensorResolver(t *testing.T) {
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	therm := worrywort.NewTemperatureSensor(1, "Therm1", u, time.Now(), time.Now())
+	therm := worrywort.NewTemperatureSensor(1, "Therm1", &u, time.Now(), time.Now())
 	r := temperatureSensorResolver{t: therm}
 
 	t.Run("ID()", func(t *testing.T) {
@@ -288,7 +355,7 @@ func TestTemperatureSensorResolver(t *testing.T) {
 
 	t.Run("CreatedBy()", func(t *testing.T) {
 		var actual *userResolver = r.CreatedBy()
-		expected := userResolver{u: therm.CreatedBy}
+		expected := userResolver{u: *therm.CreatedBy}
 		if *actual != expected {
 			t.Errorf("Expected: %v, got %v", expected, actual)
 		}
@@ -297,14 +364,13 @@ func TestTemperatureSensorResolver(t *testing.T) {
 
 func TestTemperatureMeasurementResolver(t *testing.T) {
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	sensor := worrywort.NewTemperatureSensor(1, "Therm1", u, time.Now(), time.Now())
-	batch := worrywort.NewBatch(1, "Testing", time.Now(), time.Now(), 5, 4.5, worrywort.GALLON, 1.060, 1.020, u,
-		time.Now(), time.Now(), "Brew notes", "Taste notes", "http://example.org/beer")
+	sensor := worrywort.NewTemperatureSensor(1, "Therm1", &u, time.Now(), time.Now())
+	batch := makeTestBatch(u, true)
 	fermenter := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u,
 		time.Now(), time.Now())
 	timeRecorded := time.Now().Add(time.Hour * time.Duration(-1))
 	measurement := worrywort.TemperatureMeasurement{Id: "shouldbeauuid", Temperature: 64.26, Units: worrywort.FAHRENHEIT, RecordedAt: timeRecorded,
-		Batch: &batch, TemperatureSensor: &sensor, Fermenter: &fermenter, CreatedBy: u, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+		Batch: &batch, TemperatureSensor: &sensor, Fermenter: &fermenter, CreatedBy: &u, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	resolver := temperatureMeasurementResolver{m: measurement}
 
 	t.Run("ID()", func(t *testing.T) {
@@ -347,7 +413,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 
 	t.Run("Batch()", func(t *testing.T) {
 		b := resolver.Batch()
-		expected := batchResolver{b: *(measurement.Batch)}
+		expected := batchResolver{b: measurement.Batch}
 		if expected != *b {
 			t.Errorf("\nExpected: %v\ngot: %v", expected, *b)
 		}
@@ -369,13 +435,15 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 		}
 	})
 
-	t.Run("CreatedBy()", func(t *testing.T) {
+	t.Run("CreatedBy() with User attached", func(t *testing.T) {
+		// TODO: This test with user not already populated
 		var actual *userResolver = resolver.CreatedBy()
-		expected := userResolver{u: measurement.CreatedBy}
+		expected := userResolver{u: *(measurement.CreatedBy)}
 		if *actual != expected {
 			t.Errorf("\nExpected: %v\ngot %v", expected, actual)
 		}
 	})
+
 }
 
 func TestAuthTokenResolver(t *testing.T) {

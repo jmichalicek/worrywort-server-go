@@ -110,6 +110,9 @@ func UpdateUser(db *sqlx.DB, u User) (User, error) {
 
 // Looks up the user by id in the database and returns a new User
 func LookupUser(id int, db *sqlx.DB) (User, error) {
+	// TODO: rename this FindUser() and implement other query stuff?
+	// TODO: make this return nil if user is not found
+	// or keep that separate?
 	u := User{}
 	// if I have understood correctly, different DBs use a different parameterization token (the ? below).
 	// By default sqlx just passes whatever you type and you need to manually use the correct token...
@@ -120,7 +123,6 @@ func LookupUser(id int, db *sqlx.DB) (User, error) {
 	if err != nil {
 		return User{}, err
 	}
-	// this seems dumb, but it ensures correctness by using the standard NewUser interface
 	return u, nil
 }
 

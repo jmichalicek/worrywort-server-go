@@ -15,6 +15,8 @@ import (
 	"time"
 )
 
+var SERVER_ERROR = errors.New("Unexpected server error.")
+
 // Takes a time.Time and returns nil if the time is zero or pointer to the time string formatted as RFC3339
 func nullableDateString(dt time.Time) *string {
 	if dt.IsZero() {
@@ -30,6 +32,9 @@ func dateString(dt time.Time) string {
 
 type Resolver struct {
 	// todo: should be Db?
+	// do not really need this now that it is coming in on context so code is inconsistent.
+	// but on context is considered "not good"... I could pass this around instead, but would then
+	// need to either attach a Resolver or db to every single data type, which also kind of sucks
 	db *sqlx.DB
 }
 
@@ -72,21 +77,26 @@ func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*ba
 		}
 		return nil, nil
 	}
-	return &batchResolver{b: *batchPtr}, nil
+	return &batchResolver{b: batchPtr}, nil
 }
 
 func (r *Resolver) Batches(ctx context.Context) (*[]*batchResolver, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
-	var resolvedBatches []*batchResolver
+	var resolvedBatches []*batchResolver = []*batchResolver{}
 	batchesPtr, err := worrywort.BatchesForUser(r.db, u, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, batch := range *batchesPtr {
-		resolvedBatches = append(resolvedBatches, &batchResolver{b: batch})
+	for idx, _ := range *batchesPtr {
+		// makes sense, but not obvious to me at first:
+		// the 2nd value in the range is a variable - but that variable gets reassigned a copy of
+		// whatever is being iterated over, not the actual instance itself.  So rather than
+		// using it, we use the index to get the real thing we are looking for
+		br := batchResolver{b: &(*batchesPtr)[idx]}
+		resolvedBatches = append(resolvedBatches, &br)
 	}
-	return &resolvedBatches, err
+	return &(resolvedBatches), err
 }
 
 func (r *Resolver) Fermenter(ctx context.Context, args struct{ ID graphql.ID }) (*fermenterResolver, error) {
@@ -104,24 +114,26 @@ func (r *Resolver) Fermenter(ctx context.Context, args struct{ ID graphql.ID }) 
 func (r *Resolver) TemperatureSensor(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureSensorResolver, error) {
 	// authUser, _ := authMiddleware.UserFromContext(ctx)
 	// TODO: panic on error, no user, etc.
+	// TODO: really implement this
 
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	therm := worrywort.NewTemperatureSensor(1, "Therm1", u, createdAt, updatedAt)
+	therm := worrywort.NewTemperatureSensor(1, "Therm1", &u, createdAt, updatedAt)
 	return &temperatureSensorResolver{t: therm}, nil
 }
 
 func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureMeasurementResolver, error) {
 	// authUser, _ := authMiddleware.UserFromContext(ctx)
 	// TODO: panic on error, no user, etc.
-	// TODO: REALLY LOOK THIS UP!
-
+	// TODO: REALLY IMPLEMENT THIS!
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	b := worrywort.NewBatch(1, "Testing", time.Now(), time.Now(), 5, 4.5, worrywort.GALLON, 1.060, 1.020, u, time.Now(), time.Now(),
-		"Brew notes", "Taste notes", "http://example.org/beer")
+	b := worrywort.Batch{Name: "Testing", BrewedDate: time.Now(), BottledDate: time.Now(), VolumeBoiled: 5,
+		VolumeInFermenter: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
+		UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewNotes: "Brew notes",
+		TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer", CreatedBy: &u}
 	f := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u, time.Now(), time.Now())
-	therm := worrywort.NewTemperatureSensor(1, "Therm1", u, time.Now(), time.Now())
+	therm := worrywort.NewTemperatureSensor(1, "Therm1", &u, time.Now(), time.Now())
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	timeRecorded := time.Now()
@@ -129,7 +141,7 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 	tempId := "REMOVEME"
 	// TODO: This needs to save and THAT is whre the uuid should really be generated
 	m := worrywort.TemperatureMeasurement{Id: tempId, Temperature: 64.26, Units: worrywort.FAHRENHEIT, RecordedAt: timeRecorded,
-		Batch: &b, TemperatureSensor: &therm, Fermenter: &f, CreatedBy: u, CreatedAt: createdAt, UpdatedAt: updatedAt}
+		Batch: &b, TemperatureSensor: &therm, Fermenter: &f, CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt}
 	return &temperatureMeasurementResolver{m: m}, nil
 }
 
@@ -149,16 +161,20 @@ func (r *userResolver) CreatedAt() string { return dateString(r.u.CreatedAt) }
 func (r *userResolver) UpdatedAt() string { return dateString(r.u.UpdatedAt) }
 
 type batchResolver struct {
-	b worrywort.Batch
+	b *worrywort.Batch
 }
 
-func (r *batchResolver) ID() graphql.ID       { return graphql.ID(strconv.Itoa(r.b.Id)) }
+func (r *batchResolver) ID() graphql.ID {
+	return graphql.ID(strconv.Itoa(r.b.Id))
+}
 func (r *batchResolver) Name() string         { return r.b.Name }
 func (r *batchResolver) BrewNotes() string    { return r.b.BrewNotes }
 func (r *batchResolver) TastingNotes() string { return r.b.TastingNotes }
 
 // TODO: I should make an actual DateTime type which can be null or a valid datetime string
-func (r *batchResolver) BrewedDate() *string  { return nullableDateString(r.b.BrewedDate) }
+func (r *batchResolver) BrewedDate() *string {
+	return nullableDateString(r.b.BrewedDate)
+}
 func (r *batchResolver) BottledDate() *string { return nullableDateString(r.b.BottledDate) }
 func (r *batchResolver) VolumeBoiled() *float64 {
 	// If the value is optional/nullable in the GraphQL schema then we must return a pointer
@@ -210,7 +226,27 @@ func (r *batchResolver) CreatedAt() string { return dateString(r.b.CreatedAt) }
 func (r *batchResolver) UpdatedAt() string { return dateString(r.b.UpdatedAt) }
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
-func (r *batchResolver) CreatedBy() *userResolver { return &userResolver{u: r.b.CreatedBy} }
+func (r *batchResolver) CreatedBy(ctx context.Context) (*userResolver, error) {
+	// IMPLEMENT DATALOADER
+	// TODO: yeah, maybe make Batch.CreatedBy and others a pointer... or a function with a private pointer to cache
+	if r.b.CreatedBy != nil && r.b.CreatedBy.Id != 0 {
+		// TODO: this will probably go to taking a pointer to the User
+		return &userResolver{u: *r.b.CreatedBy}, nil
+	}
+
+	// Looking at https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/service/user_service.go#L23
+	// and https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/server.go#L20
+	// I will just want to put the db in my context even though it seems like many things say do not do that.
+	// Not sure I like this at all, but I also do not want to have to attach the db from resolver to every other
+	// resolver/type struct I create.
+	db, ok := ctx.Value("db").(*sqlx.DB)
+	if !ok {
+		log.Printf("No database in context")
+		return nil, SERVER_ERROR
+	}
+	user, err := worrywort.LookupUser(int(r.b.UserId.Int64), db)
+	return &userResolver{u: user}, err
+}
 
 // Resolve a worrywort.Fermenter
 type fermenterResolver struct {
@@ -222,7 +258,7 @@ func (r *fermenterResolver) CreatedAt() string { return dateString(r.f.CreatedAt
 func (r *fermenterResolver) UpdatedAt() string { return dateString(r.f.UpdatedAt) }
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
-func (r *fermenterResolver) CreatedBy() *userResolver { return &userResolver{u: r.f.CreatedBy} }
+func (r *fermenterResolver) CreatedBy() *userResolver { return &userResolver{u: *r.f.CreatedBy} }
 
 // Resolve a worrywort.TemperatureSensor
 type temperatureSensorResolver struct {
@@ -235,7 +271,7 @@ func (r temperatureSensorResolver) UpdatedAt() string { return dateString(r.t.Up
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
 func (r temperatureSensorResolver) CreatedBy() *userResolver {
-	return &userResolver{u: r.t.CreatedBy}
+	return &userResolver{u: *r.t.CreatedBy}
 }
 func (r temperatureSensorResolver) Name() string { return r.t.Name }
 
@@ -253,7 +289,7 @@ func (r *temperatureMeasurementResolver) Temperature() float64                 {
 func (r *temperatureMeasurementResolver) Units() worrywort.TemperatureUnitType { return r.m.Units }
 func (r *temperatureMeasurementResolver) Batch() *batchResolver {
 	if r.m.Batch != nil {
-		return &batchResolver{b: *(r.m.Batch)}
+		return &batchResolver{b: r.m.Batch}
 	}
 	return nil
 }
@@ -268,7 +304,7 @@ func (r *temperatureMeasurementResolver) Fermenter() *fermenterResolver {
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
 func (r *temperatureMeasurementResolver) CreatedBy() *userResolver {
-	return &userResolver{u: r.m.CreatedBy}
+	return &userResolver{u: *r.m.CreatedBy}
 }
 
 // An auth token returned after logging in to use in Authentication headers
@@ -306,6 +342,7 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 	Input *createTemperatureMeasurementInput
 }) (*createTemperatureMeasurementPayload, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 
 	var inputPtr *createTemperatureMeasurementInput = args.Input
 	var input createTemperatureMeasurementInput = *inputPtr
@@ -318,6 +355,7 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 		unitType = worrywort.CELSIUS
 	}
 
+	sensorId := ToNullInt64(string(input.TemperatureSensorId))
 	tempSensorId, err := strconv.ParseInt(string(input.TemperatureSensorId), 10, 0)
 	sensorPtr, err := worrywort.FindTemperatureSensor(map[string]interface{}{"id": tempSensorId, "created_by_user_id": u.Id}, r.db)
 	if err != nil {
@@ -332,11 +370,9 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 	}
 
 	var batchPtr *worrywort.Batch = nil
+	var batchId sql.NullInt64
 	if input.BatchId != nil {
-		batchId, err := strconv.ParseInt(string(*(input.BatchId)), 10, 0)
-		if err != nil {
-			return nil, err
-		}
+		batchId = ToNullInt64(string(*input.BatchId))
 		batchPtr, err = worrywort.FindBatch(map[string]interface{}{"created_by_user_id": u.Id, "id": batchId}, r.db)
 		if err != nil {
 			if err != sql.ErrNoRows {
@@ -358,10 +394,12 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 		return nil, err
 	}
 
-	t := worrywort.TemperatureMeasurement{TemperatureSensor: sensorPtr, Temperature: input.Temperature, Units: unitType, RecordedAt: recordedAt, CreatedBy: u, Batch: batchPtr}
+	t := worrywort.TemperatureMeasurement{TemperatureSensor: sensorPtr, TemperatureSensorId: sensorId,
+		Temperature: input.Temperature, Units: unitType, RecordedAt: recordedAt, CreatedBy: &u, UserId: userId,
+		Batch: batchPtr, BatchId: batchId}
 	t, err = worrywort.SaveTemperatureMeasurement(r.db, t)
 	if err != nil {
-		log.Printf("%v", err)
+		log.Printf("Failed to save TemperatureMeasurement: %v\n", err)
 		return nil, err
 	}
 	tr := temperatureMeasurementResolver{m: t}
@@ -392,4 +430,13 @@ func (r *Resolver) Login(args *struct {
 	}
 	atr := authTokenResolver{t: token}
 	return &atr, nil
+}
+
+// HELPERS - move to a different file for organization?
+// ToNullInt64 validates a sql.NullInt64 if incoming string evaluates to an integer, invalidates if it does not
+// Very useful for taking-y string graphql.ID values and getting a Nullint64
+func ToNullInt64(s string) sql.NullInt64 {
+	// Should ToNullInt64 just take a graphql.ID ?
+	i, err := strconv.Atoi(s)
+	return sql.NullInt64{Int64: int64(i), Valid: err == nil}
 }
