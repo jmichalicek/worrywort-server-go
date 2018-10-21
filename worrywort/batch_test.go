@@ -10,26 +10,6 @@ import (
 	"time"
 )
 
-// Test that NewBatch() returns a batch with the expected values
-func TestNewBatch(t *testing.T) {
-	createdAt := time.Now()
-	updatedAt := time.Now()
-	brewedDate := time.Now().Add(time.Duration(1) * time.Minute)
-	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute)
-	u := NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-
-	expectedBatch := Batch{Id: 1, Name: "Testing", BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
-		VolumeInFermenter: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedBy: &u,
-		CreatedAt: createdAt, UpdatedAt: updatedAt, BrewNotes: "Brew notes", TastingNotes: "Taste notes",
-		RecipeURL: "http://example.org/beer"}
-	b := NewBatch(1, "Testing", brewedDate, bottledDate, 5, 4.5, GALLON, 1.060, 1.020, &u, createdAt, updatedAt,
-		"Brew notes", "Taste notes", "http://example.org/beer")
-
-	if b != expectedBatch {
-		t.Errorf("Expected: %v\n\nGot: %v", expectedBatch, b)
-	}
-}
-
 func TestNewFermenter(t *testing.T) {
 
 	createdAt := time.Now()
@@ -288,8 +268,6 @@ func TestFindBatch(t *testing.T) {
 	b := Batch{UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5, VolumeInFermenter: 4.5,
 		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt,
 		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
-	// b := NewBatch(0, "Testing", brewedDate, bottledDate, 5, 4.5, GALLON, 1.060, 1.020, u, createdAt, updatedAt,
-	// 	"Brew notes", "Taste notes", "http://example.org/beer")
 	b, err = SaveBatch(db, b)
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)

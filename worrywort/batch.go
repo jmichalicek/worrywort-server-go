@@ -40,8 +40,6 @@ const (
 // formats nicely...
 var TypeError error = errors.New("Invalid type specified")
 
-// Should these be exportable if I am going to use factory methods?  NewBatch() etc?
-// as long as I provide a Batcher interface or whatever?
 type Batch struct {
 	Id                 int            `db:"id"`
 	CreatedBy          *User          `db:"created_by,prefix=u"` // TODO: think I will change this to User
@@ -90,16 +88,6 @@ func (b Batch) StrictEqual(other Batch) bool {
 		b.AverageTemperature == other.AverageTemperature &&
 		b.BrewedDate.Equal(other.BrewedDate) && b.BottledDate.Equal(other.BottledDate) &&
 		b.CreatedAt.Equal(other.CreatedAt) //&& b.UpdatedAt().Equal(other.UpdatedAt())
-}
-
-// Initializes and returns a new Batch instance
-func NewBatch(id int, name string, brewedDate, bottledDate time.Time, volumeBoiled, volumeInFermenter float64,
-	volumeUnits VolumeUnitType, originalGravity, finalGravity float64, createdBy *User, createdAt, updatedAt time.Time,
-	brewNotes, tastingNotes string, recipeURL string) Batch {
-	return Batch{Id: id, Name: name, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: volumeBoiled,
-		VolumeInFermenter: volumeInFermenter, VolumeUnits: volumeUnits, CreatedBy: createdBy, CreatedAt: createdAt,
-		UpdatedAt: updatedAt, BrewNotes: brewNotes, TastingNotes: tastingNotes, RecipeURL: recipeURL,
-		OriginalGravity: originalGravity, FinalGravity: finalGravity}
 }
 
 // Find a batch by exact match of attributes

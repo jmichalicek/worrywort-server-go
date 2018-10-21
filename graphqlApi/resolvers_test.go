@@ -365,8 +365,6 @@ func TestTemperatureSensorResolver(t *testing.T) {
 func TestTemperatureMeasurementResolver(t *testing.T) {
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	sensor := worrywort.NewTemperatureSensor(1, "Therm1", &u, time.Now(), time.Now())
-	// batch := worrywort.NewBatch(1, "Testing", time.Now(), time.Now(), 5, 4.5, worrywort.GALLON, 1.060, 1.020, u,
-	// 	time.Now(), time.Now(), "Brew notes", "Taste notes", "http://example.org/beer")
 	batch := makeTestBatch(u, true)
 	fermenter := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u,
 		time.Now(), time.Now())
