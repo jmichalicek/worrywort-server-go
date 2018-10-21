@@ -44,7 +44,7 @@ var TypeError error = errors.New("Invalid type specified")
 // as long as I provide a Batcher interface or whatever?
 type Batch struct {
 	Id                 int            `db:"id"`
-	CreatedBy          User           `db:"created_by,prefix=u"` // TODO: think I will change this to User
+	CreatedBy          *User          `db:"created_by,prefix=u"` // TODO: think I will change this to User
 	UserId             sql.NullInt64  `db:"created_by_user_id"`
 	Name               string         `db:"name"`
 	BrewNotes          string         `db:"brew_notes"`
@@ -94,7 +94,7 @@ func (b Batch) StrictEqual(other Batch) bool {
 
 // Initializes and returns a new Batch instance
 func NewBatch(id int, name string, brewedDate, bottledDate time.Time, volumeBoiled, volumeInFermenter float64,
-	volumeUnits VolumeUnitType, originalGravity, finalGravity float64, createdBy User, createdAt, updatedAt time.Time,
+	volumeUnits VolumeUnitType, originalGravity, finalGravity float64, createdBy *User, createdAt, updatedAt time.Time,
 	brewNotes, tastingNotes string, recipeURL string) Batch {
 	return Batch{Id: id, Name: name, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: volumeBoiled,
 		VolumeInFermenter: volumeInFermenter, VolumeUnits: volumeUnits, CreatedBy: createdBy, CreatedAt: createdAt,
@@ -252,7 +252,7 @@ type Fermenter struct {
 	FermenterType FermenterStyleType `db:"fermenter_type"`
 	IsActive      bool               `db:"is_active"`
 	IsAvailable   bool               `db:"is_available"`
-	CreatedBy     User               `db:"created_by,prefix=u"`
+	CreatedBy     *User              `db:"created_by,prefix=u"`
 	UserId        sql.NullInt64      `db:"created_by_user_id"`
 
 	// TODO: id and fk for current batch if it is attached to a batch?
@@ -264,7 +264,7 @@ type Fermenter struct {
 func NewFermenter(id int, name, description string, volume float64, volumeUnits VolumeUnitType,
 	fermenterType FermenterStyleType, isActive, isAvailable bool, createdBy User, createdAt, updatedAt time.Time) Fermenter {
 	return Fermenter{Id: id, Name: name, Description: description, Volume: volume, VolumeUnits: volumeUnits,
-		FermenterType: fermenterType, IsActive: isActive, IsAvailable: isAvailable, CreatedBy: createdBy,
+		FermenterType: fermenterType, IsActive: isActive, IsAvailable: isAvailable, CreatedBy: &createdBy,
 		CreatedAt: createdAt, UpdatedAt: updatedAt}
 }
 
@@ -277,7 +277,7 @@ func NewFermenter(id int, name, description string, volume float64, volumeUnits 
 type TemperatureSensor struct {
 	Id        int           `db:"id"`
 	Name      string        `db:"name"`
-	CreatedBy User          `db:"created_by,prefix=u"`
+	CreatedBy *User         `db:"created_by,prefix=u"`
 	UserId    sql.NullInt64 `db:"created_by_user_id"`
 	// TODO: fk/id for current fermenter and current batch if attached to them?
 
@@ -294,7 +294,7 @@ func (t TemperatureSensor) queryColumns() []string {
 }
 
 // Returns a new TemperatureSensor
-func NewTemperatureSensor(id int, name string, createdBy User, createdAt, updatedAt time.Time) TemperatureSensor {
+func NewTemperatureSensor(id int, name string, createdBy *User, createdAt, updatedAt time.Time) TemperatureSensor {
 	return TemperatureSensor{Id: id, Name: name, CreatedBy: createdBy, CreatedAt: createdAt, UpdatedAt: updatedAt}
 }
 

@@ -38,7 +38,7 @@ func makeTestBatch(u worrywort.User, attachUser bool) worrywort.Batch {
 		UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewNotes: "Brew notes",
 		TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer"}
 	if attachUser {
-		b.CreatedBy = u
+		b.CreatedBy = &u
 	}
 	return b
 }
@@ -259,7 +259,7 @@ func TestBatchResolver(t *testing.T) {
 		if err != nil {
 			t.Errorf("%v", err)
 		}
-		expected := userResolver{u: brewed.CreatedBy}
+		expected := userResolver{u: *brewed.CreatedBy}
 		if *actual != expected {
 			t.Errorf("Expected: %v, got %v", expected, actual)
 		}
@@ -317,7 +317,7 @@ func TestFermenterResolver(t *testing.T) {
 
 	t.Run("CreatedBy()", func(t *testing.T) {
 		var actual *userResolver = r.CreatedBy()
-		expected := userResolver{u: f.CreatedBy}
+		expected := userResolver{u: *f.CreatedBy}
 		if *actual != expected {
 			t.Errorf("Expected: %v, got %v", expected, actual)
 		}
@@ -326,7 +326,7 @@ func TestFermenterResolver(t *testing.T) {
 
 func TestTemperatureSensorResolver(t *testing.T) {
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	therm := worrywort.NewTemperatureSensor(1, "Therm1", u, time.Now(), time.Now())
+	therm := worrywort.NewTemperatureSensor(1, "Therm1", &u, time.Now(), time.Now())
 	r := temperatureSensorResolver{t: therm}
 
 	t.Run("ID()", func(t *testing.T) {
@@ -355,7 +355,7 @@ func TestTemperatureSensorResolver(t *testing.T) {
 
 	t.Run("CreatedBy()", func(t *testing.T) {
 		var actual *userResolver = r.CreatedBy()
-		expected := userResolver{u: therm.CreatedBy}
+		expected := userResolver{u: *therm.CreatedBy}
 		if *actual != expected {
 			t.Errorf("Expected: %v, got %v", expected, actual)
 		}
@@ -364,9 +364,10 @@ func TestTemperatureSensorResolver(t *testing.T) {
 
 func TestTemperatureMeasurementResolver(t *testing.T) {
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	sensor := worrywort.NewTemperatureSensor(1, "Therm1", u, time.Now(), time.Now())
-	batch := worrywort.NewBatch(1, "Testing", time.Now(), time.Now(), 5, 4.5, worrywort.GALLON, 1.060, 1.020, u,
-		time.Now(), time.Now(), "Brew notes", "Taste notes", "http://example.org/beer")
+	sensor := worrywort.NewTemperatureSensor(1, "Therm1", &u, time.Now(), time.Now())
+	// batch := worrywort.NewBatch(1, "Testing", time.Now(), time.Now(), 5, 4.5, worrywort.GALLON, 1.060, 1.020, u,
+	// 	time.Now(), time.Now(), "Brew notes", "Taste notes", "http://example.org/beer")
+	batch := makeTestBatch(u, true)
 	fermenter := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u,
 		time.Now(), time.Now())
 	timeRecorded := time.Now().Add(time.Hour * time.Duration(-1))

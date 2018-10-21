@@ -32,7 +32,9 @@ func dateString(dt time.Time) string {
 
 type Resolver struct {
 	// todo: should be Db?
-	// do not really need this now that it is coming in on context
+	// do not really need this now that it is coming in on context so code is inconsistent.
+	// but on context is considered "not good"... I could pass this around instead, but would then
+	// need to either attach a Resolver or db to every single data type, which also kind of sucks
 	db *sqlx.DB
 }
 
@@ -117,7 +119,7 @@ func (r *Resolver) TemperatureSensor(ctx context.Context, args struct{ ID graphq
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	therm := worrywort.NewTemperatureSensor(1, "Therm1", u, createdAt, updatedAt)
+	therm := worrywort.NewTemperatureSensor(1, "Therm1", &u, createdAt, updatedAt)
 	return &temperatureSensorResolver{t: therm}, nil
 }
 
@@ -125,12 +127,13 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 	// authUser, _ := authMiddleware.UserFromContext(ctx)
 	// TODO: panic on error, no user, etc.
 	// TODO: REALLY IMPLEMENT THIS!
-
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	b := worrywort.NewBatch(1, "Testing", time.Now(), time.Now(), 5, 4.5, worrywort.GALLON, 1.060, 1.020, u, time.Now(), time.Now(),
-		"Brew notes", "Taste notes", "http://example.org/beer")
+	b := worrywort.Batch{Name: "Testing", BrewedDate: time.Now(), BottledDate: time.Now(), VolumeBoiled: 5,
+		VolumeInFermenter: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
+		UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewNotes: "Brew notes",
+		TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer", CreatedBy: &u}
 	f := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u, time.Now(), time.Now())
-	therm := worrywort.NewTemperatureSensor(1, "Therm1", u, time.Now(), time.Now())
+	therm := worrywort.NewTemperatureSensor(1, "Therm1", &u, time.Now(), time.Now())
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	timeRecorded := time.Now()
@@ -226,8 +229,9 @@ func (r *batchResolver) UpdatedAt() string { return dateString(r.b.UpdatedAt) }
 func (r *batchResolver) CreatedBy(ctx context.Context) (*userResolver, error) {
 	// IMPLEMENT DATALOADER
 	// TODO: yeah, maybe make Batch.CreatedBy and others a pointer... or a function with a private pointer to cache
-	if r.b.CreatedBy.Id != 0 {
-		return &userResolver{u: r.b.CreatedBy}, nil
+	if r.b.CreatedBy != nil && r.b.CreatedBy.Id != 0 {
+		// TODO: this will probably go to taking a pointer to the User
+		return &userResolver{u: *r.b.CreatedBy}, nil
 	}
 
 	// Looking at https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/service/user_service.go#L23
@@ -254,7 +258,7 @@ func (r *fermenterResolver) CreatedAt() string { return dateString(r.f.CreatedAt
 func (r *fermenterResolver) UpdatedAt() string { return dateString(r.f.UpdatedAt) }
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
-func (r *fermenterResolver) CreatedBy() *userResolver { return &userResolver{u: r.f.CreatedBy} }
+func (r *fermenterResolver) CreatedBy() *userResolver { return &userResolver{u: *r.f.CreatedBy} }
 
 // Resolve a worrywort.TemperatureSensor
 type temperatureSensorResolver struct {
@@ -267,7 +271,7 @@ func (r temperatureSensorResolver) UpdatedAt() string { return dateString(r.t.Up
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
 func (r temperatureSensorResolver) CreatedBy() *userResolver {
-	return &userResolver{u: r.t.CreatedBy}
+	return &userResolver{u: *r.t.CreatedBy}
 }
 func (r temperatureSensorResolver) Name() string { return r.t.Name }
 
