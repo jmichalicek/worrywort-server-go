@@ -338,6 +338,7 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 	Input *createTemperatureMeasurementInput
 }) (*createTemperatureMeasurementPayload, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 
 	var inputPtr *createTemperatureMeasurementInput = args.Input
 	var input createTemperatureMeasurementInput = *inputPtr
@@ -350,6 +351,7 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 		unitType = worrywort.CELSIUS
 	}
 
+	sensorId := ToNullInt64(string(input.TemperatureSensorId))
 	tempSensorId, err := strconv.ParseInt(string(input.TemperatureSensorId), 10, 0)
 	sensorPtr, err := worrywort.FindTemperatureSensor(map[string]interface{}{"id": tempSensorId, "created_by_user_id": u.Id}, r.db)
 	if err != nil {
@@ -364,11 +366,9 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 	}
 
 	var batchPtr *worrywort.Batch = nil
+	var batchId sql.NullInt64
 	if input.BatchId != nil {
-		batchId, err := strconv.ParseInt(string(*(input.BatchId)), 10, 0)
-		if err != nil {
-			return nil, err
-		}
+		batchId = ToNullInt64(string(*input.BatchId))
 		batchPtr, err = worrywort.FindBatch(map[string]interface{}{"created_by_user_id": u.Id, "id": batchId}, r.db)
 		if err != nil {
 			if err != sql.ErrNoRows {
@@ -390,11 +390,12 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 		return nil, err
 	}
 
-	t := worrywort.TemperatureMeasurement{TemperatureSensor: sensorPtr, Temperature: input.Temperature, Units: unitType,
-		RecordedAt: recordedAt, CreatedBy: &u, Batch: batchPtr}
+	t := worrywort.TemperatureMeasurement{TemperatureSensor: sensorPtr, TemperatureSensorId: sensorId,
+		Temperature: input.Temperature, Units: unitType, RecordedAt: recordedAt, CreatedBy: &u, UserId: userId,
+		Batch: batchPtr, BatchId: batchId}
 	t, err = worrywort.SaveTemperatureMeasurement(r.db, t)
 	if err != nil {
-		log.Printf("%v", err)
+		log.Printf("Failed to save TemperatureMeasurement: %v\n", err)
 		return nil, err
 	}
 	tr := temperatureMeasurementResolver{m: t}
@@ -425,4 +426,13 @@ func (r *Resolver) Login(args *struct {
 	}
 	atr := authTokenResolver{t: token}
 	return &atr, nil
+}
+
+// HELPERS - move to a different file for organization?
+// ToNullInt64 validates a sql.NullInt64 if incoming string evaluates to an integer, invalidates if it does not
+// Very useful for taking-y string graphql.ID values and getting a Nullint64
+func ToNullInt64(s string) sql.NullInt64 {
+	// Should ToNullInt64 just take a graphql.ID ?
+	i, err := strconv.Atoi(s)
+	return sql.NullInt64{Int64: int64(i), Valid: err == nil}
 }

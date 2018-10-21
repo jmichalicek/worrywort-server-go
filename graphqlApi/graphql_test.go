@@ -326,12 +326,14 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	sensorId := sql.NullInt64{Valid: true, Int64: int64(sensor.Id)}
 
 	batch, err := worrywort.SaveBatch(
 		db, worrywort.Batch{UserId: userId, CreatedBy: u, Name: "Test batch"})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	batchId := sql.NullInt64{Valid: true, Int64: int64(batch.Id)}
 
 	u2 := worrywort.NewUser(0, "user2@example.com", "Justin", "M", time.Now(), time.Now())
 	u2, err = worrywort.SaveUser(db, u2)
@@ -345,8 +347,8 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 	t.Run("Test measurement is created with valid data", func(t *testing.T) {
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":             strconv.Itoa(batch.Id),
-				"temperatureSensorId": strconv.Itoa(sensor.Id),
+				"batchId":             strconv.Itoa(int(batchId.Int64)),
+				"temperatureSensorId": strconv.Itoa(int(sensorId.Int64)),
 				"units":               "FAHRENHEIT",
 				"temperature":         70.0,
 				"recordedAt":          "2018-10-14T15:26:00+00:00",
@@ -362,9 +364,11 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 					}
 				}
 			}`
+
 		operationName := ""
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+		ctx = context.WithValue(ctx, "db", db)
 		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
 
 		// Some structs so that the json can be unmarshalled
@@ -402,10 +406,11 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 		// measurement, err := worrywort.FindTemperatureMeasurement(db,
 		// 	map[string]interface{}{"created_by_user_id": u.Id, "id": measurementId})
 		measurement := &worrywort.TemperatureMeasurement{}
-		selectCols := fmt.Sprintf("u.id \"created_by.id\", ts.id \"temperature_sensor.id\", ts.name \"temperature_sensor.name\", ")
+
+		selectCols := fmt.Sprintf("tm.created_by_user_id, tm.temperature_sensor_id")
 		q := `SELECT tm.temperature, tm.units,  ` + strings.Trim(selectCols, ", ") + ` from temperature_measurements tm LEFT JOIN users u ON u.id = tm.created_by_user_id LEFT JOIN temperature_sensors ts ON ts.id = tm.temperature_sensor_id WHERE tm.id = ? AND tm.created_by_user_id = ? AND tm.temperature_sensor_id = ?`
 		query = db.Rebind(q)
-		err = db.Get(measurement, query, measurementId, u.Id, sensor.Id)
+		err = db.Get(measurement, query, measurementId, userId, sensorId)
 
 		if err == sql.ErrNoRows {
 			t.Error("Measurement was not saved to the database. Query returned no results.")

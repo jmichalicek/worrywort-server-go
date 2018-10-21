@@ -422,7 +422,7 @@ type TemperatureMeasurement struct {
 	TemperatureSensor   *TemperatureSensor  `db:"temperature_sensor,prefix=ts"`
 	TemperatureSensorId sql.NullInt64       `db:"temperature_sensor_id"`
 	Fermenter           *Fermenter          `db:"fermenter,prefix=f"` // Do I really care? I might for history.
-	FermenterId         sql.NullInt64       `db:fermenter_id"`
+	FermenterId         sql.NullInt64       `db:"fermenter_id"`
 
 	// not sure createdBy is a useful name in this case vs just `user` but its consistent
 	CreatedBy *User         `db:"created_by,prefix=u"`
@@ -451,27 +451,8 @@ func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 	var createdAt time.Time
 	var measurementId string
 
-	insertVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt, tm.BatchId, tm.TemperatureSensorId, tm.FermenterId}
-
-	// TODO: This feels like a very unmaintainable way to handle foreign keys overall throughout the system
-	// Once again considering keeping the FK's id as a separate value on the struct as a NullInt, etc.
-	// if tm.BatchId.Valid {
-	// 	insertVals = append(insertVals, tm.BatchId)
-	// } else {
-	// 	insertVals = append(insertVals, nil)
-	// }
-
-	// if tm.TemperatureSensorId.Valid {
-	// 	insertVals = append(insertVals, tm.TemperatureSensorId)
-	// } else {
-	// 	insertVals = append(insertVals, nil)
-	// }
-
-	// if tm.FermenterId != 0 {
-	// 	insertVals = append(insertVals, tm.FermenterId)
-	// } else {
-	// 	insertVals = append(insertVals, nil)
-	// }
+	insertVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt, tm.BatchId,
+		tm.TemperatureSensorId, tm.FermenterId}
 
 	query := db.Rebind(`INSERT INTO temperature_measurements (created_by_user_id, temperature, units, recorded_at, created_at,
 		updated_at, batch_id, temperature_sensor_id, fermenter_id)
@@ -492,28 +473,10 @@ func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 // Returns a new copy of the user with any updated values set upon success.
 // Returns the same, unmodified User and errors on error
 func UpdateTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (TemperatureMeasurement, error) {
-	// TODO: TEST CASE
 	var updatedAt time.Time
 
-	paramVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt}
-
-	// if tm.BatchId != 0 {
-	// 	paramVals = append(paramVals, tm.BatchId)
-	// } else {
-	// 	paramVals = append(paramVals, nil)
-	// }
-
-	// if tm.TemperatureSensorId != 0 {
-	// 	paramVals = append(paramVals, tm.TemperatureSensorId)
-	// } else {
-	// 	paramVals = append(paramVals, nil)
-	// }
-
-	// if tm.FermenterId != 0 {
-	// 	paramVals = append(paramVals, tm.FermenterId)
-	// } else {
-	// 	paramVals = append(paramVals, nil)
-	// }
+	paramVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt, tm.BatchId,
+		tm.TemperatureSensorId, tm.FermenterId}
 
 	paramVals = append(paramVals, tm.Id)
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
