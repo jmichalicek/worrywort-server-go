@@ -81,7 +81,7 @@ func (r *batchResolver) CreatedBy(ctx context.Context) (*userResolver, error) {
 	// TODO: yeah, maybe make Batch.CreatedBy and others a pointer... or a function with a private pointer to cache
 	if r.b.CreatedBy != nil && r.b.CreatedBy.Id != 0 {
 		// TODO: this will probably go to taking a pointer to the User
-		return &userResolver{u: *r.b.CreatedBy}, nil
+		return &userResolver{u: r.b.CreatedBy}, nil
 	}
 
 	// Looking at https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/service/user_service.go#L23

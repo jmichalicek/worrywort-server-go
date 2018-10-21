@@ -250,11 +250,37 @@ type Fermenter struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
+// TODO: REMOVE NewFermenter
 func NewFermenter(id int, name, description string, volume float64, volumeUnits VolumeUnitType,
 	fermenterType FermenterStyleType, isActive, isAvailable bool, createdBy User, createdAt, updatedAt time.Time) Fermenter {
 	return Fermenter{Id: id, Name: name, Description: description, Volume: volume, VolumeUnits: volumeUnits,
 		FermenterType: fermenterType, IsActive: isActive, IsAvailable: isAvailable, CreatedBy: &createdBy,
 		CreatedAt: createdAt, UpdatedAt: updatedAt}
+}
+
+func FindFermenter(params map[string]interface{}, db *sqlx.DB) (*Fermenter, error) {
+
+	f := Fermenter{}
+	var values []interface{}
+	var where []string
+	for _, k := range []string{"id", "user_id"} {
+		if v, ok := params[k]; ok {
+			values = append(values, v)
+			// TODO: Deal with values from temperature_sensor OR user table
+			where = append(where, fmt.Sprintf("f.%s = ?", k))
+		}
+	}
+
+	q := `SELECT f.id, f.name, f.description, f.volume, f.volume_units, f.fermenter_type, f.is_active, f.is_available, f.user_id
+		FROM fermenters s WHERE ` + strings.Join(where, " AND ")
+	query := db.Rebind(q)
+	err := db.Get(&f, query, values...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &f, nil
 }
 
 // possibly should live elsewhere

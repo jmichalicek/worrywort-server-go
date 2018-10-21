@@ -49,7 +49,7 @@ func (r *Resolver) CurrentUser(ctx context.Context) *userResolver {
 	// or just write a separate function for that here instead of using it from authMiddleware.
 	// TODO: should check errors
 	u, _ := authMiddleware.UserFromContext(ctx)
-	ur := userResolver{u: u}
+	ur := userResolver{u: &u}
 	return &ur
 }
 
@@ -102,13 +102,13 @@ func (r *Resolver) Batches(ctx context.Context) (*[]*batchResolver, error) {
 func (r *Resolver) Fermenter(ctx context.Context, args struct{ ID graphql.ID }) (*fermenterResolver, error) {
 	// authUser, _ := authMiddleware.UserFromContext(ctx)
 	// TODO: panic on error, no user, etc.
-
+	// TODO: Implement correctly!  Look up the Fermentor with FindFermenter
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	f := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u, createdAt, updatedAt)
 
-	return &fermenterResolver{f: f}, nil
+	return &fermenterResolver{f: &f}, nil
 }
 
 func (r *Resolver) TemperatureSensor(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureSensorResolver, error) {
@@ -120,7 +120,7 @@ func (r *Resolver) TemperatureSensor(ctx context.Context, args struct{ ID graphq
 	updatedAt := time.Now()
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	therm := worrywort.NewTemperatureSensor(1, "Therm1", &u, createdAt, updatedAt)
-	return &temperatureSensorResolver{t: therm}, nil
+	return &temperatureSensorResolver{t: &therm}, nil
 }
 
 func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureMeasurementResolver, error) {
@@ -142,7 +142,7 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 	// TODO: This needs to save and THAT is whre the uuid should really be generated
 	m := worrywort.TemperatureMeasurement{Id: tempId, Temperature: 64.26, Units: worrywort.FAHRENHEIT, RecordedAt: timeRecorded,
 		Batch: &b, TemperatureSensor: &therm, Fermenter: &f, CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt}
-	return &temperatureMeasurementResolver{m: m}, nil
+	return &temperatureMeasurementResolver{m: &m}, nil
 }
 
 // Input types
@@ -231,7 +231,7 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 		log.Printf("Failed to save TemperatureMeasurement: %v\n", err)
 		return nil, err
 	}
-	tr := temperatureMeasurementResolver{m: t}
+	tr := temperatureMeasurementResolver{m: &t}
 	result := createTemperatureMeasurementPayload{t: &tr}
 	return &result, nil
 }

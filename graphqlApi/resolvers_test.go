@@ -6,6 +6,7 @@ import (
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -44,10 +45,16 @@ func makeTestBatch(u worrywort.User, attachUser bool) worrywort.Batch {
 }
 
 func TestUserResolver(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", createdAt, updatedAt)
-	r := userResolver{u: u}
+	r := userResolver{u: &u}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = r.ID()
@@ -259,7 +266,7 @@ func TestBatchResolver(t *testing.T) {
 		if err != nil {
 			t.Errorf("%v", err)
 		}
-		expected := userResolver{u: *brewed.CreatedBy}
+		expected := userResolver{u: brewed.CreatedBy}
 		if *actual != expected {
 			t.Errorf("Expected: %v, got %v", expected, actual)
 		}
@@ -278,18 +285,25 @@ func TestBatchResolver(t *testing.T) {
 		if err != nil {
 			t.Errorf("%v", err)
 		}
-		expected := userResolver{u: u}
-		if *actual != expected {
-			t.Errorf("\nExpected: %v\ngot %v", expected, actual)
+		expected := userResolver{u: &u}
+
+		if !reflect.DeepEqual(expected, actual) {
+			t.Errorf("\nExpected: %v\nGot: %v", expected, actual)
 		}
 	})
 }
 
 func TestFermenterResolver(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	f := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u,
 		time.Now(), time.Now())
-	r := fermenterResolver{f: f}
+	r := fermenterResolver{f: &f}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = r.ID()
@@ -316,8 +330,10 @@ func TestFermenterResolver(t *testing.T) {
 	})
 
 	t.Run("CreatedBy()", func(t *testing.T) {
-		var actual *userResolver = r.CreatedBy()
-		expected := userResolver{u: *f.CreatedBy}
+		ctx := context.Background()
+		ctx = context.WithValue(ctx, "db", db)
+		var actual *userResolver = r.CreatedBy(ctx)
+		expected := userResolver{u: f.CreatedBy}
 		if *actual != expected {
 			t.Errorf("Expected: %v, got %v", expected, actual)
 		}
@@ -325,9 +341,15 @@ func TestFermenterResolver(t *testing.T) {
 }
 
 func TestTemperatureSensorResolver(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	therm := worrywort.NewTemperatureSensor(1, "Therm1", &u, time.Now(), time.Now())
-	r := temperatureSensorResolver{t: therm}
+	r := temperatureSensorResolver{t: &therm}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = r.ID()
@@ -354,8 +376,10 @@ func TestTemperatureSensorResolver(t *testing.T) {
 	})
 
 	t.Run("CreatedBy()", func(t *testing.T) {
-		var actual *userResolver = r.CreatedBy()
-		expected := userResolver{u: *therm.CreatedBy}
+		ctx := context.Background()
+		ctx = context.WithValue(ctx, "db", db)
+		var actual *userResolver = r.CreatedBy(ctx)
+		expected := userResolver{u: therm.CreatedBy}
 		if *actual != expected {
 			t.Errorf("Expected: %v, got %v", expected, actual)
 		}
@@ -363,6 +387,15 @@ func TestTemperatureSensorResolver(t *testing.T) {
 }
 
 func TestTemperatureMeasurementResolver(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "db", db)
+
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	sensor := worrywort.NewTemperatureSensor(1, "Therm1", &u, time.Now(), time.Now())
 	batch := makeTestBatch(u, true)
@@ -371,7 +404,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	timeRecorded := time.Now().Add(time.Hour * time.Duration(-1))
 	measurement := worrywort.TemperatureMeasurement{Id: "shouldbeauuid", Temperature: 64.26, Units: worrywort.FAHRENHEIT, RecordedAt: timeRecorded,
 		Batch: &batch, TemperatureSensor: &sensor, Fermenter: &fermenter, CreatedBy: &u, CreatedAt: time.Now(), UpdatedAt: time.Now()}
-	resolver := temperatureMeasurementResolver{m: measurement}
+	resolver := temperatureMeasurementResolver{m: &measurement}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = resolver.ID()
@@ -412,7 +445,8 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	})
 
 	t.Run("Batch()", func(t *testing.T) {
-		b := resolver.Batch()
+
+		b := resolver.Batch(ctx)
 		expected := batchResolver{b: measurement.Batch}
 		if expected != *b {
 			t.Errorf("\nExpected: %v\ngot: %v", expected, *b)
@@ -420,16 +454,16 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	})
 
 	t.Run("Fermenter()", func(t *testing.T) {
-		f := resolver.Fermenter()
-		expected := fermenterResolver{f: *(measurement.Fermenter)}
+		f := resolver.Fermenter(ctx)
+		expected := fermenterResolver{f: measurement.Fermenter}
 		if expected != *f {
 			t.Errorf("\nExpected: %v\ngot: %v", expected, *f)
 		}
 	})
 
 	t.Run("TemperatureSensor()", func(t *testing.T) {
-		ts := resolver.TemperatureSensor()
-		expected := temperatureSensorResolver{t: *(measurement.TemperatureSensor)}
+		ts := resolver.TemperatureSensor(ctx)
+		expected := temperatureSensorResolver{t: measurement.TemperatureSensor}
 		if expected != *ts {
 			t.Errorf("\nExpected: %v\ngot: %v", expected, ts)
 		}
@@ -437,8 +471,8 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 
 	t.Run("CreatedBy() with User attached", func(t *testing.T) {
 		// TODO: This test with user not already populated
-		var actual *userResolver = resolver.CreatedBy()
-		expected := userResolver{u: *(measurement.CreatedBy)}
+		var actual *userResolver = resolver.CreatedBy(ctx)
+		expected := userResolver{u: measurement.CreatedBy}
 		if *actual != expected {
 			t.Errorf("\nExpected: %v\ngot %v", expected, actual)
 		}

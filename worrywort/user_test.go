@@ -69,21 +69,20 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 				t.Errorf("LookupUser() returned error %v", err)
 			}
 
-			if user != actual {
+			if user != *actual {
 				t.Errorf("Expected: %v, got: %v", user, actual)
 			}
 		})
 
 		t.Run("Test invalid user id returns empty user", func(t *testing.T) {
 			actual, err := LookupUser(0, db)
-			expected := User{}
 
 			if err != sql.ErrNoRows {
 				t.Errorf("Expected error: %v\ngot: %v\n", sql.ErrNoRows, err)
 			}
 
-			if actual != expected {
-				t.Errorf("Expected: %v\ngot: %v\n", expected, actual)
+			if actual != nil {
+				t.Errorf("Expected: %v\ngot: %v\n", nil, actual)
 			}
 		})
 	})
