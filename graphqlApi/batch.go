@@ -27,10 +27,7 @@ func (r *batchResolver) BrewedDate() *string {
 }
 func (r *batchResolver) BottledDate() *string { return nullableDateString(r.b.BottledDate) }
 func (r *batchResolver) VolumeBoiled() *float64 {
-	// If the value is optional/nullable in the GraphQL schema then we must return a pointer
-	// to it.
-	// TODO: I do not like this.  Maybe switch the data type to https://godoc.org/gopkg.in/guregu/null.v3 nullint
-	// on the struct
+	// TODO: I do not like this.  Maybe switch the data type to sql.NullFloat64?
 	vol := r.b.VolumeBoiled
 	if vol == 0 {
 		return nil
@@ -38,11 +35,9 @@ func (r *batchResolver) VolumeBoiled() *float64 {
 	return &vol
 }
 
-func (r *batchResolver) VolumeInFermenter() *float64 {
-	vol := r.b.VolumeInFermenter
-
-	// TODO: I do not like this.  Maybe switch the data type to https://godoc.org/gopkg.in/guregu/null.v3 nullint
-	// on the struct
+func (r *batchResolver) VolumeInFermentor() *float64 {
+	vol := r.b.VolumeInFermentor
+	// TODO: I do not like this.  Maybe switch the data type to sql.NullFloat64?
 	if vol == 0 {
 		return nil
 	}
@@ -81,7 +76,7 @@ func (r *batchResolver) CreatedBy(ctx context.Context) (*userResolver, error) {
 	// TODO: yeah, maybe make Batch.CreatedBy and others a pointer... or a function with a private pointer to cache
 	if r.b.CreatedBy != nil && r.b.CreatedBy.Id != 0 {
 		// TODO: this will probably go to taking a pointer to the User
-		return &userResolver{u: *r.b.CreatedBy}, nil
+		return &userResolver{u: r.b.CreatedBy}, nil
 	}
 
 	// Looking at https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/service/user_service.go#L23

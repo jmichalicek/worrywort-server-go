@@ -10,15 +10,15 @@ import (
 	"time"
 )
 
-func TestNewFermenter(t *testing.T) {
+func TestNewFermentor(t *testing.T) {
 
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	u := NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	expected := Fermenter{Id: 1, Name: "Ferm", Description: "A Fermenter", Volume: 5.0, VolumeUnits: GALLON,
-		FermenterType: BUCKET, IsActive: true, IsAvailable: true, CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt}
+	expected := Fermentor{Id: 1, Name: "Ferm", Description: "A Fermentor", Volume: 5.0, VolumeUnits: GALLON,
+		FermentorType: BUCKET, IsActive: true, IsAvailable: true, CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt}
 
-	f := NewFermenter(1, "Ferm", "A Fermenter", 5.0, GALLON, BUCKET, true, true, u, createdAt, updatedAt)
+	f := NewFermentor(1, "Ferm", "A Fermentor", 5.0, GALLON, BUCKET, true, true, u, createdAt, updatedAt)
 
 	if !reflect.DeepEqual(f, expected) {
 		t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(f))
@@ -26,6 +26,58 @@ func TestNewFermenter(t *testing.T) {
 	// if f != expected {
 	// 	t.Errorf("Expected:\n%v\n\nGot:\n%v\n", expected, f)
 	// }
+}
+
+func TestSaveFermentor(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u, err := SaveUser(db, User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
+
+	t.Run("New Fermentor", func(t *testing.T) {
+		fermentor, err := SaveFermentor(db, Fermentor{Name: "Fermentor", Description: "Fermentor Desc", Volume: 5.0,
+			VolumeUnits: GALLON, FermentorType: BUCKET, IsActive: true, IsAvailable: true, UserId: userId})
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+		if fermentor.Id == 0 {
+			t.Errorf("SaveFermentor did not set id on new Fermentor")
+		}
+
+		if fermentor.UpdatedAt.IsZero() {
+			t.Errorf("SaveFermentor did not set UpdatedAt")
+		}
+
+		if fermentor.CreatedAt.IsZero() {
+			t.Errorf("SaveFermentor did not set CreatedAt")
+		}
+	})
+
+	t.Run("Update Fermentor", func(t *testing.T) {
+		fermentor, err := SaveFermentor(db, Fermentor{Name: "Fermentor", Description: "Fermentor Desc", Volume: 5.0,
+			VolumeUnits: GALLON, FermentorType: BUCKET, IsActive: true, IsAvailable: true, UserId: userId})
+		// set date back in the past so that our date comparison consistenyly works
+		fermentor.UpdatedAt = fermentor.UpdatedAt.AddDate(0, 0, -1)
+		fermentor.Name = "Updated Name"
+		updatedFermentor, err := SaveFermentor(db, fermentor)
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+		if updatedFermentor.Name != "Updated Name" {
+			t.Errorf("SaveFermentor did not update Name")
+		}
+
+		if fermentor.UpdatedAt == updatedFermentor.UpdatedAt {
+			t.Errorf("SaveFermentor did not update UpdatedAt")
+		}
+	})
 }
 
 func TestNewTemperatureSensor(t *testing.T) {
@@ -123,7 +175,7 @@ func TestSaveTemperatureSensor(t *testing.T) {
 }
 
 func TestSaveTemperatureMeasurement(t *testing.T) {
-	// TODO: Add fermenter to the saved measurement!  Currently saving a fermenter has not been implemented
+	// TODO: Add fermentor to the saved measurement!  Currently saving a fermentor has not been implemented
 	db, err := setUpTestDb()
 	if err != nil {
 		t.Fatalf("Got error setting up database: %s", err)
@@ -265,7 +317,7 @@ func TestFindBatch(t *testing.T) {
 	// is nanosecond, so we round these for easy comparison
 	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
 	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
-	b := Batch{UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5, VolumeInFermenter: 4.5,
+	b := Batch{UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5, VolumeInFermentor: 4.5,
 		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt,
 		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
 	b, err = SaveBatch(db, b)
@@ -308,17 +360,17 @@ func TestBatchesForUser(t *testing.T) {
 	// is nanosecond, so we round these for easy comparison
 	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
 	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
-	b := Batch{Name: "Testing", UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5, VolumeInFermenter: 4.5,
+	b := Batch{Name: "Testing", UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5, VolumeInFermentor: 4.5,
 		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedBy: userPtr, CreatedAt: createdAt, UpdatedAt: updatedAt,
 		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
 	b, err = SaveBatch(db, b)
 
-	b2 := Batch{Name: "Testing 2", UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewedDate: time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond), VolumeBoiled: 5, VolumeInFermenter: 4.5,
+	b2 := Batch{Name: "Testing 2", UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewedDate: time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond), VolumeBoiled: 5, VolumeInFermentor: 4.5,
 		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedBy: userPtr, CreatedAt: createdAt, UpdatedAt: updatedAt,
 		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer", BottledDate: time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond)}
 	b2, err = SaveBatch(db, b2)
 
-	u2batch := Batch{Name: "Testing 2", UserId: sql.NullInt64{Int64: int64(u2.Id), Valid: true}, BrewedDate: time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond), VolumeBoiled: 5, VolumeInFermenter: 4.5,
+	u2batch := Batch{Name: "Testing 2", UserId: sql.NullInt64{Int64: int64(u2.Id), Valid: true}, BrewedDate: time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond), VolumeBoiled: 5, VolumeInFermentor: 4.5,
 		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedBy: &u2, CreatedAt: createdAt, UpdatedAt: updatedAt,
 		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer", BottledDate: time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond)}
 

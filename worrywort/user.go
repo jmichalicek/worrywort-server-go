@@ -109,7 +109,7 @@ func UpdateUser(db *sqlx.DB, u User) (User, error) {
 }
 
 // Looks up the user by id in the database and returns a new User
-func LookupUser(id int, db *sqlx.DB) (User, error) {
+func LookupUser(id int, db *sqlx.DB) (*User, error) {
 	// TODO: rename this FindUser() and implement other query stuff?
 	// TODO: make this return nil if user is not found
 	// or keep that separate?
@@ -121,9 +121,9 @@ func LookupUser(id int, db *sqlx.DB) (User, error) {
 	query := db.Rebind("SELECT id, first_name, last_name, email, password, created_at, updated_at, password FROM users WHERE id=?")
 	err := db.Get(&u, query, id)
 	if err != nil {
-		return User{}, err
+		return nil, err
 	}
-	return u, nil
+	return &u, nil
 }
 
 // Looks up the username (or email, as the case is for now) and verifies that the password

@@ -60,8 +60,8 @@ mutation logIn($username: String!, $password: String!) {
   * Started but need to do it.  Make some middleware like this https://github.com/janekolszak/gin-hydra/blob/master/ginhydra.go
   * Pluggable auth so that auth0 could be used?
 * The rest of the GraphQL types
-  * Mutations - login, put batches, put fermenter, put measurement, etc.
-  * Batches list, fermenter list, etc.
+  * Mutations - login, put batches, put fermentor, put measurement, etc.
+  * Batches list, fermentor list, etc.
 * Custom DateTime type in the GraphQL Schema rather than String
 * DB stuff - github.com/mgutz/dat or just sqlx?
 * Actual http interface - chi or echo?

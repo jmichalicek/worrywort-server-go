@@ -49,7 +49,7 @@ func (r *Resolver) CurrentUser(ctx context.Context) *userResolver {
 	// or just write a separate function for that here instead of using it from authMiddleware.
 	// TODO: should check errors
 	u, _ := authMiddleware.UserFromContext(ctx)
-	ur := userResolver{u: u}
+	ur := userResolver{u: &u}
 	return &ur
 }
 
@@ -99,28 +99,16 @@ func (r *Resolver) Batches(ctx context.Context) (*[]*batchResolver, error) {
 	return &(resolvedBatches), err
 }
 
-func (r *Resolver) Fermenter(ctx context.Context, args struct{ ID graphql.ID }) (*fermenterResolver, error) {
+func (r *Resolver) Fermentor(ctx context.Context, args struct{ ID graphql.ID }) (*fermentorResolver, error) {
 	// authUser, _ := authMiddleware.UserFromContext(ctx)
-	// TODO: panic on error, no user, etc.
-
-	createdAt := time.Now()
-	updatedAt := time.Now()
-	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	f := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u, createdAt, updatedAt)
-
-	return &fermenterResolver{f: f}, nil
+	// TODO: Implement correctly!  Look up the Fermentor with FindFermentor
+	return nil, errors.New("Not Implemented") // so that it is obvious this is no implemented
 }
 
 func (r *Resolver) TemperatureSensor(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureSensorResolver, error) {
 	// authUser, _ := authMiddleware.UserFromContext(ctx)
-	// TODO: panic on error, no user, etc.
-	// TODO: really implement this
-
-	createdAt := time.Now()
-	updatedAt := time.Now()
-	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	therm := worrywort.NewTemperatureSensor(1, "Therm1", &u, createdAt, updatedAt)
-	return &temperatureSensorResolver{t: therm}, nil
+	// TODO: Implement me
+	return nil, errors.New("Not Implemented") // so that it is obvious this is no implemented
 }
 
 func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureMeasurementResolver, error) {
@@ -129,10 +117,10 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 	// TODO: REALLY IMPLEMENT THIS!
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	b := worrywort.Batch{Name: "Testing", BrewedDate: time.Now(), BottledDate: time.Now(), VolumeBoiled: 5,
-		VolumeInFermenter: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
+		VolumeInFermentor: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
 		UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewNotes: "Brew notes",
 		TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer", CreatedBy: &u}
-	f := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u, time.Now(), time.Now())
+	f := worrywort.NewFermentor(1, "Ferm", "A Fermentor", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u, time.Now(), time.Now())
 	therm := worrywort.NewTemperatureSensor(1, "Therm1", &u, time.Now(), time.Now())
 	createdAt := time.Now()
 	updatedAt := time.Now()
@@ -141,8 +129,8 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 	tempId := "REMOVEME"
 	// TODO: This needs to save and THAT is whre the uuid should really be generated
 	m := worrywort.TemperatureMeasurement{Id: tempId, Temperature: 64.26, Units: worrywort.FAHRENHEIT, RecordedAt: timeRecorded,
-		Batch: &b, TemperatureSensor: &therm, Fermenter: &f, CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt}
-	return &temperatureMeasurementResolver{m: m}, nil
+		Batch: &b, TemperatureSensor: &therm, Fermentor: &f, CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt}
+	return &temperatureMeasurementResolver{m: &m}, nil
 }
 
 // Input types
@@ -231,7 +219,7 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 		log.Printf("Failed to save TemperatureMeasurement: %v\n", err)
 		return nil, err
 	}
-	tr := temperatureMeasurementResolver{m: t}
+	tr := temperatureMeasurementResolver{m: &t}
 	result := createTemperatureMeasurementPayload{t: &tr}
 	return &result, nil
 }
@@ -252,7 +240,6 @@ func (r *Resolver) Login(args *struct {
 		return nil, err
 	}
 
-	// TODO: not yet implemented, will need db
 	err = token.Save(r.db)
 	if err != nil {
 		return nil, err

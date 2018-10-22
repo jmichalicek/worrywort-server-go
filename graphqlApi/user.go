@@ -7,7 +7,7 @@ import (
 )
 
 type userResolver struct {
-	u worrywort.User
+	u *worrywort.User
 }
 
 func (r *userResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.u.Id)) }
