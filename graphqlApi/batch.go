@@ -27,10 +27,7 @@ func (r *batchResolver) BrewedDate() *string {
 }
 func (r *batchResolver) BottledDate() *string { return nullableDateString(r.b.BottledDate) }
 func (r *batchResolver) VolumeBoiled() *float64 {
-	// If the value is optional/nullable in the GraphQL schema then we must return a pointer
-	// to it.
-	// TODO: I do not like this.  Maybe switch the data type to https://godoc.org/gopkg.in/guregu/null.v3 nullint
-	// on the struct
+	// TODO: I do not like this.  Maybe switch the data type to sql.NullFloat64?
 	vol := r.b.VolumeBoiled
 	if vol == 0 {
 		return nil
@@ -40,9 +37,7 @@ func (r *batchResolver) VolumeBoiled() *float64 {
 
 func (r *batchResolver) VolumeInFermenter() *float64 {
 	vol := r.b.VolumeInFermenter
-
-	// TODO: I do not like this.  Maybe switch the data type to https://godoc.org/gopkg.in/guregu/null.v3 nullint
-	// on the struct
+	// TODO: I do not like this.  Maybe switch the data type to sql.NullFloat64?
 	if vol == 0 {
 		return nil
 	}

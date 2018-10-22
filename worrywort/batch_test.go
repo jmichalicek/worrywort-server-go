@@ -28,6 +28,58 @@ func TestNewFermenter(t *testing.T) {
 	// }
 }
 
+func TestSaveFermentor(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u, err := SaveUser(db, User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
+
+	t.Run("New Fermentor", func(t *testing.T) {
+		fermentor, err := SaveFermentor(db, Fermenter{Name: "Fermentor", Description: "Fermentor Desc", Volume: 5.0,
+			VolumeUnits: GALLON, FermenterType: BUCKET, IsActive: true, IsAvailable: true, UserId: userId})
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+		if fermentor.Id == 0 {
+			t.Errorf("SaveFermentor did not set id on new Fermentor")
+		}
+
+		if fermentor.UpdatedAt.IsZero() {
+			t.Errorf("SaveFermentor did not set UpdatedAt")
+		}
+
+		if fermentor.CreatedAt.IsZero() {
+			t.Errorf("SaveFermentor did not set CreatedAt")
+		}
+	})
+
+	t.Run("Update Fermentor", func(t *testing.T) {
+		fermentor, err := SaveFermentor(db, Fermenter{Name: "Fermentor", Description: "Fermentor Desc", Volume: 5.0,
+			VolumeUnits: GALLON, FermenterType: BUCKET, IsActive: true, IsAvailable: true, UserId: userId})
+		// set date back in the past so that our date comparison consistenyly works
+		fermentor.UpdatedAt = fermentor.UpdatedAt.AddDate(0, 0, -1)
+		fermentor.Name = "Updated Name"
+		updatedFermentor, err := SaveFermentor(db, fermentor)
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+		if updatedFermentor.Name != "Updated Name" {
+			t.Errorf("SaveFermentor did not update Name")
+		}
+
+		if fermentor.UpdatedAt == updatedFermentor.UpdatedAt {
+			t.Errorf("SaveFermentor did not update UpdatedAt")
+		}
+	})
+}
+
 func TestNewTemperatureSensor(t *testing.T) {
 	createdAt := time.Now()
 	updatedAt := time.Now()

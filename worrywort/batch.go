@@ -283,6 +283,49 @@ func FindFermenter(params map[string]interface{}, db *sqlx.DB) (*Fermenter, erro
 	return &f, nil
 }
 
+// Save a Fermentor - yes, inconsistent spelling.  Will be switchin to OR instead of ER globally.
+func SaveFermentor(db *sqlx.DB, f Fermenter) (Fermenter, error) {
+	if f.Id != 0 {
+		return UpdateFermentor(db, f)
+	} else {
+		return InsertFermentor(db, f)
+	}
+}
+
+func InsertFermentor(db *sqlx.DB, f Fermenter) (Fermenter, error) {
+	var updatedAt time.Time
+	var createdAt time.Time
+	var fermentorId int
+
+	query := db.Rebind(`INSERT INTO fermenters (user_id, name, description, volume, volume_units, fermenter_type,
+		is_active, is_available, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW()) RETURNING id, created_at, updated_at`)
+	err := db.QueryRow(query, f.UserId, f.Name, f.Description, f.Volume, f.VolumeUnits, f.FermenterType,
+		f.IsActive, f.IsAvailable).Scan(&fermentorId, &createdAt, &updatedAt)
+	if err != nil {
+		return f, err
+	}
+
+	// TODO: Can I just assign these directly now in Scan()?
+	f.Id = fermentorId
+	f.CreatedAt = createdAt
+	f.UpdatedAt = updatedAt
+	return f, nil
+}
+
+func UpdateFermentor(db *sqlx.DB, f Fermenter) (Fermenter, error) {
+	// TODO: TEST CASE
+	var updatedAt time.Time
+	// TODO: Use introspection and reflection to set these rather than manually managing this?
+	query := db.Rebind(`UPDATE fermenters SET user_id = ?, name = ?, description = ?, volume = ?, volume_units = ?,
+		fermenter_type = ?, is_active = ?, is_available = ?, updated_at = NOW() WHERE id = ? RETURNING updated_at`)
+	err := db.QueryRow(query, f.UserId, f.Name, f.Description, f.Volume, f.VolumeUnits, f.FermenterType,
+		f.IsActive, f.IsAvailable, f.Id).Scan(&updatedAt)
+	if err == nil {
+		f.UpdatedAt = updatedAt
+	}
+	return f, err
+}
+
 // possibly should live elsewhere
 
 // TemperatureSensor will need some other unique identifier which the unit itself

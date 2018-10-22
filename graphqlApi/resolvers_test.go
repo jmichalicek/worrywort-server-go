@@ -3,6 +3,7 @@ package graphqlApi
 import (
 	"context"
 	"database/sql"
+	"github.com/davecgh/go-spew/spew"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
@@ -285,10 +286,10 @@ func TestBatchResolver(t *testing.T) {
 		if err != nil {
 			t.Errorf("%v", err)
 		}
-		expected := userResolver{u: &u}
+		expected := &userResolver{u: &u}
 
 		if !reflect.DeepEqual(expected, actual) {
-			t.Errorf("\nExpected: %v\nGot: %v", expected, actual)
+			t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
 		}
 	})
 }
@@ -300,9 +301,13 @@ func TestFermenterResolver(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	f := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u,
-		time.Now(), time.Now())
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "db", db)
+
+	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
+	f := worrywort.Fermenter{Id: 1, CreatedAt: time.Now(), UpdatedAt: time.Now(), Name: "Ferm", Description: "A Fermenter", Volume: 5.0, VolumeUnits: worrywort.GALLON,
+		FermenterType: worrywort.BUCKET, IsActive: true, IsAvailable: true, CreatedBy: &u, UserId: userId}
 	r := fermenterResolver{f: &f}
 
 	t.Run("ID()", func(t *testing.T) {
@@ -330,12 +335,23 @@ func TestFermenterResolver(t *testing.T) {
 	})
 
 	t.Run("CreatedBy()", func(t *testing.T) {
-		ctx := context.Background()
-		ctx = context.WithValue(ctx, "db", db)
+
 		var actual *userResolver = r.CreatedBy(ctx)
 		expected := userResolver{u: f.CreatedBy}
 		if *actual != expected {
 			t.Errorf("Expected: %v, got %v", expected, actual)
+		}
+	})
+
+	t.Run("CreatedBy() without User populated", func(t *testing.T) {
+		var f2 worrywort.Fermenter = f
+		f2.CreatedBy = nil
+		r := fermenterResolver{f: &f2}
+		actual := r.CreatedBy(ctx)
+		expected := &userResolver{u: &u}
+
+		if !reflect.DeepEqual(expected, actual) {
+			t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
 		}
 	})
 }
@@ -347,9 +363,14 @@ func TestTemperatureSensorResolver(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	therm := worrywort.NewTemperatureSensor(1, "Therm1", &u, time.Now(), time.Now())
-	r := temperatureSensorResolver{t: &therm}
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "db", db)
+
+	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
+	sensor := worrywort.NewTemperatureSensor(1, "Therm1", &u, time.Now(), time.Now())
+	sensor.UserId = userId
+	r := temperatureSensorResolver{t: &sensor}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = r.ID()
@@ -361,7 +382,7 @@ func TestTemperatureSensorResolver(t *testing.T) {
 
 	t.Run("CreatedAt()", func(t *testing.T) {
 		var dt string = r.CreatedAt()
-		expected := therm.CreatedAt.Format(time.RFC3339)
+		expected := sensor.CreatedAt.Format(time.RFC3339)
 		if dt != expected {
 			t.Errorf("Expected: %v, got: %v", expected, dt)
 		}
@@ -369,19 +390,34 @@ func TestTemperatureSensorResolver(t *testing.T) {
 
 	t.Run("UpdatedAt()", func(t *testing.T) {
 		var dt string = r.UpdatedAt()
-		expected := therm.UpdatedAt.Format(time.RFC3339)
+		expected := sensor.UpdatedAt.Format(time.RFC3339)
 		if dt != expected {
 			t.Errorf("Expected: %v, got %v", expected, dt)
 		}
 	})
 
 	t.Run("CreatedBy()", func(t *testing.T) {
-		ctx := context.Background()
-		ctx = context.WithValue(ctx, "db", db)
 		var actual *userResolver = r.CreatedBy(ctx)
-		expected := userResolver{u: therm.CreatedBy}
+		expected := userResolver{u: sensor.CreatedBy}
 		if *actual != expected {
 			t.Errorf("Expected: %v, got %v", expected, actual)
+		}
+	})
+
+	t.Run("CreatedBy() without User populated", func(t *testing.T) {
+		var s2 worrywort.TemperatureSensor = sensor
+		s2.CreatedBy = nil
+		s2.Id = 0
+		s2, err = worrywort.SaveTemperatureSensor(db, s2)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		r2 := temperatureSensorResolver{t: &s2}
+		actual := r2.CreatedBy(ctx)
+		expected := &userResolver{u: &u}
+
+		if !reflect.DeepEqual(expected, actual) {
+			t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
 		}
 	})
 }
@@ -396,14 +432,15 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, "db", db)
 
-	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 	sensor := worrywort.NewTemperatureSensor(1, "Therm1", &u, time.Now(), time.Now())
 	batch := makeTestBatch(u, true)
 	fermenter := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u,
 		time.Now(), time.Now())
 	timeRecorded := time.Now().Add(time.Hour * time.Duration(-1))
 	measurement := worrywort.TemperatureMeasurement{Id: "shouldbeauuid", Temperature: 64.26, Units: worrywort.FAHRENHEIT, RecordedAt: timeRecorded,
-		Batch: &batch, TemperatureSensor: &sensor, Fermenter: &fermenter, CreatedBy: &u, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+		Batch: &batch, TemperatureSensor: &sensor, Fermenter: &fermenter, CreatedBy: &u, UserId: userId, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	resolver := temperatureMeasurementResolver{m: &measurement}
 
 	t.Run("ID()", func(t *testing.T) {

@@ -101,26 +101,14 @@ func (r *Resolver) Batches(ctx context.Context) (*[]*batchResolver, error) {
 
 func (r *Resolver) Fermenter(ctx context.Context, args struct{ ID graphql.ID }) (*fermenterResolver, error) {
 	// authUser, _ := authMiddleware.UserFromContext(ctx)
-	// TODO: panic on error, no user, etc.
 	// TODO: Implement correctly!  Look up the Fermentor with FindFermenter
-	createdAt := time.Now()
-	updatedAt := time.Now()
-	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	f := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u, createdAt, updatedAt)
-
-	return &fermenterResolver{f: &f}, nil
+	return nil, errors.New("Not Implemented") // so that it is obvious this is no implemented
 }
 
 func (r *Resolver) TemperatureSensor(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureSensorResolver, error) {
 	// authUser, _ := authMiddleware.UserFromContext(ctx)
-	// TODO: panic on error, no user, etc.
-	// TODO: really implement this
-
-	createdAt := time.Now()
-	updatedAt := time.Now()
-	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	therm := worrywort.NewTemperatureSensor(1, "Therm1", &u, createdAt, updatedAt)
-	return &temperatureSensorResolver{t: &therm}, nil
+	// TODO: Implement me
+	return nil, errors.New("Not Implemented") // so that it is obvious this is no implemented
 }
 
 func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureMeasurementResolver, error) {
@@ -252,7 +240,6 @@ func (r *Resolver) Login(args *struct {
 		return nil, err
 	}
 
-	// TODO: not yet implemented, will need db
 	err = token.Save(r.db)
 	if err != nil {
 		return nil, err
