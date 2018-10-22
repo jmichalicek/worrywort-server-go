@@ -63,22 +63,22 @@ func (r *temperatureMeasurementResolver) TemperatureSensor(ctx context.Context) 
 	return resolved
 }
 
-func (r *temperatureMeasurementResolver) Fermenter(ctx context.Context) *fermenterResolver {
-	var resolved *fermenterResolver
-	if r.m.Fermenter != nil {
-		resolved = &fermenterResolver{f: r.m.Fermenter}
-	} else if r.m.FermenterId.Valid {
+func (r *temperatureMeasurementResolver) Fermentor(ctx context.Context) *fermentorResolver {
+	var resolved *fermentorResolver
+	if r.m.Fermentor != nil {
+		resolved = &fermentorResolver{f: r.m.Fermentor}
+	} else if r.m.FermentorId.Valid {
 		db, ok := ctx.Value("db").(*sqlx.DB)
 		if !ok {
 			log.Printf("No database in context")
 			return nil
 		}
-		fermentor, err := worrywort.FindFermenter(map[string]interface{}{"id": r.m.FermenterId}, db)
+		fermentor, err := worrywort.FindFermentor(map[string]interface{}{"id": r.m.FermentorId}, db)
 		if err != nil {
 			log.Printf("%v", err)
 			return nil
 		}
-		resolved = &fermenterResolver{f: fermentor}
+		resolved = &fermentorResolver{f: fermentor}
 	}
 
 	return resolved

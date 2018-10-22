@@ -36,7 +36,7 @@ func addMinutes(d time.Time, increment int) time.Time {
 // optionally attach the user
 func makeTestBatch(u worrywort.User, attachUser bool) worrywort.Batch {
 	b := worrywort.Batch{Name: "Testing", BrewedDate: addMinutes(time.Now(), 1), BottledDate: addMinutes(time.Now(), 10), VolumeBoiled: 5,
-		VolumeInFermenter: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
+		VolumeInFermentor: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
 		UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewNotes: "Brew notes",
 		TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer"}
 	if attachUser {
@@ -208,9 +208,9 @@ func TestBatchResolver(t *testing.T) {
 		}
 	})
 
-	t.Run("VolumeInFermenter()", func(t *testing.T) {
-		var actual *float64 = br.VolumeInFermenter()
-		expected := brewed.VolumeInFermenter
+	t.Run("VolumeInFermentor()", func(t *testing.T) {
+		var actual *float64 = br.VolumeInFermentor()
+		expected := brewed.VolumeInFermentor
 		// direct comparison seems to be ok, probably since no math is happening
 		// but may be better to do like this:
 		// if math.Abs(*boiled - expected) > .0000000001 {
@@ -294,7 +294,7 @@ func TestBatchResolver(t *testing.T) {
 	})
 }
 
-func TestFermenterResolver(t *testing.T) {
+func TestFermentorResolver(t *testing.T) {
 	db, err := setUpTestDb()
 	if err != nil {
 		t.Fatalf("Got error setting up database: %s", err)
@@ -306,9 +306,9 @@ func TestFermenterResolver(t *testing.T) {
 
 	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
 	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
-	f := worrywort.Fermenter{Id: 1, CreatedAt: time.Now(), UpdatedAt: time.Now(), Name: "Ferm", Description: "A Fermenter", Volume: 5.0, VolumeUnits: worrywort.GALLON,
-		FermenterType: worrywort.BUCKET, IsActive: true, IsAvailable: true, CreatedBy: &u, UserId: userId}
-	r := fermenterResolver{f: &f}
+	f := worrywort.Fermentor{Id: 1, CreatedAt: time.Now(), UpdatedAt: time.Now(), Name: "Ferm", Description: "A Fermentor", Volume: 5.0, VolumeUnits: worrywort.GALLON,
+		FermentorType: worrywort.BUCKET, IsActive: true, IsAvailable: true, CreatedBy: &u, UserId: userId}
+	r := fermentorResolver{f: &f}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = r.ID()
@@ -344,9 +344,9 @@ func TestFermenterResolver(t *testing.T) {
 	})
 
 	t.Run("CreatedBy() without User populated", func(t *testing.T) {
-		var f2 worrywort.Fermenter = f
+		var f2 worrywort.Fermentor = f
 		f2.CreatedBy = nil
-		r := fermenterResolver{f: &f2}
+		r := fermentorResolver{f: &f2}
 		actual := r.CreatedBy(ctx)
 		expected := &userResolver{u: &u}
 
@@ -436,11 +436,11 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 	sensor := worrywort.NewTemperatureSensor(1, "Therm1", &u, time.Now(), time.Now())
 	batch := makeTestBatch(u, true)
-	fermenter := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u,
+	fermentor := worrywort.NewFermentor(1, "Ferm", "A Fermentor", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u,
 		time.Now(), time.Now())
 	timeRecorded := time.Now().Add(time.Hour * time.Duration(-1))
 	measurement := worrywort.TemperatureMeasurement{Id: "shouldbeauuid", Temperature: 64.26, Units: worrywort.FAHRENHEIT, RecordedAt: timeRecorded,
-		Batch: &batch, TemperatureSensor: &sensor, Fermenter: &fermenter, CreatedBy: &u, UserId: userId, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+		Batch: &batch, TemperatureSensor: &sensor, Fermentor: &fermentor, CreatedBy: &u, UserId: userId, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	resolver := temperatureMeasurementResolver{m: &measurement}
 
 	t.Run("ID()", func(t *testing.T) {
@@ -490,9 +490,9 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 		}
 	})
 
-	t.Run("Fermenter()", func(t *testing.T) {
-		f := resolver.Fermenter(ctx)
-		expected := fermenterResolver{f: measurement.Fermenter}
+	t.Run("Fermentor()", func(t *testing.T) {
+		f := resolver.Fermentor(ctx)
+		expected := fermentorResolver{f: measurement.Fermentor}
 		if expected != *f {
 			t.Errorf("\nExpected: %v\ngot: %v", expected, *f)
 		}

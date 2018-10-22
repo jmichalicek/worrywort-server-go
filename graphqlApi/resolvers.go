@@ -99,9 +99,9 @@ func (r *Resolver) Batches(ctx context.Context) (*[]*batchResolver, error) {
 	return &(resolvedBatches), err
 }
 
-func (r *Resolver) Fermenter(ctx context.Context, args struct{ ID graphql.ID }) (*fermenterResolver, error) {
+func (r *Resolver) Fermentor(ctx context.Context, args struct{ ID graphql.ID }) (*fermentorResolver, error) {
 	// authUser, _ := authMiddleware.UserFromContext(ctx)
-	// TODO: Implement correctly!  Look up the Fermentor with FindFermenter
+	// TODO: Implement correctly!  Look up the Fermentor with FindFermentor
 	return nil, errors.New("Not Implemented") // so that it is obvious this is no implemented
 }
 
@@ -117,10 +117,10 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 	// TODO: REALLY IMPLEMENT THIS!
 	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	b := worrywort.Batch{Name: "Testing", BrewedDate: time.Now(), BottledDate: time.Now(), VolumeBoiled: 5,
-		VolumeInFermenter: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
+		VolumeInFermentor: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
 		UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewNotes: "Brew notes",
 		TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer", CreatedBy: &u}
-	f := worrywort.NewFermenter(1, "Ferm", "A Fermenter", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u, time.Now(), time.Now())
+	f := worrywort.NewFermentor(1, "Ferm", "A Fermentor", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u, time.Now(), time.Now())
 	therm := worrywort.NewTemperatureSensor(1, "Therm1", &u, time.Now(), time.Now())
 	createdAt := time.Now()
 	updatedAt := time.Now()
@@ -129,7 +129,7 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 	tempId := "REMOVEME"
 	// TODO: This needs to save and THAT is whre the uuid should really be generated
 	m := worrywort.TemperatureMeasurement{Id: tempId, Temperature: 64.26, Units: worrywort.FAHRENHEIT, RecordedAt: timeRecorded,
-		Batch: &b, TemperatureSensor: &therm, Fermenter: &f, CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt}
+		Batch: &b, TemperatureSensor: &therm, Fermentor: &f, CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt}
 	return &temperatureMeasurementResolver{m: &m}, nil
 }
 

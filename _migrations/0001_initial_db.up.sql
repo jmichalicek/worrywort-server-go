@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS batches(
   brewed_date timestamp with time zone,
   bottled_date timestamp with time zone,
   volume_boiled double precision,
-  volume_in_fermenter double precision,
+  volume_in_fermentor double precision,
   volume_units integer,
   original_gravity double precision,
   final_gravity double precision,
@@ -68,14 +68,14 @@ CREATE TABLE IF NOT EXISTS batches(
   updated_at timestamp with time zone
 );
 
-CREATE TABLE IF NOT EXISTS fermenters(
+CREATE TABLE IF NOT EXISTS fermentors(
   id SERIAL PRIMARY KEY,
   user_id integer REFERENCES users (id) ON DELETE SET NULL,
   name text NOT NULL DEFAULT '',
   description text NOT NULL DEFAULT '',
   volume double precision NOT NULL DEFAULT 0.0,
   volume_units integer NOT NULL DEFAULT 0,
-  fermenter_type integer NOT NULL DEFAULT 0,
+  fermentor_type integer NOT NULL DEFAULT 0,
   is_active boolean DEFAULT FALSE,
   is_available boolean DEFAULT TRUE,
 
@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS temperature_measurements(
   user_id integer REFERENCES users (id) ON DELETE SET NULL,
   batch_id integer REFERENCES batches (id) ON DELETE SET NULL,
   temperature_sensor_id integer REFERENCES temperature_sensors (id) ON DELETE SET NULL,
-  fermenter_id integer REFERENCES fermenters (id) ON DELETE SET NULL,
+  fermentor_id integer REFERENCES fermentors (id) ON DELETE SET NULL,
   temperature double precision NOT NULL DEFAULT 0.0,
   units integer NOT NULL DEFAULT 0,
   recorded_at timestamp with time zone,

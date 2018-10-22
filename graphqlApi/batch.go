@@ -35,8 +35,8 @@ func (r *batchResolver) VolumeBoiled() *float64 {
 	return &vol
 }
 
-func (r *batchResolver) VolumeInFermenter() *float64 {
-	vol := r.b.VolumeInFermenter
+func (r *batchResolver) VolumeInFermentor() *float64 {
+	vol := r.b.VolumeInFermentor
 	// TODO: I do not like this.  Maybe switch the data type to sql.NullFloat64?
 	if vol == 0 {
 		return nil

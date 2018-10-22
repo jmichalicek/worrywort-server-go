@@ -1,6 +1,6 @@
 package graphqlApi
 
-// fermenter(id: ID!): Fermenter
+// fermentor(id: ID!): Fermentor
 // temperatureSensor(id: ID!): TemperatureSensor
 // temperatureMeasurement(id: ID!): TemperatureMeasurement
 
@@ -37,7 +37,7 @@ var Schema = `
 		CELSIUS
 	}
 
-	enum FermenterStyle {
+	enum FermentorStyle {
 		BUCKET
 		CARBOY
 		CONICAL
@@ -66,7 +66,7 @@ var Schema = `
 		brewedDate: String
 		bottledDate: String
 		volumeBoiled: Float
-		volumeInFermenter: Float
+		volumeInFermentor: Float
 		volumeUnits: VolumeUnit!
 		originalGravity: Float
 		finalGravity: Float
@@ -76,7 +76,7 @@ var Schema = `
 		createdBy: User
 	}
 
-	type Fermenter {
+	type Fermentor {
 		id: ID!
 	}
 
@@ -100,8 +100,8 @@ var Schema = `
 		batch: Batch
 		# The TemperatureSensor which took the measurement
 		temperatureSensor: TemperatureSensor
-		# The Fermenter the sensor was attached to, if any
-		fermenter: Fermenter
+		# The Fermentor the sensor was attached to, if any
+		fermentor: Fermentor
 	}
 
 	type CreateTemperatureMeasurementPayload {
