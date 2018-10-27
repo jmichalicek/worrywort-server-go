@@ -30,6 +30,12 @@ func dateString(dt time.Time) string {
 	return dt.Format(time.RFC3339)
 }
 
+// move these somewhere central
+type pageInfo struct {
+	HasNextPage     bool
+	HasPreviousPage bool
+}
+
 type Resolver struct {
 	// todo: should be Db?
 	// do not really need this now that it is coming in on context so code is inconsistent.
@@ -137,12 +143,19 @@ func (r *Resolver) TemperatureSensor(ctx context.Context, args struct{ ID graphq
 	return resolved, err
 }
 
-type sensorsArgs struct {
+func (r *Resolver) TemperatureSensors(ctx context.Context, args struct {
 	First *int
-	After *graphql.ID
-}
+	After string // after is a cursor
+}) (*temperatureSensorConnection, error) {
+	authUser, _ := authMiddleware.UserFromContext(ctx)
+	db, ok := ctx.Value("db").(*sqlx.DB)
+	if !ok {
+		log.Printf("No database in context")
+		return nil, errors.New("Server error")
+	}
+	userId := sql.NullInt64{Valid: true, Int64: int64(authUser.Id)}
+	// Now get the temperature sensors, build out the info
 
-func (r *Resolver) TemperatureSensors(ctx context.Context, args sensorsArgs) (*[]*batchResolver, error) {
 	return nil, nil
 }
 

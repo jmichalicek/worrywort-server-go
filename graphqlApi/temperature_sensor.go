@@ -43,3 +43,14 @@ func (r *temperatureSensorResolver) CreatedBy(ctx context.Context) *userResolver
 }
 
 func (r *temperatureSensorResolver) Name() string { return r.t.Name }
+
+type temperatureSensorEdge struct {
+	cursor string
+	node   *TemperatureSensor
+}
+
+// Going full relay, I suppose
+type temperatureSensorConnection struct {
+	Edges    *[]*temperatureSensorEdge
+	PageInfo *pageInfo
+}

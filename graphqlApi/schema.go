@@ -21,7 +21,7 @@ var Schema = `
 		# Returns a list of batches for the currently authenticated user.
 		batches(first: Int after: ID): [Batch!]
 		temperatureSensor(id: ID!): TemperatureSensor
-		temperatureSensors(first: Int after: ID): [TemperatureSensor!]
+		temperatureSensors(first: Int after: ID): TemperatureSensorConnection!
 	}
 
 	type Mutation {
