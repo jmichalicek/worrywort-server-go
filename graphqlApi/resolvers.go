@@ -2,7 +2,7 @@ package graphqlApi
 
 import (
 	"context"
-	// "fmt"
+	"fmt"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
@@ -29,6 +29,15 @@ func nullableDateString(dt time.Time) *string {
 func dateString(dt time.Time) string {
 	return dt.Format(time.RFC3339)
 }
+
+// move these somewhere central
+type pageInfo struct {
+	HasNextPage     bool
+	HasPreviousPage bool
+}
+
+func (r pageInfo) HASNEXTPAGE() bool     { return r.HasNextPage }
+func (r pageInfo) HASPREVIOUSPAGE() bool { return r.HasPreviousPage }
 
 type Resolver struct {
 	// todo: should be Db?
@@ -80,7 +89,12 @@ func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*ba
 	return &batchResolver{b: batchPtr}, nil
 }
 
-func (r *Resolver) Batches(ctx context.Context) (*[]*batchResolver, error) {
+type batchesArgs struct {
+	First *int
+	After *graphql.ID
+}
+
+func (r *Resolver) Batches(ctx context.Context, args batchesArgs) (*[]*batchResolver, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
 	var resolvedBatches []*batchResolver = []*batchResolver{}
 	batchesPtr, err := worrywort.BatchesForUser(r.db, u, nil, nil)
@@ -106,9 +120,63 @@ func (r *Resolver) Fermentor(ctx context.Context, args struct{ ID graphql.ID }) 
 }
 
 func (r *Resolver) TemperatureSensor(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureSensorResolver, error) {
-	// authUser, _ := authMiddleware.UserFromContext(ctx)
-	// TODO: Implement me
-	return nil, errors.New("Not Implemented") // so that it is obvious this is no implemented
+	authUser, _ := authMiddleware.UserFromContext(ctx)
+	var resolved *temperatureSensorResolver
+
+	db, ok := ctx.Value("db").(*sqlx.DB)
+	if !ok {
+		log.Printf("No database in context")
+		return nil, errors.New("Server error")
+	}
+	sensorId, err := strconv.Atoi(string(args.ID))
+	if err != nil {
+		// not sure what could go wrong here - maybe a generic error and log the real error.
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	userId := sql.NullInt64{Valid: true, Int64: int64(authUser.Id)}
+
+	sensor, err := worrywort.FindTemperatureSensor(map[string]interface{}{"id": sensorId, "user_id": userId}, db)
+	if err != nil {
+		log.Printf("%v", err)
+	} else if sensor != nil {
+		resolved = &temperatureSensorResolver{t: sensor}
+	}
+	return resolved, err
+}
+
+func (r *Resolver) TemperatureSensors(ctx context.Context, args struct {
+	First *int
+	After *string
+}) (*temperatureSensorConnection, error) {
+	fmt.Println("!!!!!!!!!!!!!!!!HERE!!!!!!!!!!!!!!")
+	authUser, _ := authMiddleware.UserFromContext(ctx)
+	db, ok := ctx.Value("db").(*sqlx.DB)
+	if !ok {
+		log.Printf("No database in context")
+		return nil, errors.New("Server error")
+	}
+	userId := sql.NullInt64{Valid: true, Int64: int64(authUser.Id)}
+	// Now get the temperature sensors, build out the info
+	sensors, err := worrywort.FindTemperatureSensors(map[string]interface{}{"user_id": userId}, db)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	edges := []*temperatureSensorEdge{}
+	for index, _ := range sensors {
+		sensorResolver := temperatureSensorResolver{t: sensors[index]}
+		// should base64 encode this cursor, but whatever for now
+		edge := &temperatureSensorEdge{Node: &sensorResolver, Cursor: string(sensorResolver.ID())}
+		edges = append(edges, edge)
+	}
+	hasNextPage := false
+	hasPreviousPage := false
+	fmt.Println("Returning sensor connectioN!!")
+	return &temperatureSensorConnection{
+		PageInfo: &pageInfo{HasNextPage: hasNextPage, HasPreviousPage: hasPreviousPage},
+		Edges:    &edges}, nil
 }
 
 func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureMeasurementResolver, error) {

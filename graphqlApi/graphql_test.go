@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	txdb "github.com/DATA-DOG/go-txdb"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/graphqlApi"
@@ -423,5 +424,132 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 			t.Errorf("%v", err)
 		}
 
+	})
+}
+
+func TestTemperatureSensorQuery(t *testing.T) {
+	const DefaultUserKey string = "user"
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := worrywort.NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err = worrywort.SaveUser(db, u)
+
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "db", db)
+	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+
+	u2 := worrywort.NewUser(0, "user2@example.com", "Justin", "M", time.Now(), time.Now())
+	u2, err = worrywort.SaveUser(db, u2)
+
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	// TODO: Can this become global to these tests?
+	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	sensor1, err := worrywort.SaveTemperatureSensor(db, worrywort.TemperatureSensor{Name: "Sensor 1", UserId: sql.NullInt64{Valid: true, Int64: int64(u.Id)}})
+	sensor2, err := worrywort.SaveTemperatureSensor(db, worrywort.TemperatureSensor{Name: "Sensor 2", UserId: sql.NullInt64{Valid: true, Int64: int64(u.Id)}})
+	// Need one owned by another user to ensure it does not show up
+	_, err = worrywort.SaveTemperatureSensor(db, worrywort.TemperatureSensor{Name: "Sensor 2", UserId: sql.NullInt64{Valid: true, Int64: int64(u2.Id)}})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	t.Run("Test query for temperatureSensor(id: ID!) which exists returns the sensor", func(t *testing.T) {
+		variables := map[string]interface{}{
+			"id": strconv.Itoa(sensor1.Id),
+		}
+		query := `
+			query getSensor($id: ID!) {
+				temperatureSensor(id: $id) {
+					__typename
+					id
+				}
+			}
+		`
+		operationName := ""
+		result := worrywortSchema.Exec(ctx, query, operationName, variables)
+
+		var expected interface{}
+		err := json.Unmarshal([]byte(fmt.Sprintf(`{"temperatureSensor": {"__typename": "TemperatureSensor", "id": "%d"}}`, sensor1.Id)), &expected)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+
+		var resultData interface{}
+		err = json.Unmarshal(result.Data, &resultData)
+		if err != nil {
+			t.Fatalf("%v", resultData)
+		}
+
+		if !reflect.DeepEqual(expected, resultData) {
+			t.Errorf("\nExpected: %v\nGot: %v", expected, resultData)
+		}
+	})
+
+	t.Run("Test query for temperatureSensor(id: ID!) which does not exist returns null", func(t *testing.T) {
+		variables := map[string]interface{}{
+			"id": "-1",
+		}
+		query := `
+			query getSensor($id: ID!) {
+				temperatureSensor(id: $id) {
+					__typename
+					id
+				}
+			}
+		`
+		operationName := ""
+		result := worrywortSchema.Exec(ctx, query, operationName, variables)
+
+		expected := `{"temperatureSensor":null}`
+		if expected != string(result.Data) {
+			t.Errorf("Expected: %s\nGot: %s", expected, result.Data)
+		}
+	})
+
+	t.Run("Test temperatureSensors() query returns the users sensors", func(t *testing.T) {
+		query := `
+			query getSensors {
+				temperatureSensors {
+					__typename
+					edges {
+						__typename
+						node {
+							__typename
+							id
+						}
+					}
+				}
+			}
+		`
+		operationName := ""
+		result := worrywortSchema.Exec(ctx, query, operationName, nil)
+		var expected interface{}
+		err := json.Unmarshal(
+			[]byte(
+				fmt.Sprintf(
+					`{"temperatureSensors": {"__typename":"TemperatureSensorConnection","edges": [{"__typename": "TemperatureSensorEdge","node": {"__typename":"TemperatureSensor","id":"%d"}},{"__typename": "TemperatureSensorEdge","node": {"__typename":"TemperatureSensor","id":"%d"}}]}}`, sensor1.Id, sensor2.Id)), &expected)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+
+		var actual interface{}
+		err = json.Unmarshal(result.Data, &actual)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+
+		if !reflect.DeepEqual(expected, actual) {
+			t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
+		}
 	})
 }
