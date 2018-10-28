@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	txdb "github.com/DATA-DOG/go-txdb"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/graphqlApi"
@@ -520,29 +521,35 @@ func TestTemperatureSensorQuery(t *testing.T) {
 			query getSensors {
 				temperatureSensors {
 					__typename
-					id
+					edges {
+						__typename
+						node {
+							__typename
+							id
+						}
+					}
 				}
 			}
 		`
 		operationName := ""
 		result := worrywortSchema.Exec(ctx, query, operationName, nil)
-
 		var expected interface{}
 		err := json.Unmarshal(
-			[]byte(fmt.Sprintf(`{"temperatureSensors":[{"__typename":"TemperatureSensor","id":"%d"},{"__typename":"TemperatureSensor","id":"%d"}]}`, sensor1.Id, sensor2.Id)),
-			&expected)
+			[]byte(
+				fmt.Sprintf(
+					`{"temperatureSensors": {"__typename":"TemperatureSensorConnection","edges": [{"__typename": "TemperatureSensorEdge","node": {"__typename":"TemperatureSensor","id":"%d"}},{"__typename": "TemperatureSensorEdge","node": {"__typename":"TemperatureSensor","id":"%d"}}]}}`, sensor1.Id, sensor2.Id)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
 
-		var f interface{}
-		err = json.Unmarshal(result.Data, &f)
+		var actual interface{}
+		err = json.Unmarshal(result.Data, &actual)
 		if err != nil {
-			t.Fatalf("%v", f)
+			t.Fatalf("%v", err)
 		}
 
-		if !reflect.DeepEqual(expected, f) {
-			t.Errorf("\nExpected: %v\nGot: %v", expected, f)
+		if !reflect.DeepEqual(expected, actual) {
+			t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
 		}
 	})
 }

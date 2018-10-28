@@ -2,7 +2,7 @@ package graphqlApi
 
 import (
 	"context"
-	// "fmt"
+	"fmt"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
@@ -35,6 +35,9 @@ type pageInfo struct {
 	HasNextPage     bool
 	HasPreviousPage bool
 }
+
+func (r pageInfo) HASNEXTPAGE() bool     { return r.HasNextPage }
+func (r pageInfo) HASPREVIOUSPAGE() bool { return r.HasPreviousPage }
 
 type Resolver struct {
 	// todo: should be Db?
@@ -137,7 +140,7 @@ func (r *Resolver) TemperatureSensor(ctx context.Context, args struct{ ID graphq
 	sensor, err := worrywort.FindTemperatureSensor(map[string]interface{}{"id": sensorId, "user_id": userId}, db)
 	if err != nil {
 		log.Printf("%v", err)
-	} else {
+	} else if sensor != nil {
 		resolved = &temperatureSensorResolver{t: sensor}
 	}
 	return resolved, err
@@ -145,8 +148,9 @@ func (r *Resolver) TemperatureSensor(ctx context.Context, args struct{ ID graphq
 
 func (r *Resolver) TemperatureSensors(ctx context.Context, args struct {
 	First *int
-	After string // after is a cursor
+	After *string
 }) (*temperatureSensorConnection, error) {
+	fmt.Println("!!!!!!!!!!!!!!!!HERE!!!!!!!!!!!!!!")
 	authUser, _ := authMiddleware.UserFromContext(ctx)
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
@@ -155,8 +159,24 @@ func (r *Resolver) TemperatureSensors(ctx context.Context, args struct {
 	}
 	userId := sql.NullInt64{Valid: true, Int64: int64(authUser.Id)}
 	// Now get the temperature sensors, build out the info
-
-	return nil, nil
+	sensors, err := worrywort.FindTemperatureSensors(map[string]interface{}{"user_id": userId}, db)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	edges := []*temperatureSensorEdge{}
+	for index, _ := range sensors {
+		sensorResolver := temperatureSensorResolver{t: sensors[index]}
+		// should base64 encode this cursor, but whatever for now
+		edge := &temperatureSensorEdge{Node: &sensorResolver, Cursor: string(sensorResolver.ID())}
+		edges = append(edges, edge)
+	}
+	hasNextPage := false
+	hasPreviousPage := false
+	fmt.Println("Returning sensor connectioN!!")
+	return &temperatureSensorConnection{
+		PageInfo: &pageInfo{HasNextPage: hasNextPage, HasPreviousPage: hasPreviousPage},
+		Edges:    &edges}, nil
 }
 
 func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureMeasurementResolver, error) {

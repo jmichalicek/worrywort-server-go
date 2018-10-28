@@ -354,11 +354,26 @@ func NewTemperatureSensor(id int, name string, createdBy *User, createdAt, updat
 	return TemperatureSensor{Id: id, Name: name, CreatedBy: createdBy, CreatedAt: createdAt, UpdatedAt: updatedAt}
 }
 
-// Look up temperature sensor
+// Look up a single temperature sensor
+// returns the first match, like .first() in Django
+// May change this up to just look up by id and then any other comparisons could
+// be done directly on the object
 func FindTemperatureSensor(params map[string]interface{}, db *sqlx.DB) (*TemperatureSensor, error) {
+	sensors, err := FindTemperatureSensors(params, db)
+	if err == nil && len(sensors) >= 1 {
+		return sensors[0], err
+	}
+	return nil, err
+}
+
+func FindTemperatureSensors(params map[string]interface{}, db *sqlx.DB) ([]*TemperatureSensor, error) {
 	// TODO: Find a way to just pass in created_by sanely - maybe just manually map that to user_id if needed
 	// sqlx may have a good way to do that already.
-	t := TemperatureSensor{}
+	// TODO: Pass in limit, offset!
+	// TODO: Maybe.  Move most of this logic to a function shared by FindTemperatureSensor and
+	// FIndTemperatureSensors so they just need to build the query with the shared logic then
+	// use db.Get() or db.Select()... only true if desired to have single error if more than 1 result
+	sensors := []*TemperatureSensor{}
 	var values []interface{}
 	var where []string
 	for _, k := range []string{"id", "user_id"} {
@@ -370,7 +385,10 @@ func FindTemperatureSensor(params map[string]interface{}, db *sqlx.DB) (*Tempera
 	}
 
 	selectCols := ""
-	for _, k := range t.queryColumns() {
+	// as in BatchesForUser, this now seems dumb
+	// queryCols := []string{"id", "name", "created_at", "updated_at", "user_id"}
+	// If I need this many places, maybe make a const
+	for _, k := range []string{"id", "name", "created_at", "updated_at", "user_id"} {
 		selectCols += fmt.Sprintf("t.%s, ", k)
 	}
 
@@ -378,13 +396,13 @@ func FindTemperatureSensor(params map[string]interface{}, db *sqlx.DB) (*Tempera
 	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM temperature_sensors t WHERE ` + strings.Join(where, " AND ")
 
 	query := db.Rebind(q)
-	err := db.Get(&t, query, values...)
+	err := db.Select(&sensors, query, values...)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &t, nil
+	return sensors, nil
 }
 
 // Look up a TemperatureSensor in the database and returns it with user joined.

@@ -50,15 +50,6 @@ var Schema = `
 		token: String!
 	}
 
-	type User {
-		id: ID!
-		firstName: String!
-		lastName: String!
-		email: String!
-		createdAt: String!
-		updatedAt: String!
-	}
-
 	type Batch {
 		id: ID!
 		# A name for the batch brewed
@@ -78,15 +69,12 @@ var Schema = `
 		createdBy: User
 	}
 
-	type Fermentor {
-		id: ID!
+	type CreateTemperatureMeasurementPayload {
+		temperatureMeasurement: TemperatureMeasurement
 	}
 
-	type TemperatureSensor {
+	type Fermentor {
 		id: ID!
-		# Friendly name of the temperature sensor
-		name: String!
-		createdBy: User
 	}
 
 	# A measurement taken by a TemperatureSensor
@@ -106,8 +94,35 @@ var Schema = `
 		fermentor: Fermentor
 	}
 
-	type CreateTemperatureMeasurementPayload {
-		temperatureMeasurement: TemperatureMeasurement
+	type TemperatureSensor {
+		id: ID!
+		# Friendly name of the temperature sensor
+		name: String!
+		createdBy: User
+	}
+
+	type TemperatureSensorConnection {
+		pageInfo: PageInfo!
+		edges: [TemperatureSensorEdge!]
+	}
+
+	type TemperatureSensorEdge {
+		cursor: String!
+		node: TemperatureSensor!
+	}
+
+	type PageInfo {
+		hasPreviousPage: Boolean!
+		hasNextPage: Boolean!
+	}
+
+	type User {
+		id: ID!
+		firstName: String!
+		lastName: String!
+		email: String!
+		createdAt: String!
+		updatedAt: String!
 	}
 
 	# Input data to create a TemperatureMeasurement
