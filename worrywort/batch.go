@@ -130,6 +130,39 @@ func FindBatch(params map[string]interface{}, db *sqlx.DB) (*Batch, error) {
 	return &b, nil
 }
 
+func FindBatches(params map[string]interface{}, db *sqlx.DB) (*Batch, error) {
+	batches := []*Batch
+	var values []interface{}
+	var where []string
+	for _, k := range []string{"id", "user_id"} {
+		if v, ok := params[k]; ok {
+			values = append(values, v)
+			// TODO: Deal with values from batch OR user table
+			where = append(where, fmt.Sprintf("b.%s = ?", k))
+		}
+	}
+
+	selectCols := ""
+	queryCols := []string{"id", "name", "brew_notes", "tasting_notes", "brewed_date", "bottled_date",
+		"volume_boiled", "volume_in_fermentor", "volume_units", "original_gravity", "final_gravity", "recipe_url",
+		"max_temperature", "min_temperature", "average_temperature", "created_at", "updated_at", "user_id"}
+	for _, k := range queryCols {
+		selectCols += fmt.Sprintf("b.%s, ", k)
+	}
+
+	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batches b WHERE ` +
+		strings.Join(where, " AND ")
+
+	query := db.Rebind(q)
+	err := db.Select(&batches, query, values...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &batches, nil
+}
+
 // Save the User to the database.  If User.Id() is 0
 // then an insert is performed, otherwise an update on the User matching that id.
 func SaveBatch(db *sqlx.DB, b Batch) (Batch, error) {

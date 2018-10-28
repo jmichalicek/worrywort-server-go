@@ -69,6 +69,16 @@ var Schema = `
 		createdBy: User
 	}
 
+	type BatchConnection {
+		pageInfo: PageInfo!
+		edges: [BatchEdge!]
+	}
+
+	type BatchEdge {
+		cursor: String!
+		node: Batch!
+	}
+
 	type CreateTemperatureMeasurementPayload {
 		temperatureMeasurement: TemperatureMeasurement
 	}
