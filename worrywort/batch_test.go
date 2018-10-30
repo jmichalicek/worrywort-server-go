@@ -336,7 +336,7 @@ func TestFindBatch(t *testing.T) {
 	}
 }
 
-func TestBatchesForUser(t *testing.T) {
+func TestFindBatches(t *testing.T) {
 	db, err := setUpTestDb()
 	if err != nil {
 		t.Fatalf("Got error setting up database: %s", err)
@@ -345,7 +345,7 @@ func TestBatchesForUser(t *testing.T) {
 
 	u := NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	u, err = SaveUser(db, u)
-	userPtr := &u
+	userId := sql.NullInt64{Int64: int64(u.Id), Valid: true}
 
 	u2 := NewUser(0, "user2@example.com", "Justin", "M", time.Now(), time.Now())
 	u2, err = SaveUser(db, u2)
@@ -360,18 +360,18 @@ func TestBatchesForUser(t *testing.T) {
 	// is nanosecond, so we round these for easy comparison
 	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
 	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
-	b := Batch{Name: "Testing", UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5, VolumeInFermentor: 4.5,
-		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedBy: userPtr, CreatedAt: createdAt, UpdatedAt: updatedAt,
+	b := Batch{Name: "Testing", UserId: userId, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5, VolumeInFermentor: 4.5,
+		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedAt: createdAt, UpdatedAt: updatedAt,
 		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
 	b, err = SaveBatch(db, b)
 
-	b2 := Batch{Name: "Testing 2", UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewedDate: time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond), VolumeBoiled: 5, VolumeInFermentor: 4.5,
-		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedBy: userPtr, CreatedAt: createdAt, UpdatedAt: updatedAt,
+	b2 := Batch{Name: "Testing 2", UserId: userId, BrewedDate: time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond), VolumeBoiled: 5, VolumeInFermentor: 4.5,
+		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedAt: createdAt, UpdatedAt: updatedAt,
 		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer", BottledDate: time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond)}
 	b2, err = SaveBatch(db, b2)
 
 	u2batch := Batch{Name: "Testing 2", UserId: sql.NullInt64{Int64: int64(u2.Id), Valid: true}, BrewedDate: time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond), VolumeBoiled: 5, VolumeInFermentor: 4.5,
-		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedBy: &u2, CreatedAt: createdAt, UpdatedAt: updatedAt,
+		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedAt: createdAt, UpdatedAt: updatedAt,
 		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer", BottledDate: time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond)}
 
 	u2batch, err = SaveBatch(db, u2batch)
@@ -381,7 +381,7 @@ func TestBatchesForUser(t *testing.T) {
 	}
 
 	// TODO: split up into sub tests for different functionality... no pagination, pagination, etc.
-	batches, err := BatchesForUser(db, u, nil, nil)
+	batches, err := FindBatches(map[string]interface{}{"user_id": userId}, db)
 	if err != nil {
 		t.Fatalf("\n%v\n", err)
 	}
@@ -389,13 +389,14 @@ func TestBatchesForUser(t *testing.T) {
 	// DepEqual is not playing nicely here (ie. I don't understand something) so do a very naive check for now.
 	// May be worth trying this instead of spew, which has a Diff() function which may tell me what the difference is
 	// https://godoc.org/github.com/kr/pretty
-	expected := []Batch{b, b2}
-	if len(*batches) != 2 || expected[0].Id != (*batches)[0].Id || expected[1].Id != (*batches)[1].Id {
-		t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected[0]), spew.Sdump((*batches)[0]))
+	expected := []*Batch{&b, &b2}
+	if len(batches) != 2 || expected[0].Id != batches[0].Id || expected[1].Id != batches[1].Id {
+		t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected[0]), spew.Sdump(batches[0]))
 	}
 	// TODO: Cannot figure out WHY these are not equal.
-	// if !reflect.DeepEqual(*batches, expected) {
-	// 	t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(*batches))
+	// Suspect it is because it is lists of different pointers
+	// if !reflect.DeepEqual(batches, expected) {
+	// 	t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(batches))
 	// }
 }
 
