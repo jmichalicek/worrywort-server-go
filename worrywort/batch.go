@@ -95,7 +95,15 @@ func (b Batch) StrictEqual(other Batch) bool {
 // TODO: Use fields() to iterate over the fields and use the `db`
 // tag to map field name to db field.
 func FindBatch(params map[string]interface{}, db *sqlx.DB) (*Batch, error) {
-	b := Batch{}
+	batches, err := FindBatches(params, db)
+	if err == nil && len(batches) >= 1 {
+		return batches[0], err
+	}
+	return nil, err
+}
+
+func FindBatches(params map[string]interface{}, db *sqlx.DB) ([]*Batch, error) {
+	batches := []*Batch{}
 	var values []interface{}
 	var where []string
 	for _, k := range []string{"id", "user_id"} {
@@ -107,27 +115,24 @@ func FindBatch(params map[string]interface{}, db *sqlx.DB) (*Batch, error) {
 	}
 
 	selectCols := ""
-	for _, k := range b.queryColumns() {
+	queryCols := []string{"id", "name", "brew_notes", "tasting_notes", "brewed_date", "bottled_date",
+		"volume_boiled", "volume_in_fermentor", "volume_units", "original_gravity", "final_gravity", "recipe_url",
+		"max_temperature", "min_temperature", "average_temperature", "created_at", "updated_at", "user_id"}
+	for _, k := range queryCols {
 		selectCols += fmt.Sprintf("b.%s, ", k)
 	}
 
-	u := User{}
-	for _, k := range u.queryColumns() {
-		selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
-	}
-
-	// TODO: STOP JOINING user here automatically!
-	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batches b LEFT JOIN users u on u.id = b.user_id ` +
-		`WHERE ` + strings.Join(where, " AND ")
+	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batches b WHERE ` +
+		strings.Join(where, " AND ")
 
 	query := db.Rebind(q)
-	err := db.Get(&b, query, values...)
+	err := db.Select(&batches, query, values...)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &b, nil
+	return batches, nil
 }
 
 // Save the User to the database.  If User.Id() is 0
@@ -191,43 +196,6 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	}
 	b.UpdatedAt = updatedAt
 	return b, nil
-}
-
-// Return batches owned/created by a User, currently using default ordering only
-// with cursor based pagination using the id.  May expand cursor pagination at some point
-func BatchesForUser(db *sqlx.DB, u User, count *int, after *int) (*[]Batch, error) {
-	batches := []Batch{}
-	var queryArgs []interface{}
-
-	selectCols := ""
-	// This doesn't seem like it could possibly be a great way to handle this.
-	b := Batch{}
-	for _, k := range b.queryColumns() {
-		selectCols += fmt.Sprintf("b.%s, ", k)
-	}
-
-	for _, k := range u.queryColumns() {
-		selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
-	}
-
-	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batches b LEFT JOIN users u on u.id = b.user_id ` +
-		`WHERE user_id = ? `
-
-	queryArgs = append(queryArgs, u.Id)
-	if after != nil {
-		q = q + ` and id > ?`
-		queryArgs = append(queryArgs, *after)
-	}
-
-	if count != nil {
-		q = q + fmt.Sprintf(" LIMIT %d", *count)
-	}
-
-	err := db.Select(&batches, db.Rebind(q), queryArgs...)
-	if err != nil {
-		return nil, err
-	}
-	return &batches, err
 }
 
 type Fermentor struct {

@@ -2,7 +2,7 @@ package graphqlApi
 
 import (
 	"context"
-	"fmt"
+	// "fmt"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
@@ -86,31 +86,43 @@ func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*ba
 		}
 		return nil, nil
 	}
+	if batchPtr == nil {
+		return nil, nil
+	}
 	return &batchResolver{b: batchPtr}, nil
 }
 
-type batchesArgs struct {
+func (r *Resolver) Batches(ctx context.Context, args struct {
 	First *int
-	After *graphql.ID
-}
-
-func (r *Resolver) Batches(ctx context.Context, args batchesArgs) (*[]*batchResolver, error) {
+	After *string
+}) (*batchConnection, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
-	var resolvedBatches []*batchResolver = []*batchResolver{}
-	batchesPtr, err := worrywort.BatchesForUser(r.db, u, nil, nil)
-	if err != nil {
+	log.Printf("Got user %v", u)
+	db, ok := ctx.Value("db").(*sqlx.DB)
+	if !ok {
+		log.Printf("No database in context")
+		return nil, errors.New("Server error")
+	}
+
+	userIdNullInt := sql.NullInt64{Int64: int64(u.Id), Valid: true}
+	// batchesPtr, err := worrywort.BatchesForUser(r.db, u, nil, nil)
+	batches, err := worrywort.FindBatches(map[string]interface{}{"user_id": userIdNullInt}, db)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("%v", err)
 		return nil, err
 	}
-
-	for idx, _ := range *batchesPtr {
-		// makes sense, but not obvious to me at first:
-		// the 2nd value in the range is a variable - but that variable gets reassigned a copy of
-		// whatever is being iterated over, not the actual instance itself.  So rather than
-		// using it, we use the index to get the real thing we are looking for
-		br := batchResolver{b: &(*batchesPtr)[idx]}
-		resolvedBatches = append(resolvedBatches, &br)
+	edges := []*batchEdge{}
+	for index, _ := range batches {
+		resolvedBatch := batchResolver{b: batches[index]}
+		// should base64 encode this cursor, but whatever for now
+		edge := &batchEdge{Node: &resolvedBatch, Cursor: string(resolvedBatch.ID())}
+		edges = append(edges, edge)
 	}
-	return &(resolvedBatches), err
+	hasNextPage := false
+	hasPreviousPage := false
+	return &batchConnection{
+		PageInfo: &pageInfo{HasNextPage: hasNextPage, HasPreviousPage: hasPreviousPage},
+		Edges:    &edges}, nil
 }
 
 func (r *Resolver) Fermentor(ctx context.Context, args struct{ ID graphql.ID }) (*fermentorResolver, error) {
@@ -150,7 +162,6 @@ func (r *Resolver) TemperatureSensors(ctx context.Context, args struct {
 	First *int
 	After *string
 }) (*temperatureSensorConnection, error) {
-	fmt.Println("!!!!!!!!!!!!!!!!HERE!!!!!!!!!!!!!!")
 	authUser, _ := authMiddleware.UserFromContext(ctx)
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
@@ -173,7 +184,6 @@ func (r *Resolver) TemperatureSensors(ctx context.Context, args struct {
 	}
 	hasNextPage := false
 	hasPreviousPage := false
-	fmt.Println("Returning sensor connectioN!!")
 	return &temperatureSensorConnection{
 		PageInfo: &pageInfo{HasNextPage: hasNextPage, HasPreviousPage: hasPreviousPage},
 		Edges:    &edges}, nil

@@ -92,3 +92,26 @@ func (r *batchResolver) CreatedBy(ctx context.Context) (*userResolver, error) {
 	user, err := worrywort.LookupUser(int(r.b.UserId.Int64), db)
 	return &userResolver{u: user}, err
 }
+
+type batchEdge struct {
+	Cursor string
+	Node   *batchResolver
+}
+
+func (r *batchEdge) CURSOR() string       { return r.Cursor }
+func (r *batchEdge) NODE() *batchResolver { return r.Node }
+
+// Going full relay, I suppose
+// the graphql lib needs case-insensitive match of names on the methods
+// so the resolver functions are just named all caps... alternately the
+// struct members could be named as such to avoid a collision
+// idea from https://github.com/deltaskelta/graphql-go-pets-example/blob/ab169fb644b1a00998208e7feede5975214d60da/users.go#L156
+type batchConnection struct {
+	// if dataloader is implemented, this could just store the ids (and do a lighter query for those ids) and use dataloader
+	// to get each individual edge or sensor and build the edge in the resolver function
+	Edges    *[]*batchEdge
+	PageInfo *pageInfo
+}
+
+func (r *batchConnection) PAGEINFO() pageInfo   { return *r.PageInfo }
+func (r *batchConnection) EDGES() *[]*batchEdge { return r.Edges }
