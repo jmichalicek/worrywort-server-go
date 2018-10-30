@@ -95,43 +95,15 @@ func (b Batch) StrictEqual(other Batch) bool {
 // TODO: Use fields() to iterate over the fields and use the `db`
 // tag to map field name to db field.
 func FindBatch(params map[string]interface{}, db *sqlx.DB) (*Batch, error) {
-	b := Batch{}
-	var values []interface{}
-	var where []string
-	for _, k := range []string{"id", "user_id"} {
-		if v, ok := params[k]; ok {
-			values = append(values, v)
-			// TODO: Deal with values from batch OR user table
-			where = append(where, fmt.Sprintf("b.%s = ?", k))
-		}
+	batches, err := FindBatches(params, db)
+	if err == nil && len(batches) >= 1 {
+		return batches[0], err
 	}
-
-	selectCols := ""
-	for _, k := range b.queryColumns() {
-		selectCols += fmt.Sprintf("b.%s, ", k)
-	}
-
-	u := User{}
-	for _, k := range u.queryColumns() {
-		selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
-	}
-
-	// TODO: STOP JOINING user here automatically!
-	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batches b LEFT JOIN users u on u.id = b.user_id ` +
-		`WHERE ` + strings.Join(where, " AND ")
-
-	query := db.Rebind(q)
-	err := db.Get(&b, query, values...)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &b, nil
+	return nil, err
 }
 
-func FindBatches(params map[string]interface{}, db *sqlx.DB) (*Batch, error) {
-	batches := []*Batch
+func FindBatches(params map[string]interface{}, db *sqlx.DB) ([]*Batch, error) {
+	batches := []*Batch{}
 	var values []interface{}
 	var where []string
 	for _, k := range []string{"id", "user_id"} {
@@ -160,7 +132,7 @@ func FindBatches(params map[string]interface{}, db *sqlx.DB) (*Batch, error) {
 		return nil, err
 	}
 
-	return &batches, nil
+	return batches, nil
 }
 
 // Save the User to the database.  If User.Id() is 0

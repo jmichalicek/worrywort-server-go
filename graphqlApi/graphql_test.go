@@ -166,6 +166,10 @@ func TestBatchQuery(t *testing.T) {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "db", db)
+	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+
 	// TODO: Can this become global to these tests?
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
 
@@ -202,8 +206,6 @@ func TestBatchQuery(t *testing.T) {
 			}
 		`
 		operationName := ""
-		ctx := context.Background()
-		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
 		result := worrywortSchema.Exec(ctx, query, operationName, variables)
 
 		var expected interface{}
@@ -235,8 +237,6 @@ func TestBatchQuery(t *testing.T) {
 			}
 		`
 		operationName := ""
-		ctx := context.Background()
-		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
 		result := worrywortSchema.Exec(ctx, query, operationName, variables)
 
 		expected := `{"batch":null}`
@@ -246,68 +246,84 @@ func TestBatchQuery(t *testing.T) {
 	})
 
 	t.Run("Test batches() query returns the users batches", func(t *testing.T) {
+		// could stop at batches() just to see that it returns the correct type
+		// and then know that is correct from the struct level testing of each type
+		// but want to see that the user filter works anyway
 		query := `
 			query getBatches {
 				batches {
 					__typename
-					id
+					edges {
+						__typename
+						node {
+							__typename
+							id
+						}
+					}
 				}
 			}
 		`
 		operationName := ""
-		ctx := context.Background()
-		ctx = context.WithValue(ctx, "db", db)
-		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
 		result := worrywortSchema.Exec(ctx, query, operationName, nil)
 
 		var expected interface{}
 		err := json.Unmarshal(
-			[]byte(fmt.Sprintf(`{"batches":[{"__typename":"Batch","id":"%d"},{"__typename":"Batch","id":"%d"}]}`, b.Id, b2.Id)),
-			&expected)
+			[]byte(
+				fmt.Sprintf(
+					`{"batches": {"__typename":"BatchConnection","edges": [{"__typename": "BatchEdge","node": {"__typename":"Batch","id":"%d"}},{"__typename": "BatchEdge","node": {"__typename":"Batch","id":"%d"}}]}}`, b.Id, b2.Id)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
 
-		var f interface{}
-		err = json.Unmarshal(result.Data, &f)
+		var actual interface{}
+		err = json.Unmarshal(result.Data, &actual)
 		if err != nil {
-			t.Fatalf("%v", f)
+			t.Fatalf("%v", err)
 		}
 
-		if !reflect.DeepEqual(expected, f) {
-			t.Errorf("\nExpected: %v\nGot: %v", expected, f)
+		if !reflect.DeepEqual(expected, actual) {
+			t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
 		}
 	})
 
 	t.Run("Test batches() query when not authenticated", func(t *testing.T) {
+		// TODO: This WILL start returning a 403 once I correct how auth works
 		query := `
 			query getBatches {
 				batches {
 					__typename
-					id
+					edges {
+						__typename
+						node {
+							__typename
+							id
+						}
+					}
 				}
 			}
 		`
 		operationName := ""
-		ctx := context.Background()
-		// ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
-		result := worrywortSchema.Exec(ctx, query, operationName, nil)
+		ctx2 := context.Background()
+		ctx2 = context.WithValue(ctx2, "db", db)
+		result := worrywortSchema.Exec(ctx2, query, operationName, nil)
 
 		var expected interface{}
-		// should we actually return auth errors rather than nothing?
-		err := json.Unmarshal([]byte(`{"batches":[]}`), &expected)
+		err := json.Unmarshal(
+			[]byte(
+				fmt.Sprintf(
+					`{"batches": {"__typename":"BatchConnection","edges": []}}`)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
 
-		var f interface{}
-		err = json.Unmarshal(result.Data, &f)
+		var actual interface{}
+		err = json.Unmarshal(result.Data, &actual)
 		if err != nil {
-			t.Fatalf("%v", f)
+			t.Fatalf("%v", err)
 		}
 
-		if !reflect.DeepEqual(expected, f) {
-			t.Errorf("\nExpected: %v\nGot: %v", expected, f)
+		if !reflect.DeepEqual(expected, actual) {
+			t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
 		}
 	})
 }

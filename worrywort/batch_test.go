@@ -318,7 +318,7 @@ func TestFindBatch(t *testing.T) {
 	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
 	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
 	b := Batch{UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5, VolumeInFermentor: 4.5,
-		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt,
+		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedAt: createdAt, UpdatedAt: updatedAt,
 		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
 	b, err = SaveBatch(db, b)
 	if err != nil {
@@ -331,7 +331,7 @@ func TestFindBatch(t *testing.T) {
 	found, err := FindBatch(batchArgs, db)
 	if err != nil {
 		t.Errorf("Got unexpected error: %s", err)
-	} else if !b.StrictEqual(*found) {
+	} else if b.Id != (*found).Id {
 		t.Errorf("Expected: %v\nGot: %v\n", b, *found)
 	}
 }
