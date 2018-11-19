@@ -63,6 +63,8 @@ func main() {
 	schema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
 
 	tokenAuthHandler := authMiddleware.NewTokenAuthHandler(newTokenAuthLookup(db))
+	authRequiredHandler := authMiddleware.NewLoginRequiredHandler()
+
 	// Does this need a Schema pointer?
 	// can we do non-relay
 	// based on https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/server.go
@@ -73,7 +75,8 @@ func main() {
 	ctx = context.WithValue(ctx, "db", db)
 	// can add logging similarly
 
-	http.Handle("/graphql", AddContext(ctx, tokenAuthHandler(&relay.Handler{Schema: schema})))
+	http.Handle("/graphql", AddContext(ctx, tokenAuthHandler(authRequiredHandler(&relay.Handler{Schema: schema}))))
+	// http.Handle("/graphql", AddContext(ctx, tokenAuthHandler(&relay.Handler{Schema: schema})))
 	uri, uriSet := os.LookupEnv("WORRYWORTD_HOST")
 	if !uriSet {
 		uri = ":8080"

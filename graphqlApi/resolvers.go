@@ -16,6 +16,9 @@ import (
 )
 
 var SERVER_ERROR = errors.New("Unexpected server error.")
+// This also could be handled in middleware, but then I would need two separate
+// schemas and routes - one for authenticated stuff, one for
+var NOT_AUTHTENTICATED_ERROR = errors.New("User must be authenticated")
 
 // Takes a time.Time and returns nil if the time is zero or pointer to the time string formatted as RFC3339
 func nullableDateString(dt time.Time) *string {
@@ -47,11 +50,12 @@ type Resolver struct {
 	db *sqlx.DB
 }
 
+/* This is the root resolver */
 func NewResolver(db *sqlx.DB) *Resolver {
 	return &Resolver{db: db}
 }
 
-func (r *Resolver) CurrentUser(ctx context.Context) *userResolver {
+func (r *Resolver) CurrentUser(ctx context.Context) (*userResolver, error) {
 	// This ensures we have the right type from the context
 	// may change to just "authMiddleware" or something though so that
 	// a single function can exist to get user from any of the auth methods
@@ -59,7 +63,7 @@ func (r *Resolver) CurrentUser(ctx context.Context) *userResolver {
 	// TODO: should check errors
 	u, _ := authMiddleware.UserFromContext(ctx)
 	ur := userResolver{u: &u}
-	return &ur
+	return &ur, nil
 }
 
 // handle errors by returning error with 403?
