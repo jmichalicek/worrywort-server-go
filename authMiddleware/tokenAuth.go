@@ -20,6 +20,7 @@ var UserNotInContextError = errors.New("Could not get worrywort.User from contex
 
 // Type safe function to get user from context
 func UserFromContext(ctx context.Context) (worrywort.User, error) {
+	// May return *worrywort.User so that I can return nil
 	u, ok := ctx.Value(DefaultUserKey).(worrywort.User)
 	if !ok {
 		// can this differentiate between missing key and invalid value?

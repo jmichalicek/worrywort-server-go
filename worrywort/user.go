@@ -3,6 +3,7 @@ package worrywort
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"github.com/jmoiron/sqlx"
 	"golang.org/x/crypto/bcrypt"
 	"strings"
@@ -190,4 +191,37 @@ func LookupUserByToken(tokenStr string, db *sqlx.DB) (User, error) {
 	}
 
 	return token.User, nil
+}
+
+func FindUser(params map[string]interface{}, db *sqlx.DB) (*User, error) {
+	user := User{}
+	var values []interface{}
+	var where []string
+	for _, k := range []string{"id", "email"} {
+		if v, ok := params[k]; ok {
+			values = append(values, v)
+			// TODO: Deal with values from temperature_sensor OR user table
+			where = append(where, fmt.Sprintf("u.%s = ?", k))
+		}
+	}
+
+	selectCols := ""
+	// as in BatchesForUser, this now seems dumb
+	// queryCols := []string{"id", "name", "created_at", "updated_at", "user_id"}
+	// If I need this many places, maybe make a const
+	for _, k := range []string{"id", "email", "first_name", "last_name", "password", "created_at", "updated_at"} {
+		selectCols += fmt.Sprintf("u.%s, ", k)
+	}
+
+	// TODO: Can I easily dynamically add in joining and attaching the User to this without overcomplicating the code?
+	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM users u WHERE ` + strings.Join(where, " AND ")
+
+	query := db.Rebind(q)
+	err := db.Get(&user, query, values...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
 }
