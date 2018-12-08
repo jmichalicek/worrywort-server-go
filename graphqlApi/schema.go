@@ -25,6 +25,7 @@ var Schema = `
 	}
 
 	type Mutation {
+		# Currently broken because I made the whole /graphql endpoint require a token for now
 		login(username: String!, password: String!): AuthToken
 		createTemperatureMeasurement(input: CreateTemperatureMeasurementInput): CreateTemperatureMeasurementPayload
 	}

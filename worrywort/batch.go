@@ -211,8 +211,8 @@ type Fermentor struct {
 	IsAvailable   bool               `db:"is_available"`
 	CreatedBy     *User              `db:"created_by,prefix=u"`
 	UserId        sql.NullInt64      `db:"user_id"`
-
-	// TODO: id and fk for current batch if it is attached to a batch?
+	Batch					*Batch
+	BatchId       sql.NullInt64				`db:"batch_id"`
 
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
@@ -239,8 +239,8 @@ func FindFermentor(params map[string]interface{}, db *sqlx.DB) (*Fermentor, erro
 		}
 	}
 
-	q := `SELECT f.id, f.name, f.description, f.volume, f.volume_units, f.fermentor_type, f.is_active, f.is_available, f.user_id
-		FROM fermentors s WHERE ` + strings.Join(where, " AND ")
+	q := `SELECT f.id, f.name, f.description, f.volume, f.volume_units, f.fermentor_type, f.is_active, f.is_available, f.user_id,
+		f.batch_id, FROM fermentors s WHERE ` + strings.Join(where, " AND ")
 	query := db.Rebind(q)
 	err := db.Get(&f, query, values...)
 
@@ -266,9 +266,9 @@ func InsertFermentor(db *sqlx.DB, f Fermentor) (Fermentor, error) {
 	var fermentorId int
 
 	query := db.Rebind(`INSERT INTO fermentors (user_id, name, description, volume, volume_units, fermentor_type,
-		is_active, is_available, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW()) RETURNING id, created_at, updated_at`)
+		is_active, is_available, batch_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW()) RETURNING id, created_at, updated_at`)
 	err := db.QueryRow(query, f.UserId, f.Name, f.Description, f.Volume, f.VolumeUnits, f.FermentorType,
-		f.IsActive, f.IsAvailable).Scan(&fermentorId, &createdAt, &updatedAt)
+		f.IsActive, f.IsAvailable, f.BatchId).Scan(&fermentorId, &createdAt, &updatedAt)
 	if err != nil {
 		return f, err
 	}
@@ -285,9 +285,9 @@ func UpdateFermentor(db *sqlx.DB, f Fermentor) (Fermentor, error) {
 	var updatedAt time.Time
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
 	query := db.Rebind(`UPDATE fermentors SET user_id = ?, name = ?, description = ?, volume = ?, volume_units = ?,
-		fermentor_type = ?, is_active = ?, is_available = ?, updated_at = NOW() WHERE id = ? RETURNING updated_at`)
+		fermentor_type = ?, is_active = ?, is_available = ?, batch_id = ?, updated_at = NOW() WHERE id = ? RETURNING updated_at`)
 	err := db.QueryRow(query, f.UserId, f.Name, f.Description, f.Volume, f.VolumeUnits, f.FermentorType,
-		f.IsActive, f.IsAvailable, f.Id).Scan(&updatedAt)
+		f.IsActive, f.IsAvailable, f.BatchId, f.Id).Scan(&updatedAt)
 	if err == nil {
 		f.UpdatedAt = updatedAt
 	}
@@ -305,6 +305,13 @@ type TemperatureSensor struct {
 	Name      string        `db:"name"`
 	CreatedBy *User         `db:"created_by,prefix=u"`
 	UserId    sql.NullInt64 `db:"user_id"`
+	FermentorId sql.NullInt64 `db:"fermentor_id"`
+	Fermentor *Fermentor
+
+	// Is this really necessary?  If this is attached to fermentor and
+	// the fermentor is attached to a batch, then this is just extra nonsense
+	// BatchId sql.NullInt64 `db:"batch_id"`
+	Batch *Batch
 	// TODO: fk/id for current fermentor and current batch if attached to them?
 
 	CreatedAt time.Time `db:"created_at"`
@@ -344,7 +351,7 @@ func FindTemperatureSensors(params map[string]interface{}, db *sqlx.DB) ([]*Temp
 	sensors := []*TemperatureSensor{}
 	var values []interface{}
 	var where []string
-	for _, k := range []string{"id", "user_id"} {
+	for _, k := range []string{"id", "user_id", "fermentor_id"} {
 		if v, ok := params[k]; ok {
 			values = append(values, v)
 			// TODO: Deal with values from temperature_sensor OR user table
@@ -356,7 +363,7 @@ func FindTemperatureSensors(params map[string]interface{}, db *sqlx.DB) ([]*Temp
 	// as in BatchesForUser, this now seems dumb
 	// queryCols := []string{"id", "name", "created_at", "updated_at", "user_id"}
 	// If I need this many places, maybe make a const
-	for _, k := range []string{"id", "name", "created_at", "updated_at", "user_id"} {
+	for _, k := range []string{"id", "name", "created_at", "updated_at", "user_id", "fermentor_id"} {
 		selectCols += fmt.Sprintf("t.%s, ", k)
 	}
 
@@ -423,9 +430,9 @@ func InsertTemperatureSensor(db *sqlx.DB, t TemperatureSensor) (TemperatureSenso
 	var createdAt time.Time
 	var sensorId int
 
-	query := db.Rebind(`INSERT INTO temperature_sensors (user_id, name, updated_at)
-		VALUES (?, ?, NOW()) RETURNING id, created_at, updated_at`)
-	err := db.QueryRow(query, t.UserId, t.Name).Scan(&sensorId, &createdAt, &updatedAt)
+	query := db.Rebind(`INSERT INTO temperature_sensors (user_id, fermentor_id, name, updated_at)
+		VALUES (?, ?, ?, NOW()) RETURNING id, created_at, updated_at`)
+	err := db.QueryRow(query, t.UserId, t.FermentorId, t.Name).Scan(&sensorId, &createdAt, &updatedAt)
 	if err != nil {
 		return t, err
 	}
@@ -441,10 +448,10 @@ func UpdateTemperatureSensor(db *sqlx.DB, t TemperatureSensor) (TemperatureSenso
 	// TODO: TEST CASE
 	var updatedAt time.Time
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
-	query := db.Rebind(`UPDATE temperature_sensors SET user_id = ?, name = ?, updated_at = NOW()
+	query := db.Rebind(`UPDATE temperature_sensors SET user_id = ?, fermentor_id = ?, name = ?, updated_at = NOW()
 		WHERE id = ? RETURNING updated_at`)
 	err := db.QueryRow(
-		query, t.CreatedBy.Id, t.Name, t.Id).Scan(&updatedAt)
+		query, t.UserId, t.FermentorId, t.Name, t.Id).Scan(&updatedAt)
 	if err == nil {
 		t.UpdatedAt = updatedAt
 	}

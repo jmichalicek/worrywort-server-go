@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS batches(
 CREATE TABLE IF NOT EXISTS fermentors(
   id SERIAL PRIMARY KEY,
   user_id integer REFERENCES users (id) ON DELETE SET NULL,
+  batch_id integer REFERENCES batches (id) ON DELETE SET NULL,
   name text NOT NULL DEFAULT '',
   description text NOT NULL DEFAULT '',
   volume double precision NOT NULL DEFAULT 0.0,
@@ -86,6 +87,10 @@ CREATE TABLE IF NOT EXISTS fermentors(
 CREATE TABLE IF NOT EXISTS temperature_sensors(
   id SERIAL PRIMARY KEY,
   user_id integer REFERENCES users (id) ON DELETE SET NULL,
+  -- Is this really necessary?  If this is attached to fermentor and
+	-- the fermentor is attached to a batch, then this is just extra nonsense
+  -- batch_id integer REFERENCES batches (id) ON DELETE SET NULL,
+  fermentor_id integer REFERENCES fermentors (id) ON DELETE SET NULL,
   name text NOT NULL DEFAULT '',
   description text NOT NULL DEFAULT '',
 
