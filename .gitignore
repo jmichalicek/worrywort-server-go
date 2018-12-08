@@ -4,7 +4,7 @@
 *.so
 *.dylib
 /worrywortd
-wortuser
+/wortuser
 
 # Test binary, build with `go test -c`
 *.test
