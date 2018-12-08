@@ -7,5 +7,11 @@ INSERT INTO batches (id, user_id, name, tasting_notes, brewed_date, bottled_date
   VALUES (1, 1, 'Seeded Brew', 'Tastes good', now() - interval '24 hours', now() - interval '1 hour', 2, 2, 1, 1.060, 1.020, now())
   ON CONFLICT DO NOTHING;
 
+-- 2 gallon bucket
+INSERT INTO fermentors (id, user_id, name, description, volume, volume_units, fermentor_type,
+  is_active, is_available, batch_id, updated_at)
+  VALUES (1, 1, 'Seeded Fermentor 1', 'Initial fermentor from dev seed', 2.0, 0, 0, 'f', 't', NULL, NOW())
+  ON CONFLICT DO NOTHING;
+
 INSERT INTO temperature_sensors (id, user_id, name, description, updated_at)
   VALUES (1, 1, 'Seed Sensor 1', 'Initial sensor from dev seed', now()) ON CONFLICT DO NOTHING;
