@@ -16,6 +16,7 @@ import (
 )
 
 var SERVER_ERROR = errors.New("Unexpected server error.")
+
 // This also could be handled in middleware, but then I would need two separate
 // schemas and routes - one for authenticated stuff, one for
 var NOT_AUTHTENTICATED_ERROR = errors.New("User must be authenticated")
@@ -101,15 +102,14 @@ func (r *Resolver) Batches(ctx context.Context, args struct {
 	After *string
 }) (*batchConnection, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
-	log.Printf("Got user %v", u)
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
+		// TODO: logging with stack info?
 		log.Printf("No database in context")
-		return nil, errors.New("Server error")
+		return nil, SERVER_ERROR
 	}
 
 	userIdNullInt := sql.NullInt64{Int64: int64(u.Id), Valid: true}
-	// batchesPtr, err := worrywort.BatchesForUser(r.db, u, nil, nil)
 	batches, err := worrywort.FindBatches(map[string]interface{}{"user_id": userIdNullInt}, db)
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("%v", err)
@@ -138,12 +138,13 @@ func (r *Resolver) Fermentor(ctx context.Context, args struct{ ID graphql.ID }) 
 func (r *Resolver) TemperatureSensor(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureSensorResolver, error) {
 	authUser, _ := authMiddleware.UserFromContext(ctx)
 	var resolved *temperatureSensorResolver
-
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
+		// TODO: logging with stack info?
 		log.Printf("No database in context")
-		return nil, errors.New("Server error")
+		return nil, SERVER_ERROR
 	}
+
 	sensorId, err := strconv.Atoi(string(args.ID))
 	if err != nil {
 		// not sure what could go wrong here - maybe a generic error and log the real error.
@@ -169,8 +170,9 @@ func (r *Resolver) TemperatureSensors(ctx context.Context, args struct {
 	authUser, _ := authMiddleware.UserFromContext(ctx)
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
+		// TODO: logging with stack info?
 		log.Printf("No database in context")
-		return nil, errors.New("Server error")
+		return nil, SERVER_ERROR
 	}
 	userId := sql.NullInt64{Valid: true, Int64: int64(authUser.Id)}
 	// Now get the temperature sensors, build out the info
@@ -193,26 +195,26 @@ func (r *Resolver) TemperatureSensors(ctx context.Context, args struct {
 		Edges:    &edges}, nil
 }
 
+// Returns a single resolved TemperatureMeasurement by ID, owned by the authenticated user
 func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureMeasurementResolver, error) {
-	// authUser, _ := authMiddleware.UserFromContext(ctx)
-	// TODO: panic on error, no user, etc.
-	// TODO: REALLY IMPLEMENT THIS!
-	u := worrywort.NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	b := worrywort.Batch{Name: "Testing", BrewedDate: time.Now(), BottledDate: time.Now(), VolumeBoiled: 5,
-		VolumeInFermentor: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
-		UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewNotes: "Brew notes",
-		TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer", CreatedBy: &u}
-	f := worrywort.NewFermentor(1, "Ferm", "A Fermentor", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u, time.Now(), time.Now())
-	therm := worrywort.NewTemperatureSensor(1, "Therm1", &u, time.Now(), time.Now())
-	createdAt := time.Now()
-	updatedAt := time.Now()
-	timeRecorded := time.Now()
-
-	tempId := "REMOVEME"
-	// TODO: This needs to save and THAT is whre the uuid should really be generated
-	m := worrywort.TemperatureMeasurement{Id: tempId, Temperature: 64.26, Units: worrywort.FAHRENHEIT, RecordedAt: timeRecorded,
-		Batch: &b, TemperatureSensor: &therm, Fermentor: &f, CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt}
-	return &temperatureMeasurementResolver{m: &m}, nil
+	authUser, _ := authMiddleware.UserFromContext(ctx)
+	db, ok := ctx.Value("db").(*sqlx.DB)
+	if !ok {
+		// TODO: logging with stack info?
+		log.Printf("No database in context")
+		return nil, SERVER_ERROR
+	}
+	var resolved *temperatureMeasurementResolver
+	userId := sql.NullInt64{Valid: true, Int64: int64(authUser.Id)}
+	measurementId := string(args.ID)
+	measurement, err := worrywort.FindTemperatureMeasurement(
+		map[string]interface{}{"id": measurementId, "user_id": userId}, db)
+	if err != nil {
+		log.Printf("%v", err)
+	} else if measurement != nil {
+		resolved = &temperatureMeasurementResolver{m: measurement}
+	}
+	return resolved, err
 }
 
 // Input types

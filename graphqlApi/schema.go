@@ -22,11 +22,15 @@ var Schema = `
 		batches(first: Int after: String): BatchConnection!
 		temperatureSensor(id: ID!): TemperatureSensor
 		temperatureSensors(first: Int after: String): TemperatureSensorConnection!
+		temperatureMeasurement(id: ID!): TemperatureMeasurement
 	}
 
 	type Mutation {
 		# Currently broken because I made the whole /graphql endpoint require a token for now
 		login(username: String!, password: String!): AuthToken
+		# Might remove createTemperatureMeasurement in favor of having those created via more IoT Friendly
+		# system such as mqtt.  Then system can look at relationships to attach to batch, fermenter, etc.
+		# but will definitely need an updateTemperatureMeasurement() to edit - ie. attach to a batch later, etc.
 		createTemperatureMeasurement(input: CreateTemperatureMeasurementInput): CreateTemperatureMeasurementPayload
 	}
 
