@@ -211,8 +211,8 @@ type Fermentor struct {
 	IsAvailable   bool               `db:"is_available"`
 	CreatedBy     *User              `db:"created_by,prefix=u"`
 	UserId        sql.NullInt64      `db:"user_id"`
-	Batch					*Batch
-	BatchId       sql.NullInt64				`db:"batch_id"`
+	Batch         *Batch
+	BatchId       sql.NullInt64 `db:"batch_id"`
 
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
@@ -301,12 +301,12 @@ func UpdateFermentor(db *sqlx.DB, f Fermentor) (Fermentor, error) {
 // TODO: This may also want extra metadata such as model or type?  That is probably
 // going too far for now, so keep it simple.
 type TemperatureSensor struct {
-	Id        int           `db:"id"`
-	Name      string        `db:"name"`
-	CreatedBy *User         `db:"created_by,prefix=u"`
-	UserId    sql.NullInt64 `db:"user_id"`
+	Id          int           `db:"id"`
+	Name        string        `db:"name"`
+	CreatedBy   *User         `db:"created_by,prefix=u"`
+	UserId      sql.NullInt64 `db:"user_id"`
 	FermentorId sql.NullInt64 `db:"fermentor_id"`
-	Fermentor *Fermentor
+	Fermentor   *Fermentor
 
 	// Is this really necessary?  If this is attached to fermentor and
 	// the fermentor is attached to a batch, then this is just extra nonsense
@@ -537,4 +537,62 @@ func UpdateTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 	}
 	tm.UpdatedAt = updatedAt
 	return tm, nil
+}
+
+// Build the query string and values slice for query for temperature measurement(s)
+// as needed by sqlx db.Get() and db.Select() and returns them
+func buildTemperatureMeasurementsQuery(params map[string]interface{}, db *sqlx.DB) (string, []interface{}, error) {
+	// TODO: Pass in limit, offset!
+	var values []interface{}
+	var where []string
+	// TODO: I suspect I will want to sort/filter by datetimes and by temperatures here as well
+	// using ranges or gt/lt, not jus a straight equals.
+	for _, k := range []string{"id", "user_id", "fermentor_id", "batch_id", "temperature_sensor_id"} {
+		if v, ok := params[k]; ok {
+			values = append(values, v)
+			// TODO: Deal with values from temperature_sensor OR user table
+			where = append(where, fmt.Sprintf("tm.%s = ?", k))
+		}
+	}
+
+	selectCols := ""
+	// as in BatchesForUser, this now seems dumb
+	// queryCols := []string{"id", "name", "created_at", "updated_at", "user_id"}
+	// If I need this many places, maybe make a const
+	for _, k := range []string{"id", "user_id", "fermentor_id", "batch_id", "temperature_sensor_id", "temperature",
+		"units", "recorded_at", "created_at", "updated_at"} {
+		selectCols += fmt.Sprintf("tm.%s, ", k)
+	}
+
+	// TODO: Can I easily dynamically add in joining and attaching the User to this without overcomplicating the code?
+	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM temperature_measurements tm WHERE ` + strings.Join(where, " AND ")
+
+	return db.Rebind(q), values, nil
+}
+
+/*
+ * Look up a single TemperatureMeasurement by its id
+ */
+func FindTemperatureMeasurement(params map[string]interface{}, db *sqlx.DB) (*TemperatureMeasurement, error) {
+	query, values, err := buildTemperatureMeasurementsQuery(params, db)
+	measurement := TemperatureMeasurement{}
+	err = db.Get(&measurement, query, values...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &measurement, err
+}
+
+func FindTemperatureMeasurements(params map[string]interface{}, db *sqlx.DB) ([]*TemperatureMeasurement, error) {
+	query, values, err := buildTemperatureMeasurementsQuery(params, db)
+	measurements := []*TemperatureMeasurement{}
+	err = db.Select(&measurements, query, values...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return measurements, err
 }

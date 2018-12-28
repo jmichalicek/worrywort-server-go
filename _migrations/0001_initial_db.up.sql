@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS temperature_sensors(
   user_id integer REFERENCES users (id) ON DELETE SET NULL,
   -- Is this really necessary?  If this is attached to fermentor and
 	-- the fermentor is attached to a batch, then this is just extra nonsense
+  -- but maybe it is measuring ambient temps?
   -- batch_id integer REFERENCES batches (id) ON DELETE SET NULL,
   fermentor_id integer REFERENCES fermentors (id) ON DELETE SET NULL,
   name text NOT NULL DEFAULT '',

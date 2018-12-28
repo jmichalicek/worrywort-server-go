@@ -1,8 +1,8 @@
 package authMiddleware
 
 import (
-	"net/http"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
+	"net/http"
 )
 
 // A simple middleware to return a 403 if no authenticated user
