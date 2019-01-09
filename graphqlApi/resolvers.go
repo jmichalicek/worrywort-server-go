@@ -217,6 +217,43 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 	return resolved, err
 }
 
+func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
+	First       *int
+	After       *string
+	SensorId    *string
+	BatchId     *string
+	FermentorId *string
+}) (*temperatureMeasurementConnection, error) {
+	authUser, _ := authMiddleware.UserFromContext(ctx)
+	db, ok := ctx.Value("db").(*sqlx.DB)
+	if !ok {
+		// TODO: logging with stack info?
+		log.Printf("No database in context")
+		return nil, SERVER_ERROR
+	}
+	userId := sql.NullInt64{Valid: true, Int64: int64(authUser.Id)}
+
+	// TODO: pagination, the rest of the optional filter params
+	measurements, err := worrywort.FindTemperatureMeasurements(map[string]interface{}{"user_id": userId}, db)
+
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	edges := []*temperatureMeasurementEdge{}
+	for index, _ := range sensors {
+		measurementResolver := temperatureMeasurementResolver{t: measurements[index]}
+		// should base64 encode this cursor, but whatever for now
+		edge := &temperatureMeasurementEdge{Node: &measurementResolver, Cursor: string(measurementResolver.ID())}
+		edges = append(edges, edge)
+	}
+	hasNextPage := false
+	hasPreviousPage := false
+	return &temperatureMeasurementConnection{
+		PageInfo: &pageInfo{HasNextPage: hasNextPage, HasPreviousPage: hasPreviousPage},
+		Edges:    &edges}, nil
+}
+
 // Input types
 // Create a temperatureMeasurement... review docs on how to really implement this
 type createTemperatureMeasurementInput struct {

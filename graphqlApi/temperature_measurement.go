@@ -111,3 +111,21 @@ func (r *temperatureMeasurementResolver) CreatedBy(ctx context.Context) *userRes
 	}
 	return resolved
 }
+
+type temperatureMeasurementEdge struct {
+	Cursor string
+	Node   *temperatureMeasurementResolver
+}
+
+func (r *temperatureMeasurementEdge) CURSOR() string                        { return r.Cursor }
+func (r *temperatureMeasurementEdge) NODE() *temperatureMeasurementResolver { return r.Node }
+
+type temperatureMeasurementConnection struct {
+	// if dataloader is implemented, this could just store the ids (and do a lighter query for those ids) and use dataloader
+	// to get each individual edge or sensor and build the edge in the resolver function
+	Edges    *[]*temperatureMeasurementEdge
+	PageInfo *pageInfo
+}
+
+func (r *temperatureMeasurementConnection) PAGEINFO() pageInfo                    { return *r.PageInfo }
+func (r *temperatureMeasurementConnection) EDGES() *[]*temperatureMeasurementEdge { return r.Edges }

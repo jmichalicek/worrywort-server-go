@@ -20,9 +20,12 @@ var Schema = `
 		batch(id: ID!): Batch
 		# Returns a list of batches for the currently authenticated user.
 		batches(first: Int after: String): BatchConnection!
+		# given sensors like iSpindel and Tilt, perhaps just `sensor` with a type
+		# is more appropriate?
 		temperatureSensor(id: ID!): TemperatureSensor
 		temperatureSensors(first: Int after: String): TemperatureSensorConnection!
 		temperatureMeasurement(id: ID!): TemperatureMeasurement
+		temperatureMeasurements(first: Int after: String sensorId: ID batchId: ID fermentorId: ID): TemperatureMeasurement
 	}
 
 	type Mutation {
@@ -107,6 +110,16 @@ var Schema = `
 		temperatureSensor: TemperatureSensor
 		# The Fermentor the sensor was attached to, if any
 		fermentor: Fermentor
+	}
+
+	type TemperatureMeasurementConnection {
+		pageInfo: PageInfo!
+		edges: [TemperatureMeasurementEdge!]
+	}
+
+	type TemperatureMeasurementEdge {
+		cursor: String!
+		node: TemperatureMeasurement!
 	}
 
 	type TemperatureSensor {

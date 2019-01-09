@@ -106,6 +106,8 @@ CREATE TABLE IF NOT EXISTS temperature_measurements(
   user_id integer REFERENCES users (id) ON DELETE SET NULL,
   batch_id integer REFERENCES batches (id) ON DELETE SET NULL,
   temperature_sensor_id integer REFERENCES temperature_sensors (id) ON DELETE SET NULL,
+  -- Unsure the fk to fermentor matters but if 1 batch is split across multiple fermentors
+  -- then you might care in the future for reference
   fermentor_id integer REFERENCES fermentors (id) ON DELETE SET NULL,
   temperature double precision NOT NULL DEFAULT 0.0,
   units integer NOT NULL DEFAULT 0,
