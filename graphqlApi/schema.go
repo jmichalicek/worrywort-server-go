@@ -20,7 +20,7 @@ var Schema = `
 		batch(id: ID!): Batch
 		# Returns a list of batches for the currently authenticated user.
 		batches(first: Int after: String): BatchConnection!
-		# given sensors like iSpindel and Tilt, perhaps just `sensor` with a type
+		# given sensors like iSpindel and Tilt, perhaps just "sensor" with a type
 		# is more appropriate?
 		temperatureSensor(id: ID!): TemperatureSensor
 		temperatureSensors(first: Int after: String): TemperatureSensorConnection!
