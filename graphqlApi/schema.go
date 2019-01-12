@@ -25,7 +25,7 @@ var Schema = `
 		temperatureSensor(id: ID!): TemperatureSensor
 		temperatureSensors(first: Int after: String): TemperatureSensorConnection!
 		temperatureMeasurement(id: ID!): TemperatureMeasurement
-		temperatureMeasurements(first: Int after: String sensorId: ID batchId: ID fermentorId: ID): TemperatureMeasurement
+		temperatureMeasurements(first: Int after: String sensorId: ID batchId: ID fermentorId: ID): TemperatureMeasurementConnection
 	}
 
 	type Mutation {

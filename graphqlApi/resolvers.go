@@ -241,8 +241,8 @@ func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
 		return nil, err
 	}
 	edges := []*temperatureMeasurementEdge{}
-	for index, _ := range sensors {
-		measurementResolver := temperatureMeasurementResolver{t: measurements[index]}
+	for index, _ := range measurements {
+		measurementResolver := temperatureMeasurementResolver{m: measurements[index]}
 		// should base64 encode this cursor, but whatever for now
 		edge := &temperatureMeasurementEdge{Node: &measurementResolver, Cursor: string(measurementResolver.ID())}
 		edges = append(edges, edge)
