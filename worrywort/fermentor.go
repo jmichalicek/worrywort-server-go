@@ -52,7 +52,7 @@ func FindFermentor(params map[string]interface{}, db *sqlx.DB) (*Fermentor, erro
 	for _, k := range []string{"id", "user_id"} {
 		if v, ok := params[k]; ok {
 			values = append(values, v)
-			// TODO: Deal with values from temperature_sensor OR user table
+			// TODO: Deal with values from sensor OR user table
 			where = append(where, fmt.Sprintf("f.%s = ?", k))
 		}
 	}

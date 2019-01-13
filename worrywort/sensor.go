@@ -8,11 +8,11 @@ import (
 	"time"
 )
 
-// TemperatureSensor will need some other unique identifier which the unit itself
+// Sensor will need some other unique identifier which the unit itself
 // can know, ideally.
 // TODO: This may also want extra metadata such as model or type?  That is probably
 // going too far for now, so keep it simple.
-type TemperatureSensor struct {
+type Sensor struct {
 	Id          int           `db:"id"`
 	Name        string        `db:"name"`
 	CreatedBy   *User         `db:"created_by,prefix=u"`
@@ -31,42 +31,42 @@ type TemperatureSensor struct {
 }
 
 // Returns a list of the db columns to use for a SELECT query
-func (t TemperatureSensor) queryColumns() []string {
+func (t Sensor) queryColumns() []string {
 	// TODO: Way to dynamically build this using the `db` tag and reflection/introspection
 	return []string{"id", "name", "created_at", "updated_at", "user_id"}
 }
 
-// Returns a new TemperatureSensor
-func NewTemperatureSensor(id int, name string, createdBy *User, createdAt, updatedAt time.Time) TemperatureSensor {
-	return TemperatureSensor{Id: id, Name: name, CreatedBy: createdBy, CreatedAt: createdAt, UpdatedAt: updatedAt}
+// Returns a new Sensor
+func NewSensor(id int, name string, createdBy *User, createdAt, updatedAt time.Time) Sensor {
+	return Sensor{Id: id, Name: name, CreatedBy: createdBy, CreatedAt: createdAt, UpdatedAt: updatedAt}
 }
 
 // Look up a single temperature sensor
 // returns the first match, like .first() in Django
 // May change this up to just look up by id and then any other comparisons could
 // be done directly on the object
-func FindTemperatureSensor(params map[string]interface{}, db *sqlx.DB) (*TemperatureSensor, error) {
-	sensors, err := FindTemperatureSensors(params, db)
+func FindSensor(params map[string]interface{}, db *sqlx.DB) (*Sensor, error) {
+	sensors, err := FindSensors(params, db)
 	if err == nil && len(sensors) >= 1 {
 		return sensors[0], err
 	}
 	return nil, err
 }
 
-func FindTemperatureSensors(params map[string]interface{}, db *sqlx.DB) ([]*TemperatureSensor, error) {
+func FindSensors(params map[string]interface{}, db *sqlx.DB) ([]*Sensor, error) {
 	// TODO: Find a way to just pass in created_by sanely - maybe just manually map that to user_id if needed
 	// sqlx may have a good way to do that already.
 	// TODO: Pass in limit, offset!
-	// TODO: Maybe.  Move most of this logic to a function shared by FindTemperatureSensor and
-	// FIndTemperatureSensors so they just need to build the query with the shared logic then
+	// TODO: Maybe.  Move most of this logic to a function shared by FindSensor and
+	// FIndSensors so they just need to build the query with the shared logic then
 	// use db.Get() or db.Select()... only true if desired to have single error if more than 1 result
-	sensors := []*TemperatureSensor{}
+	sensors := []*Sensor{}
 	var values []interface{}
 	var where []string
 	for _, k := range []string{"id", "user_id", "fermentor_id"} {
 		if v, ok := params[k]; ok {
 			values = append(values, v)
-			// TODO: Deal with values from temperature_sensor OR user table
+			// TODO: Deal with values from sensor OR user table
 			where = append(where, fmt.Sprintf("t.%s = ?", k))
 		}
 	}
@@ -80,7 +80,7 @@ func FindTemperatureSensors(params map[string]interface{}, db *sqlx.DB) ([]*Temp
 	}
 
 	// TODO: Can I easily dynamically add in joining and attaching the User to this without overcomplicating the code?
-	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM temperature_sensors t WHERE ` + strings.Join(where, " AND ")
+	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM sensors t WHERE ` + strings.Join(where, " AND ")
 
 	query := db.Rebind(q)
 	err := db.Select(&sensors, query, values...)
@@ -92,18 +92,18 @@ func FindTemperatureSensors(params map[string]interface{}, db *sqlx.DB) ([]*Temp
 	return sensors, nil
 }
 
-// Look up a TemperatureSensor in the database and returns it with user joined.
+// Look up a Sensor in the database and returns it with user joined.
 // I should delete this rather than leaving commented, but leaving it here for easy reference for now.
-// func FindTemperatureSensor(params map[string]interface{}, db *sqlx.DB) (*TemperatureSensor, error) {
+// func FindSensor(params map[string]interface{}, db *sqlx.DB) (*Sensor, error) {
 // 	// TODO: Find a way to just pass in created_by sanely - maybe just manually map that to user_id if needed
 // 	// sqlx may have a good way to do that already.
-// 	t := TemperatureSensor{}
+// 	t := Sensor{}
 // 	var values []interface{}
 // 	var where []string
 // 	for _, k := range []string{"id", "user_id"} {
 // 		if v, ok := params[k]; ok {
 // 			values = append(values, v)
-// 			// TODO: Deal with values from temperature_sensor OR user table
+// 			// TODO: Deal with values from sensor OR user table
 // 			where = append(where, fmt.Sprintf("t.%s = ?", k))
 // 		}
 // 	}
@@ -117,7 +117,7 @@ func FindTemperatureSensors(params map[string]interface{}, db *sqlx.DB) ([]*Temp
 // 	for _, k := range u.queryColumns() {
 // 		selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
 // 	}
-// 	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM temperature_sensors t LEFT JOIN users u on u.id = t.user_id ` +
+// 	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM sensors t LEFT JOIN users u on u.id = t.user_id ` +
 // 		`WHERE ` + strings.Join(where, " AND ")
 // 	query := db.Rebind(q)
 // 	err := db.Get(&t, query, values...)
@@ -129,20 +129,20 @@ func FindTemperatureSensors(params map[string]interface{}, db *sqlx.DB) ([]*Temp
 
 // Save the User to the database.  If User.Id() is 0
 // then an insert is performed, otherwise an update on the User matching that id.
-func SaveTemperatureSensor(db *sqlx.DB, tm TemperatureSensor) (TemperatureSensor, error) {
+func SaveSensor(db *sqlx.DB, tm Sensor) (Sensor, error) {
 	if tm.Id != 0 {
-		return UpdateTemperatureSensor(db, tm)
+		return UpdateSensor(db, tm)
 	} else {
-		return InsertTemperatureSensor(db, tm)
+		return InsertSensor(db, tm)
 	}
 }
 
-func InsertTemperatureSensor(db *sqlx.DB, t TemperatureSensor) (TemperatureSensor, error) {
+func InsertSensor(db *sqlx.DB, t Sensor) (Sensor, error) {
 	var updatedAt time.Time
 	var createdAt time.Time
 	var sensorId int
 
-	query := db.Rebind(`INSERT INTO temperature_sensors (user_id, fermentor_id, name, updated_at)
+	query := db.Rebind(`INSERT INTO sensors (user_id, fermentor_id, name, updated_at)
 		VALUES (?, ?, ?, NOW()) RETURNING id, created_at, updated_at`)
 	err := db.QueryRow(query, t.UserId, t.FermentorId, t.Name).Scan(&sensorId, &createdAt, &updatedAt)
 	if err != nil {
@@ -156,11 +156,11 @@ func InsertTemperatureSensor(db *sqlx.DB, t TemperatureSensor) (TemperatureSenso
 	return t, nil
 }
 
-func UpdateTemperatureSensor(db *sqlx.DB, t TemperatureSensor) (TemperatureSensor, error) {
+func UpdateSensor(db *sqlx.DB, t Sensor) (Sensor, error) {
 	// TODO: TEST CASE
 	var updatedAt time.Time
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
-	query := db.Rebind(`UPDATE temperature_sensors SET user_id = ?, fermentor_id = ?, name = ?, updated_at = NOW()
+	query := db.Rebind(`UPDATE sensors SET user_id = ?, fermentor_id = ?, name = ?, updated_at = NOW()
 		WHERE id = ? RETURNING updated_at`)
 	err := db.QueryRow(
 		query, t.UserId, t.FermentorId, t.Name, t.Id).Scan(&updatedAt)

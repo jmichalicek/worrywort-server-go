@@ -11,16 +11,16 @@ import (
 // A single recorded temperature measurement from a temperatureSensor
 // This may get some tweaking to play nicely with data stored in Postgres or Influxdb
 type TemperatureMeasurement struct {
-	Id                  string              `db:"id"` // use a uuid
-	Temperature         float64             `db:"temperature"`
-	Units               TemperatureUnitType `db:"units"`
-	RecordedAt          time.Time           `db:"recorded_at"` // when the measurement was recorded
-	Batch               *Batch              `db:"batch,prefix=b"`
-	BatchId             sql.NullInt64       `db:"batch_id"`
-	TemperatureSensor   *TemperatureSensor  `db:"temperature_sensor,prefix=ts"`
-	TemperatureSensorId sql.NullInt64       `db:"temperature_sensor_id"`
-	Fermentor           *Fermentor          `db:"fermentor,prefix=f"` // Do I really care? I might for history.
-	FermentorId         sql.NullInt64       `db:"fermentor_id"`
+	Id          string              `db:"id"` // use a uuid
+	Temperature float64             `db:"temperature"`
+	Units       TemperatureUnitType `db:"units"`
+	RecordedAt  time.Time           `db:"recorded_at"` // when the measurement was recorded
+	Batch       *Batch              `db:"batch,prefix=b"`
+	BatchId     sql.NullInt64       `db:"batch_id"`
+	Sensor      *Sensor             `db:"sensor,prefix=ts"`
+	SensorId    sql.NullInt64       `db:"sensor_id"`
+	Fermentor   *Fermentor          `db:"fermentor,prefix=f"` // Do I really care? I might for history.
+	FermentorId sql.NullInt64       `db:"fermentor_id"`
 
 	// not sure createdBy is a useful name in this case vs just `user` but its consistent
 	CreatedBy *User         `db:"created_by,prefix=u"`
@@ -50,10 +50,10 @@ func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 	var measurementId string
 
 	insertVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt, tm.BatchId,
-		tm.TemperatureSensorId, tm.FermentorId}
+		tm.SensorId, tm.FermentorId}
 
 	query := db.Rebind(`INSERT INTO temperature_measurements (user_id, temperature, units, recorded_at, created_at,
-		updated_at, batch_id, temperature_sensor_id, fermentor_id)
+		updated_at, batch_id, sensor_id, fermentor_id)
 		VALUES (?, ?, ?, ?, NOW(), NOW(), ?, ?, ?) RETURNING id, created_at, updated_at`)
 	err := db.QueryRow(query, insertVals...).Scan(&measurementId, &createdAt, &updatedAt)
 	if err != nil {
@@ -74,12 +74,12 @@ func UpdateTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 	var updatedAt time.Time
 
 	paramVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt, tm.BatchId,
-		tm.TemperatureSensorId, tm.FermentorId}
+		tm.SensorId, tm.FermentorId}
 
 	paramVals = append(paramVals, tm.Id)
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
 	query := db.Rebind(`UPDATE temperature_measurements SET user_id = ?, temperature = ?, units = ?,
-		recorded_at = ?, updated_at = NOW(), batch_id = ?, temperature_sensor_id = ?, fermentor_id = ? WHERE id = ? RETURNING updated_at`)
+		recorded_at = ?, updated_at = NOW(), batch_id = ?, sensor_id = ?, fermentor_id = ? WHERE id = ? RETURNING updated_at`)
 	err := db.QueryRow(query, paramVals...).Scan(&updatedAt)
 	if err != nil {
 		return tm, err
@@ -96,10 +96,10 @@ func buildTemperatureMeasurementsQuery(params map[string]interface{}, db *sqlx.D
 	var where []string
 	// TODO: I suspect I will want to sort/filter by datetimes and by temperatures here as well
 	// using ranges or gt/lt, not jus a straight equals.
-	for _, k := range []string{"id", "user_id", "fermentor_id", "batch_id", "temperature_sensor_id"} {
+	for _, k := range []string{"id", "user_id", "fermentor_id", "batch_id", "sensor_id"} {
 		if v, ok := params[k]; ok {
 			values = append(values, v)
-			// TODO: Deal with values from temperature_sensor OR user table
+			// TODO: Deal with values from sensor OR user table
 			where = append(where, fmt.Sprintf("tm.%s = ?", k))
 		}
 	}
@@ -108,7 +108,7 @@ func buildTemperatureMeasurementsQuery(params map[string]interface{}, db *sqlx.D
 	// as in BatchesForUser, this now seems dumb
 	// queryCols := []string{"id", "name", "created_at", "updated_at", "user_id"}
 	// If I need this many places, maybe make a const
-	for _, k := range []string{"id", "user_id", "fermentor_id", "batch_id", "temperature_sensor_id", "temperature",
+	for _, k := range []string{"id", "user_id", "fermentor_id", "batch_id", "sensor_id", "temperature",
 		"units", "recorded_at", "created_at", "updated_at"} {
 		selectCols += fmt.Sprintf("tm.%s, ", k)
 	}

@@ -1,7 +1,7 @@
 package graphqlApi
 
 // fermentor(id: ID!): Fermentor
-// temperatureSensor(id: ID!): TemperatureSensor
+// sensor(id: ID!): Sensor
 // temperatureMeasurement(id: ID!): TemperatureMeasurement
 
 // part of schema section
@@ -22,8 +22,8 @@ var Schema = `
 		batches(first: Int after: String): BatchConnection!
 		# given sensors like iSpindel and Tilt, perhaps just "sensor" with a type
 		# is more appropriate?
-		temperatureSensor(id: ID!): TemperatureSensor
-		temperatureSensors(first: Int after: String): TemperatureSensorConnection!
+		sensor(id: ID!): Sensor
+		sensors(first: Int after: String): SensorConnection!
 		temperatureMeasurement(id: ID!): TemperatureMeasurement
 		temperatureMeasurements(first: Int after: String sensorId: ID batchId: ID fermentorId: ID): TemperatureMeasurementConnection
 	}
@@ -95,7 +95,7 @@ var Schema = `
 		id: ID!
 	}
 
-	# A measurement taken by a TemperatureSensor
+	# A measurement taken by a Sensor
 	type TemperatureMeasurement {
 		id: ID!
 		# The recorded temperature
@@ -106,8 +106,8 @@ var Schema = `
 		recordedAt: String!
 		# The batch being monitored, if this was actively monitoring a batch
 		batch: Batch
-		# The TemperatureSensor which took the measurement
-		temperatureSensor: TemperatureSensor
+		# The Sensor which took the measurement
+		sensor: Sensor
 		# The Fermentor the sensor was attached to, if any
 		fermentor: Fermentor
 	}
@@ -122,21 +122,21 @@ var Schema = `
 		node: TemperatureMeasurement!
 	}
 
-	type TemperatureSensor {
+	type Sensor {
 		id: ID!
 		# Friendly name of the temperature sensor
 		name: String!
 		createdBy: User
 	}
 
-	type TemperatureSensorConnection {
+	type SensorConnection {
 		pageInfo: PageInfo!
-		edges: [TemperatureSensorEdge!]
+		edges: [SensorEdge!]
 	}
 
-	type TemperatureSensorEdge {
+	type SensorEdge {
 		cursor: String!
-		node: TemperatureSensor!
+		node: Sensor!
 	}
 
 	type PageInfo {
@@ -159,8 +159,8 @@ var Schema = `
 		temperature: Float!
 		# The date and time the temperature was recorded by the sensor
 		recordedAt: String!
-		# The id of the TemperatureSensor which took the measurement
-		temperatureSensorId: ID!
+		# The id of the Sensor which took the measurement
+		sensorId: ID!
 		# The units the temperature was taken in
 		units: TemperatureUnit!
 		# The Batch being monitored if this was monitoring a Batch
