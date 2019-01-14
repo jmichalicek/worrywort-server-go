@@ -80,13 +80,13 @@ func TestSaveFermentor(t *testing.T) {
 	})
 }
 
-func TestNewTemperatureSensor(t *testing.T) {
+func TestNewSensor(t *testing.T) {
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	u := NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	expected := TemperatureSensor{Id: 1, Name: "Therm1", CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt}
+	expected := Sensor{Id: 1, Name: "Therm1", CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt}
 
-	therm := NewTemperatureSensor(1, "Therm1", &u, createdAt, updatedAt)
+	therm := NewSensor(1, "Therm1", &u, createdAt, updatedAt)
 
 	if therm != expected {
 		t.Errorf("Expected:\n%v\n\nGot:\n%v\n", expected, therm)
@@ -94,7 +94,7 @@ func TestNewTemperatureSensor(t *testing.T) {
 
 }
 
-func TestFindTemperatureSensor(t *testing.T) {
+func TestFindSensor(t *testing.T) {
 	db, err := setUpTestDb()
 	if err != nil {
 		t.Fatalf("Got error setting up database: %s", err)
@@ -108,13 +108,13 @@ func TestFindTemperatureSensor(t *testing.T) {
 	}
 
 	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
-	sensor := TemperatureSensor{Name: "Test Sensor", UserId: userId}
-	sensor, err = SaveTemperatureSensor(db, sensor)
+	sensor := Sensor{Name: "Test Sensor", UserId: userId}
+	sensor, err = SaveSensor(db, sensor)
 	params := make(map[string]interface{})
 	params["user_id"] = u.Id
 	params["id"] = sensor.Id
-	foundSensor, err := FindTemperatureSensor(params, db)
-	// foundSensor, err := FindTemperatureSensor(map[string]interface{}{"user_id": u.Id, "id": sensor.Id}, db)
+	foundSensor, err := FindSensor(params, db)
+	// foundSensor, err := FindSensor(map[string]interface{}{"user_id": u.Id, "id": sensor.Id}, db)
 	if err != nil {
 		t.Errorf("%v", err)
 	}
@@ -124,7 +124,7 @@ func TestFindTemperatureSensor(t *testing.T) {
 
 }
 
-func TestSaveTemperatureSensor(t *testing.T) {
+func TestSaveSensor(t *testing.T) {
 	db, err := setUpTestDb()
 	if err != nil {
 		t.Fatalf("Got error setting up database: %s", err)
@@ -138,38 +138,38 @@ func TestSaveTemperatureSensor(t *testing.T) {
 	}
 
 	t.Run("Save New Sensor", func(t *testing.T) {
-		sensor, err := SaveTemperatureSensor(db, TemperatureSensor{Name: "Test Sensor", CreatedBy: &u})
+		sensor, err := SaveSensor(db, Sensor{Name: "Test Sensor", CreatedBy: &u})
 		if err != nil {
 			t.Errorf("%v", err)
 		}
 		if sensor.Id == 0 {
-			t.Errorf("SaveTemperatureSensor did not set id on new TemperatureSensor")
+			t.Errorf("SaveSensor did not set id on new Sensor")
 		}
 
 		if sensor.UpdatedAt.IsZero() {
-			t.Errorf("SaveTemperatureSensor did not set UpdatedAt")
+			t.Errorf("SaveSensor did not set UpdatedAt")
 		}
 
 		if sensor.CreatedAt.IsZero() {
-			t.Errorf("SaveTemperatureSensor did not set CreatedAt")
+			t.Errorf("SaveSensor did not set CreatedAt")
 		}
 	})
 
 	t.Run("Update Sensor", func(t *testing.T) {
-		sensor, err := SaveTemperatureSensor(db, TemperatureSensor{Name: "Test Sensor", CreatedBy: &u})
+		sensor, err := SaveSensor(db, Sensor{Name: "Test Sensor", CreatedBy: &u})
 		// set date back in the past so that our date comparison consistenyly works
 		sensor.UpdatedAt = sensor.UpdatedAt.AddDate(0, 0, -1)
 		sensor.Name = "Updated Name"
-		updatedSensor, err := SaveTemperatureSensor(db, sensor)
+		updatedSensor, err := SaveSensor(db, sensor)
 		if err != nil {
 			t.Errorf("%v", err)
 		}
 		if updatedSensor.Name != "Updated Name" {
-			t.Errorf("SaveTemperatureSensor did not update Name")
+			t.Errorf("SaveSensor did not update Name")
 		}
 
 		if sensor.UpdatedAt == updatedSensor.UpdatedAt {
-			t.Errorf("SaveTemperatureSensor did not update UpdatedAt")
+			t.Errorf("SaveSensor did not update UpdatedAt")
 		}
 	})
 }
@@ -188,7 +188,7 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 	}
 	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 
-	sensor, err := SaveTemperatureSensor(db, TemperatureSensor{Name: "Test Sensor", CreatedBy: &u})
+	sensor, err := SaveSensor(db, Sensor{Name: "Test Sensor", CreatedBy: &u})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -202,7 +202,7 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 
 	t.Run("Save New Measurement With All Fields", func(t *testing.T) {
 		m, err := SaveTemperatureMeasurement(db,
-			TemperatureMeasurement{CreatedBy: &u, UserId: userId, TemperatureSensor: &sensor, TemperatureSensorId: sensorId,
+			TemperatureMeasurement{CreatedBy: &u, UserId: userId, Sensor: &sensor, SensorId: sensorId,
 				Temperature: 70.0, Units: FAHRENHEIT, Batch: &b, BatchId: batchId, RecordedAt: time.Now()})
 		if err != nil {
 			t.Errorf("%v", err)
@@ -224,8 +224,8 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 		for _, k := range u.queryColumns() {
 			selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
 		}
-		selectCols += fmt.Sprintf("ts.id \"temperature_sensor.id\", ts.name \"temperature_sensor.name\", ")
-		q := `SELECT tm.temperature, tm.units,  ` + strings.Trim(selectCols, ", ") + ` from temperature_measurements tm LEFT JOIN users u ON u.id = tm.user_id LEFT JOIN temperature_sensors ts ON ts.id = tm.temperature_sensor_id WHERE tm.id = ? AND tm.user_id = ? AND tm.temperature_sensor_id = ?`
+		selectCols += fmt.Sprintf("ts.id \"sensor.id\", ts.name \"sensor.name\", ")
+		q := `SELECT tm.temperature, tm.units,  ` + strings.Trim(selectCols, ", ") + ` from temperature_measurements tm LEFT JOIN users u ON u.id = tm.user_id LEFT JOIN sensors ts ON ts.id = tm.sensor_id WHERE tm.id = ? AND tm.user_id = ? AND tm.sensor_id = ?`
 		query := db.Rebind(q)
 		err = db.Get(&newMeasurement, query, m.Id, u.Id, sensor.Id)
 
@@ -236,7 +236,7 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 
 	t.Run("Save New Measurement Without Optional Fields", func(t *testing.T) {
 		m, err := SaveTemperatureMeasurement(db,
-			TemperatureMeasurement{CreatedBy: &u, UserId: userId, TemperatureSensorId: sensorId, TemperatureSensor: &sensor, Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()})
+			TemperatureMeasurement{CreatedBy: &u, UserId: userId, SensorId: sensorId, Sensor: &sensor, Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()})
 		if err != nil {
 			t.Errorf("%v", err)
 		}
@@ -253,7 +253,7 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 		}
 
 		newMeasurement := TemperatureMeasurement{}
-		q := `SELECT tm.temperature, tm.units, tm.user_id, tm.temperature_sensor_id from temperature_measurements tm LEFT JOIN users u ON u.id = tm.user_id LEFT JOIN temperature_sensors ts ON ts.id = tm.temperature_sensor_id WHERE tm.id = ? AND tm.user_id = ? AND tm.temperature_sensor_id = ?`
+		q := `SELECT tm.temperature, tm.units, tm.user_id, tm.sensor_id from temperature_measurements tm LEFT JOIN users u ON u.id = tm.user_id LEFT JOIN sensors ts ON ts.id = tm.sensor_id WHERE tm.id = ? AND tm.user_id = ? AND tm.sensor_id = ?`
 		query := db.Rebind(q)
 		err = db.Get(&newMeasurement, query, m.Id, u.Id, sensor.Id)
 
@@ -264,7 +264,7 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 
 	t.Run("Update Temperature Measurement", func(t *testing.T) {
 		m, err := SaveTemperatureMeasurement(db,
-			TemperatureMeasurement{CreatedBy: &u, UserId: userId, TemperatureSensorId: sensorId, TemperatureSensor: &sensor, Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()})
+			TemperatureMeasurement{CreatedBy: &u, UserId: userId, SensorId: sensorId, Sensor: &sensor, Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()})
 		if err != nil {
 			t.Errorf("%v", err)
 		}
@@ -281,7 +281,7 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 		}
 
 		if m.UpdatedAt == updatedMeasurement.UpdatedAt {
-			t.Errorf("SaveTemperatureSensor did not update UpdatedAt. Expected: %v\nGot: %v", m.UpdatedAt, updatedMeasurement.UpdatedAt)
+			t.Errorf("SaveSensor did not update UpdatedAt. Expected: %v\nGot: %v", m.UpdatedAt, updatedMeasurement.UpdatedAt)
 		}
 
 		// Now unset the batch, just to see

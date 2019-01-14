@@ -9,17 +9,17 @@ import (
 	"strconv"
 )
 
-// Resolve a worrywort.TemperatureSensor
-type temperatureSensorResolver struct {
-	t *worrywort.TemperatureSensor
+// Resolve a worrywort.Sensor
+type sensorResolver struct {
+	t *worrywort.Sensor
 }
 
-func (r *temperatureSensorResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.t.Id)) }
-func (r *temperatureSensorResolver) CreatedAt() string { return dateString(r.t.CreatedAt) }
-func (r *temperatureSensorResolver) UpdatedAt() string { return dateString(r.t.UpdatedAt) }
+func (r *sensorResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.t.Id)) }
+func (r *sensorResolver) CreatedAt() string { return dateString(r.t.CreatedAt) }
+func (r *sensorResolver) UpdatedAt() string { return dateString(r.t.UpdatedAt) }
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
-func (r *temperatureSensorResolver) CreatedBy(ctx context.Context) *userResolver {
+func (r *sensorResolver) CreatedBy(ctx context.Context) *userResolver {
 	var resolved *userResolver
 	sensor := r.t
 	// Not sure these parens are necessary, but vs code complains without them
@@ -42,27 +42,27 @@ func (r *temperatureSensorResolver) CreatedBy(ctx context.Context) *userResolver
 	return resolved
 }
 
-func (r *temperatureSensorResolver) Name() string { return r.t.Name }
+func (r *sensorResolver) Name() string { return r.t.Name }
 
-type temperatureSensorEdge struct {
+type sensorEdge struct {
 	Cursor string
-	Node   *temperatureSensorResolver
+	Node   *sensorResolver
 }
 
-func (r *temperatureSensorEdge) CURSOR() string                   { return r.Cursor }
-func (r *temperatureSensorEdge) NODE() *temperatureSensorResolver { return r.Node }
+func (r *sensorEdge) CURSOR() string        { return r.Cursor }
+func (r *sensorEdge) NODE() *sensorResolver { return r.Node }
 
 // Going full relay, I suppose
 // the graphql lib needs case-insensitive match of names on the methods
 // so the resolver functions are just named all caps... alternately the
 // struct members could be named as such to avoid a collision
 // idea from https://github.com/deltaskelta/graphql-go-pets-example/blob/ab169fb644b1a00998208e7feede5975214d60da/users.go#L156
-type temperatureSensorConnection struct {
+type sensorConnection struct {
 	// if dataloader is implemented, this could just store the ids (and do a lighter query for those ids) and use dataloader
 	// to get each individual edge or sensor and build the edge in the resolver function
-	Edges    *[]*temperatureSensorEdge
+	Edges    *[]*sensorEdge
 	PageInfo *pageInfo
 }
 
-func (r *temperatureSensorConnection) PAGEINFO() pageInfo               { return *r.PageInfo }
-func (r *temperatureSensorConnection) EDGES() *[]*temperatureSensorEdge { return r.Edges }
+func (r *sensorConnection) PAGEINFO() pageInfo    { return *r.PageInfo }
+func (r *sensorConnection) EDGES() *[]*sensorEdge { return r.Edges }

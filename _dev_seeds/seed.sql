@@ -13,5 +13,5 @@ INSERT INTO fermentors (id, user_id, name, description, volume, volume_units, fe
   VALUES (1, 1, 'Seeded Fermentor 1', 'Initial fermentor from dev seed', 2.0, 0, 0, 'f', 't', NULL, NOW())
   ON CONFLICT DO NOTHING;
 
-INSERT INTO temperature_sensors (id, user_id, name, description, updated_at)
+INSERT INTO sensors (id, user_id, name, description, updated_at)
   VALUES (1, 1, 'Seed Sensor 1', 'Initial sensor from dev seed', now()) ON CONFLICT DO NOTHING;

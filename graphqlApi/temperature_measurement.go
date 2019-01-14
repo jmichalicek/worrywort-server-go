@@ -41,23 +41,23 @@ func (r *temperatureMeasurementResolver) Batch(ctx context.Context) *batchResolv
 	return resolved
 }
 
-func (r *temperatureMeasurementResolver) TemperatureSensor(ctx context.Context) *temperatureSensorResolver {
+func (r *temperatureMeasurementResolver) Sensor(ctx context.Context) *sensorResolver {
 	// TODO: lookup sensor if not already populated
-	var resolved *temperatureSensorResolver
-	if r.m.TemperatureSensor != nil {
-		resolved = &temperatureSensorResolver{t: r.m.TemperatureSensor}
-	} else if r.m.TemperatureSensorId.Valid {
+	var resolved *sensorResolver
+	if r.m.Sensor != nil {
+		resolved = &sensorResolver{t: r.m.Sensor}
+	} else if r.m.SensorId.Valid {
 		db, ok := ctx.Value("db").(*sqlx.DB)
 		if !ok {
 			log.Printf("No database in context")
 			return nil
 		}
-		sensor, err := worrywort.FindTemperatureSensor(map[string]interface{}{"id": r.m.TemperatureSensorId}, db)
+		sensor, err := worrywort.FindSensor(map[string]interface{}{"id": r.m.SensorId}, db)
 		if err != nil {
 			log.Printf("%v", err)
 			return nil
 		}
-		resolved = &temperatureSensorResolver{t: sensor}
+		resolved = &sensorResolver{t: sensor}
 	}
 
 	return resolved

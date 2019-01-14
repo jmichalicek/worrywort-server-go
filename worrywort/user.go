@@ -200,7 +200,7 @@ func FindUser(params map[string]interface{}, db *sqlx.DB) (*User, error) {
 	for _, k := range []string{"id", "email"} {
 		if v, ok := params[k]; ok {
 			values = append(values, v)
-			// TODO: Deal with values from temperature_sensor OR user table
+			// TODO: Deal with values from sensor OR user table
 			where = append(where, fmt.Sprintf("u.%s = ?", k))
 		}
 	}

@@ -356,7 +356,7 @@ func TestFermentorResolver(t *testing.T) {
 	})
 }
 
-func TestTemperatureSensorResolver(t *testing.T) {
+func TestSensorResolver(t *testing.T) {
 	db, err := setUpTestDb()
 	if err != nil {
 		t.Fatalf("Got error setting up database: %s", err)
@@ -368,9 +368,9 @@ func TestTemperatureSensorResolver(t *testing.T) {
 
 	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
 	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
-	sensor := worrywort.NewTemperatureSensor(1, "Therm1", &u, time.Now(), time.Now())
+	sensor := worrywort.NewSensor(1, "Therm1", &u, time.Now(), time.Now())
 	sensor.UserId = userId
-	r := temperatureSensorResolver{t: &sensor}
+	r := sensorResolver{t: &sensor}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = r.ID()
@@ -405,14 +405,14 @@ func TestTemperatureSensorResolver(t *testing.T) {
 	})
 
 	t.Run("CreatedBy() without User populated", func(t *testing.T) {
-		var s2 worrywort.TemperatureSensor = sensor
+		var s2 worrywort.Sensor = sensor
 		s2.CreatedBy = nil
 		s2.Id = 0
-		s2, err = worrywort.SaveTemperatureSensor(db, s2)
+		s2, err = worrywort.SaveSensor(db, s2)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
-		r2 := temperatureSensorResolver{t: &s2}
+		r2 := sensorResolver{t: &s2}
 		actual := r2.CreatedBy(ctx)
 		expected := &userResolver{u: &u}
 
@@ -434,13 +434,13 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 
 	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
 	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
-	sensor := worrywort.NewTemperatureSensor(1, "Therm1", &u, time.Now(), time.Now())
+	sensor := worrywort.NewSensor(1, "Therm1", &u, time.Now(), time.Now())
 	batch := makeTestBatch(u, true)
 	fermentor := worrywort.NewFermentor(1, "Ferm", "A Fermentor", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u,
 		time.Now(), time.Now())
 	timeRecorded := time.Now().Add(time.Hour * time.Duration(-1))
 	measurement := worrywort.TemperatureMeasurement{Id: "shouldbeauuid", Temperature: 64.26, Units: worrywort.FAHRENHEIT, RecordedAt: timeRecorded,
-		Batch: &batch, TemperatureSensor: &sensor, Fermentor: &fermentor, CreatedBy: &u, UserId: userId, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+		Batch: &batch, Sensor: &sensor, Fermentor: &fermentor, CreatedBy: &u, UserId: userId, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	resolver := temperatureMeasurementResolver{m: &measurement}
 
 	t.Run("ID()", func(t *testing.T) {
@@ -498,9 +498,9 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 		}
 	})
 
-	t.Run("TemperatureSensor()", func(t *testing.T) {
-		ts := resolver.TemperatureSensor(ctx)
-		expected := temperatureSensorResolver{t: measurement.TemperatureSensor}
+	t.Run("Sensor()", func(t *testing.T) {
+		ts := resolver.Sensor(ctx)
+		expected := sensorResolver{t: measurement.Sensor}
 		if expected != *ts {
 			t.Errorf("\nExpected: %v\ngot: %v", expected, ts)
 		}

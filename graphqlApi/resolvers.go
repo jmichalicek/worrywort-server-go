@@ -135,9 +135,9 @@ func (r *Resolver) Fermentor(ctx context.Context, args struct{ ID graphql.ID }) 
 	return nil, errors.New("Not Implemented") // so that it is obvious this is no implemented
 }
 
-func (r *Resolver) TemperatureSensor(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureSensorResolver, error) {
+func (r *Resolver) Sensor(ctx context.Context, args struct{ ID graphql.ID }) (*sensorResolver, error) {
 	authUser, _ := authMiddleware.UserFromContext(ctx)
-	var resolved *temperatureSensorResolver
+	var resolved *sensorResolver
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
 		// TODO: logging with stack info?
@@ -154,19 +154,19 @@ func (r *Resolver) TemperatureSensor(ctx context.Context, args struct{ ID graphq
 
 	userId := sql.NullInt64{Valid: true, Int64: int64(authUser.Id)}
 
-	sensor, err := worrywort.FindTemperatureSensor(map[string]interface{}{"id": sensorId, "user_id": userId}, db)
+	sensor, err := worrywort.FindSensor(map[string]interface{}{"id": sensorId, "user_id": userId}, db)
 	if err != nil {
 		log.Printf("%v", err)
 	} else if sensor != nil {
-		resolved = &temperatureSensorResolver{t: sensor}
+		resolved = &sensorResolver{t: sensor}
 	}
 	return resolved, err
 }
 
-func (r *Resolver) TemperatureSensors(ctx context.Context, args struct {
+func (r *Resolver) Sensors(ctx context.Context, args struct {
 	First *int
 	After *string
-}) (*temperatureSensorConnection, error) {
+}) (*sensorConnection, error) {
 	authUser, _ := authMiddleware.UserFromContext(ctx)
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
@@ -176,21 +176,21 @@ func (r *Resolver) TemperatureSensors(ctx context.Context, args struct {
 	}
 	userId := sql.NullInt64{Valid: true, Int64: int64(authUser.Id)}
 	// Now get the temperature sensors, build out the info
-	sensors, err := worrywort.FindTemperatureSensors(map[string]interface{}{"user_id": userId}, db)
+	sensors, err := worrywort.FindSensors(map[string]interface{}{"user_id": userId}, db)
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("%v", err)
 		return nil, err
 	}
-	edges := []*temperatureSensorEdge{}
+	edges := []*sensorEdge{}
 	for index, _ := range sensors {
-		sensorResolver := temperatureSensorResolver{t: sensors[index]}
+		sensorResolver := sensorResolver{t: sensors[index]}
 		// should base64 encode this cursor, but whatever for now
-		edge := &temperatureSensorEdge{Node: &sensorResolver, Cursor: string(sensorResolver.ID())}
+		edge := &sensorEdge{Node: &sensorResolver, Cursor: string(sensorResolver.ID())}
 		edges = append(edges, edge)
 	}
 	hasNextPage := false
 	hasPreviousPage := false
-	return &temperatureSensorConnection{
+	return &sensorConnection{
 		PageInfo: &pageInfo{HasNextPage: hasNextPage, HasPreviousPage: hasPreviousPage},
 		Edges:    &edges}, nil
 }
@@ -257,11 +257,11 @@ func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
 // Input types
 // Create a temperatureMeasurement... review docs on how to really implement this
 type createTemperatureMeasurementInput struct {
-	BatchId             *graphql.ID
-	RecordedAt          string //time.Time
-	Temperature         float64
-	TemperatureSensorId graphql.ID
-	Units               string // it seems this graphql server cannot handle mapping enum to struct inputs
+	BatchId     *graphql.ID
+	RecordedAt  string //time.Time
+	Temperature float64
+	SensorId    graphql.ID
+	Units       string // it seems this graphql server cannot handle mapping enum to struct inputs
 }
 
 // Mutation Payloads
@@ -293,9 +293,9 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 		unitType = worrywort.CELSIUS
 	}
 
-	sensorId := ToNullInt64(string(input.TemperatureSensorId))
-	tempSensorId, err := strconv.ParseInt(string(input.TemperatureSensorId), 10, 0)
-	sensorPtr, err := worrywort.FindTemperatureSensor(map[string]interface{}{"id": tempSensorId, "user_id": u.Id}, r.db)
+	sensorId := ToNullInt64(string(input.SensorId))
+	tempSensorId, err := strconv.ParseInt(string(input.SensorId), 10, 0)
+	sensorPtr, err := worrywort.FindSensor(map[string]interface{}{"id": tempSensorId, "user_id": u.Id}, r.db)
 	if err != nil {
 		// TODO: Probably need a friendlier error here or for our payload to have a shopify style userErrors
 		// and then not ever return nil from this either way...maybe
@@ -304,7 +304,7 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 		}
 		// TODO: only return THIS error if it really does not exist.  May need other errors
 		// for other stuff
-		return nil, errors.New("Specified TemperatureSensor does not exist.")
+		return nil, errors.New("Specified Sensor does not exist.")
 	}
 
 	var batchPtr *worrywort.Batch = nil
@@ -332,7 +332,7 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 		return nil, err
 	}
 
-	t := worrywort.TemperatureMeasurement{TemperatureSensor: sensorPtr, TemperatureSensorId: sensorId,
+	t := worrywort.TemperatureMeasurement{Sensor: sensorPtr, SensorId: sensorId,
 		Temperature: input.Temperature, Units: unitType, RecordedAt: recordedAt, CreatedBy: &u, UserId: userId,
 		Batch: batchPtr, BatchId: batchId}
 	t, err = worrywort.SaveTemperatureMeasurement(r.db, t)
