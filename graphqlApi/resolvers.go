@@ -276,6 +276,7 @@ func (c createTemperatureMeasurementPayload) TemperatureMeasurement() *temperatu
 // Mutations
 
 // Create a temperature measurementId
+// TODO: move me to temperature_measurement.go ??
 func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struct {
 	Input *createTemperatureMeasurementInput
 }) (*createTemperatureMeasurementPayload, error) {

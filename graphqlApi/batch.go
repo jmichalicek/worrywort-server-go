@@ -115,3 +115,71 @@ type batchConnection struct {
 
 func (r *batchConnection) PAGEINFO() pageInfo   { return *r.PageInfo }
 func (r *batchConnection) EDGES() *[]*batchEdge { return r.Edges }
+
+// Mutations for Batches
+// Somewhat feels like this should go elsewhere, in a mutation specific file, but meh.
+// Input types
+// Create a temperatureMeasurement... review docs on how to really implement this
+type createBatchInput struct {
+	Name               string
+	BrewNotes          *string
+	BrewedAt         string //time.Time
+	BottledAt        *string //time.Time
+	VolumeBoiled       *float64
+	VolumeInFermentor  *float64
+	VolumeUnits        *string // VolumeUnitType - can graphql-go map this?
+	OriginalGravity    *float64
+	FinalGravity       *float64
+	// MaxTemperature     *float64
+	// MinTemperature     *float64
+	// AverageTemperature *float64  not even sure this should be on the model...
+	RecipeURL *string
+	TastingNotes       *string
+}
+
+// Mutation Payloads
+type createBatchPayload struct {
+	b *batchResolver
+}
+
+func (c createBatchPayload) Batch() *batchResolver {
+	return c.b
+}
+
+func (r *Resolver) CreateBatch(ctx context.Context, args *struct {
+	Input *createBatchInput
+}) (*createBatchPayload, error) {
+	u, _ := authMiddleware.UserFromContext(ctx)
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
+
+	var inputPtr *createBatchInput = args.Input
+	var input createBatchInput = *inputPtr
+
+	// for actual iso 8601, use "2006-01-02T15:04:05-0700"
+	// TODO: test parsing both
+	brewedAt, err := time.Parse(time.RFC3339, input.BrewedAt)
+	if err != nil {
+		// TODO: See what the actual error types are and try to return friendlier errors which are not golang specific messaging
+		return nil, err
+	}
+
+	bottledAt, err := time.Parse(time.RFC3339, input.BottledAt)
+	if err != nil {
+		// TODO: See what the actual error types are and try to return friendlier errors which are not golang specific messaging
+		return nil, err
+	}
+
+	// TODO: Handle all of the optional inputs which could come in as null here but should be empty string when saved
+	// or could come in as an empty string but should be saved to db as null or nullint, etc.
+
+	batch := worrywort.Batch{Name: input.Name, BrewedDate: brewedAt, BottledDate: bottledAt}
+	batch, err = worrywort.SaveBatch(r.db, batch)
+	if err != nil {
+		log.Printf("Failed to save TemperatureMeasurement: %v\n", err)
+		return nil, err
+	}
+
+	resolvedBatch := batchResolver{b: &batch}
+	result := createBatchPayload{b: &resolvedBatch}
+	return &result, nil
+}

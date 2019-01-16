@@ -45,8 +45,15 @@ type Batch struct {
 	VolumeBoiled       float64        `db:"volume_boiled"` // sql nullfloats?
 	VolumeInFermentor  float64        `db:"volume_in_fermentor"`
 	VolumeUnits        VolumeUnitType `db:"volume_units"`
+	// TODO: Volume bottled?
+
+	// TODO: gravity in other units?  Brix, etc?
 	OriginalGravity    float64        `db:"original_gravity"`
 	FinalGravity       float64        `db:"final_gravity"` // TODO: sql.nullfloat64?
+	// TODO: this stuff
+	// Should any of these temperatures really be here? they can be queried/calculated from the db already...
+	// although maybe should be a property but NOT a db field...
+	// and need the units... C or F.  Maybe should just always do F and then convert.
 	MaxTemperature     float64        `db:"max_temperature"`
 	MinTemperature     float64        `db:"min_temperature"`
 	AverageTemperature float64        `db:"average_temperature"`
