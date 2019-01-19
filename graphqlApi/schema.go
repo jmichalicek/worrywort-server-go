@@ -34,7 +34,8 @@ var Schema = `
 		# Might remove createTemperatureMeasurement in favor of having those created via more IoT Friendly
 		# system such as mqtt.  Then system can look at relationships to attach to batch, fermenter, etc.
 		# but will definitely need an updateTemperatureMeasurement() to edit - ie. attach to a batch later, etc.
-		createTemperatureMeasurement(input: CreateTemperatureMeasurementInput): CreateTemperatureMeasurementPayload
+		createTemperatureMeasurement(input: CreateTemperatureMeasurementInput!): CreateTemperatureMeasurementPayload
+		createBatch(input: CreateBatchInput!): CreateBatchPayload
 	}
 
 	enum VolumeUnit {
@@ -85,6 +86,10 @@ var Schema = `
 	type BatchEdge {
 		cursor: String!
 		node: Batch!
+	}
+
+	type CreateBatchPayload {
+		batch: Batch
 	}
 
 	type CreateTemperatureMeasurementPayload {
@@ -151,6 +156,25 @@ var Schema = `
 		email: String!
 		createdAt: String!
 		updatedAt: String!
+	}
+
+	# Input data to create a Batch
+	input CreateBatchInput {
+		# A name for the Bath
+		name: String!
+		# The date and time the batch was brewed
+		brewedAt: String!
+		bottledAt: String
+		volumeBoiled: Float
+		volumeInFermentor: Float
+		volumeUnits: String
+		originalGravity: Float
+		finalGravity: Float
+		// MaxTemperature     *float64
+		// MinTemperature     *float64
+		// AverageTemperature *float64  not even sure this should be on the model...
+		recipeURL: String
+		tastingNotes: String
 	}
 
 	# Input data to create a TemperatureMeasurement

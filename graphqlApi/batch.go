@@ -2,11 +2,14 @@ package graphqlApi
 
 import (
 	"context"
+	"database/sql"
 	graphql "github.com/graph-gophers/graphql-go"
+	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
 	"log"
 	"strconv"
+	"time"
 )
 
 // Batch resolver related code
@@ -121,20 +124,20 @@ func (r *batchConnection) EDGES() *[]*batchEdge { return r.Edges }
 // Input types
 // Create a temperatureMeasurement... review docs on how to really implement this
 type createBatchInput struct {
-	Name               string
-	BrewNotes          *string
-	BrewedAt         string //time.Time
-	BottledAt        *string //time.Time
-	VolumeBoiled       *float64
-	VolumeInFermentor  *float64
-	VolumeUnits        *string // VolumeUnitType - can graphql-go map this?
-	OriginalGravity    *float64
-	FinalGravity       *float64
+	Name              string
+	BrewNotes         *string
+	BrewedAt          string  //time.Time
+	BottledAt         *string //time.Time
+	VolumeBoiled      *float64
+	VolumeInFermentor *float64
+	VolumeUnits       *string // VolumeUnitType - can graphql-go map this?
+	OriginalGravity   *float64
+	FinalGravity      *float64
 	// MaxTemperature     *float64
 	// MinTemperature     *float64
 	// AverageTemperature *float64  not even sure this should be on the model...
-	RecipeURL *string
-	TastingNotes       *string
+	RecipeURL    *string
+	TastingNotes *string
 }
 
 // Mutation Payloads
@@ -163,19 +166,22 @@ func (r *Resolver) CreateBatch(ctx context.Context, args *struct {
 		return nil, err
 	}
 
-	bottledAt, err := time.Parse(time.RFC3339, input.BottledAt)
-	if err != nil {
-		// TODO: See what the actual error types are and try to return friendlier errors which are not golang specific messaging
-		return nil, err
+	var bottledAt time.Time
+	if input.BottledAt != nil {
+		bottledAt, err = time.Parse(time.RFC3339, *(input.BottledAt))
+		if err != nil {
+			// TODO: See what the actual error types are and try to return friendlier errors which are not golang specific messaging
+			return nil, err
+		}
 	}
+	log.Printf("Bottled at %v", bottledAt)
 
 	// TODO: Handle all of the optional inputs which could come in as null here but should be empty string when saved
 	// or could come in as an empty string but should be saved to db as null or nullint, etc.
-
-	batch := worrywort.Batch{Name: input.Name, BrewedDate: brewedAt, BottledDate: bottledAt}
+	batch := worrywort.Batch{UserId: userId, Name: input.Name, BrewedDate: brewedAt, BottledDate: bottledAt}
 	batch, err = worrywort.SaveBatch(r.db, batch)
 	if err != nil {
-		log.Printf("Failed to save TemperatureMeasurement: %v\n", err)
+		log.Printf("Failed to save Batch: %v\n", err)
 		return nil, err
 	}
 

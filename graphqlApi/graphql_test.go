@@ -377,7 +377,7 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 			},
 		}
 		query := `
-			mutation addMeasurement($input: CreateTemperatureMeasurementInput) {
+			mutation addMeasurement($input: CreateTemperatureMeasurementInput!) {
 				createTemperatureMeasurement(input: $input) {
 					__typename
 					temperatureMeasurement {
@@ -567,5 +567,90 @@ func TestSensorQuery(t *testing.T) {
 		if !reflect.DeepEqual(expected, actual) {
 			t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
 		}
+	})
+}
+
+func TestCreateBatchMutation(t *testing.T) {
+	const DefaultUserKey string = "user"
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := worrywort.NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err = worrywort.SaveUser(db, u)
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
+
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	t.Run("Test batch is created with valid data", func(t *testing.T) {
+		variables := map[string]interface{}{
+			"input": map[string]interface{}{
+				"name":     "Test Batch",
+				"brewedAt": "2018-10-14T15:26:00+00:00",
+			},
+		}
+		query := `
+			mutation addBatch($input: CreateBatchInput!) {
+				createBatch(input: $input) {
+					__typename
+					batch {
+						__typename
+						id
+					}
+				}
+			}`
+
+		operationName := ""
+		ctx := context.Background()
+		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+		ctx = context.WithValue(ctx, "db", db)
+		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
+
+		// Some structs so that the json can be unmarshalled
+		type payloadBatch struct {
+			Typename string `json:"__typename"`
+			Id       string `json:"id"`
+		}
+		type createBatchPayload struct {
+			Typename string       `json:"__typename"`
+			Batch    payloadBatch `json:"batch"`
+		}
+
+		type createBatch struct {
+			CreateBatch createBatchPayload `json:"createBatch"`
+		}
+
+		var result createBatch
+		err = json.Unmarshal(resultData.Data, &result)
+		if err != nil {
+			t.Fatalf("%v: %v", result, resultData)
+		}
+
+		// Test the returned graphql types
+		if result.CreateBatch.Typename != "CreateBatchPayload" {
+			t.Errorf("createBatch returned unexpected type: %s", result.CreateBatch.Typename)
+		}
+
+		if result.CreateBatch.Batch.Typename != "Batch" {
+			t.Errorf("createBatch returned unexpected type for Batch: %s", result.CreateBatch.Batch.Typename)
+		}
+
+		// Look up the object in the db to be sure it was created
+		var batchId string = result.CreateBatch.Batch.Id
+		batch, err := worrywort.FindBatch(map[string]interface{}{"userId": userId, "id": batchId}, db)
+
+		if err == sql.ErrNoRows {
+			t.Error("Batch was not saved to the database. Query returned no results.")
+		} else if err != nil {
+			t.Errorf("Error: %v and Batch: %v", err, batch)
+		}
+
+		// TODO: Really should maybe make sure all properties were inserted
+
 	})
 }
