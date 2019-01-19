@@ -197,3 +197,46 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	b.UpdatedAt = updatedAt
 	return b, nil
 }
+
+// The association between a sensor and a batch. This shows when a sensor
+// was actively monitoring a specific batch in some way.
+// Not sure if this should live here - it works equally well in sensor.go
+// or maybe it should get its own .go file
+type BatchSensor struct {
+	BatchId int
+	SensorId int
+	Description string
+	AssociatedAt time.Time
+	DisassociatedAt *time.Time
+	Sensor *Sensor
+	Batch *Batch
+}
+
+// Creates the association between a batch and a sensor
+// associatedAt is taken so that this can be created at a later date, used to fix missed associations, etc.
+func AssociateBatchToSensor(batch *Batch, sensor *Sensor, description string, associatedAt *time.Time, db *sqlx.DB) (*BatchSensor, error) {
+	var updatedAt time.Time
+	var createdAt time.Time
+	var association *BatchSensor
+
+	if associatedAt == nil {
+		n := time.Now()
+		associatedAt = &n
+	}
+
+	query := db.Rebind(`INSERT INTO batch_sensor_association (batch_id, sensor_id, description, associated_at, created_at,
+		updated_at) VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING created_at, updated_at`)
+
+	err := db.QueryRow(
+		query, batch.Id, sensor.Id, description, associatedAt).Scan(&createdAt, &updatedAt)
+	if err != nil {
+		return association, err
+	}
+
+	// TODO: Can I just assign these directly now in Scan()?
+	association.BatchId = batch.Id
+	association.SensorId = sensor.Id
+	association.Description = description
+	association.AssociatedAt = *associatedAt
+	return association, nil
+}
