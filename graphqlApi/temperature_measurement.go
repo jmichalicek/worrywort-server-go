@@ -92,11 +92,6 @@ func (r *temperatureMeasurementResolver) CreatedBy(ctx context.Context) *userRes
 		// TODO: this will probably go to taking a pointer to the User
 		resolved = &userResolver{u: r.m.CreatedBy}
 	} else if r.m.UserId.Valid {
-		// Looking at https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/service/user_service.go#L23
-		// and https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/server.go#L20
-		// I will just want to put the db in my context even though it seems like many things say do not do that.
-		// Not sure I like this at all, but I also do not want to have to attach the db from resolver to every other
-		// resolver/type struct I create.
 		db, ok := ctx.Value("db").(*sqlx.DB)
 		if !ok {
 			log.Printf("No database in context")
