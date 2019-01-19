@@ -63,27 +63,6 @@ func (r *temperatureMeasurementResolver) Sensor(ctx context.Context) *sensorReso
 	return resolved
 }
 
-func (r *temperatureMeasurementResolver) Fermentor(ctx context.Context) *fermentorResolver {
-	var resolved *fermentorResolver
-	if r.m.Fermentor != nil {
-		resolved = &fermentorResolver{f: r.m.Fermentor}
-	} else if r.m.FermentorId.Valid {
-		db, ok := ctx.Value("db").(*sqlx.DB)
-		if !ok {
-			log.Printf("No database in context")
-			return nil
-		}
-		fermentor, err := worrywort.FindFermentor(map[string]interface{}{"id": r.m.FermentorId}, db)
-		if err != nil {
-			log.Printf("%v", err)
-			return nil
-		}
-		resolved = &fermentorResolver{f: fermentor}
-	}
-
-	return resolved
-}
-
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
 func (r *temperatureMeasurementResolver) CreatedBy(ctx context.Context) *userResolver {
 	// TODO: lookup user if not already populated

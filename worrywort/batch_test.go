@@ -175,7 +175,6 @@ func TestSaveSensor(t *testing.T) {
 }
 
 func TestSaveTemperatureMeasurement(t *testing.T) {
-	// TODO: Add fermentor to the saved measurement!  Currently saving a fermentor has not been implemented
 	db, err := setUpTestDb()
 	if err != nil {
 		t.Fatalf("Got error setting up database: %s", err)

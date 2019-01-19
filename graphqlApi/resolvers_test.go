@@ -436,11 +436,9 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 	sensor := worrywort.NewSensor(1, "Therm1", &u, time.Now(), time.Now())
 	batch := makeTestBatch(u, true)
-	fermentor := worrywort.NewFermentor(1, "Ferm", "A Fermentor", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u,
-		time.Now(), time.Now())
 	timeRecorded := time.Now().Add(time.Hour * time.Duration(-1))
 	measurement := worrywort.TemperatureMeasurement{Id: "shouldbeauuid", Temperature: 64.26, Units: worrywort.FAHRENHEIT, RecordedAt: timeRecorded,
-		Batch: &batch, Sensor: &sensor, Fermentor: &fermentor, CreatedBy: &u, UserId: userId, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+		Batch: &batch, Sensor: &sensor, CreatedBy: &u, UserId: userId, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	resolver := temperatureMeasurementResolver{m: &measurement}
 
 	t.Run("ID()", func(t *testing.T) {
@@ -487,14 +485,6 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 		expected := batchResolver{b: measurement.Batch}
 		if expected != *b {
 			t.Errorf("\nExpected: %v\ngot: %v", expected, *b)
-		}
-	})
-
-	t.Run("Fermentor()", func(t *testing.T) {
-		f := resolver.Fermentor(ctx)
-		expected := fermentorResolver{f: measurement.Fermentor}
-		if expected != *f {
-			t.Errorf("\nExpected: %v\ngot: %v", expected, *f)
 		}
 	})
 

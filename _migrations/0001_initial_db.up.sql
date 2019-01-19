@@ -84,7 +84,6 @@ CREATE TABLE IF NOT EXISTS fermentors(
 CREATE TABLE IF NOT EXISTS sensors(
   id SERIAL PRIMARY KEY,
   user_id integer REFERENCES users (id) ON DELETE SET NULL,
-  fermentor_id integer REFERENCES fermentors (id) ON DELETE SET NULL,
   name text NOT NULL DEFAULT '',
   description text NOT NULL DEFAULT '',
 
@@ -113,11 +112,10 @@ CREATE TABLE IF NOT EXISTS temperature_measurements(
   -- use a UUID, there will be a LOT of these
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id integer REFERENCES users (id) ON DELETE SET NULL,
+  -- Not sure these are really necessary now if the batch_sensor_association is used instead
+  -- sensor_id will still be needed, but batch_id is really not
   batch_id integer REFERENCES batches (id) ON DELETE SET NULL,
   sensor_id integer REFERENCES sensors (id) ON DELETE SET NULL,
-  -- Unsure the fk to fermentor matters but if 1 batch is split across multiple fermentors
-  -- then you might care in the future for reference
-  fermentor_id integer REFERENCES fermentors (id) ON DELETE SET NULL,
   temperature double precision NOT NULL DEFAULT 0.0,
   units integer NOT NULL DEFAULT 0,
   recorded_at timestamp with time zone,

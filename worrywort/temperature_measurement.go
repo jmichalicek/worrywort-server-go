@@ -19,8 +19,6 @@ type TemperatureMeasurement struct {
 	BatchId     sql.NullInt64       `db:"batch_id"`
 	Sensor      *Sensor             `db:"sensor,prefix=ts"`
 	SensorId    sql.NullInt64       `db:"sensor_id"`
-	Fermentor   *Fermentor          `db:"fermentor,prefix=f"` // Do I really care? I might for history.
-	FermentorId sql.NullInt64       `db:"fermentor_id"`
 
 	// not sure createdBy is a useful name in this case vs just `user` but its consistent
 	CreatedBy *User         `db:"created_by,prefix=u"`
@@ -50,11 +48,11 @@ func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 	var measurementId string
 
 	insertVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt, tm.BatchId,
-		tm.SensorId, tm.FermentorId}
+		tm.SensorId}
 
 	query := db.Rebind(`INSERT INTO temperature_measurements (user_id, temperature, units, recorded_at, created_at,
-		updated_at, batch_id, sensor_id, fermentor_id)
-		VALUES (?, ?, ?, ?, NOW(), NOW(), ?, ?, ?) RETURNING id, created_at, updated_at`)
+		updated_at, batch_id, sensor_id)
+		VALUES (?, ?, ?, ?, NOW(), NOW(), ?, ?) RETURNING id, created_at, updated_at`)
 	err := db.QueryRow(query, insertVals...).Scan(&measurementId, &createdAt, &updatedAt)
 	if err != nil {
 		return tm, err
@@ -73,13 +71,11 @@ func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 func UpdateTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (TemperatureMeasurement, error) {
 	var updatedAt time.Time
 
-	paramVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt, tm.BatchId,
-		tm.SensorId, tm.FermentorId}
-
+	paramVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt, tm.BatchId, tm.SensorId}
 	paramVals = append(paramVals, tm.Id)
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
 	query := db.Rebind(`UPDATE temperature_measurements SET user_id = ?, temperature = ?, units = ?,
-		recorded_at = ?, updated_at = NOW(), batch_id = ?, sensor_id = ?, fermentor_id = ? WHERE id = ? RETURNING updated_at`)
+		recorded_at = ?, updated_at = NOW(), batch_id = ?, sensor_id = ? WHERE id = ? RETURNING updated_at`)
 	err := db.QueryRow(query, paramVals...).Scan(&updatedAt)
 	if err != nil {
 		return tm, err
@@ -96,7 +92,7 @@ func buildTemperatureMeasurementsQuery(params map[string]interface{}, db *sqlx.D
 	var where []string
 	// TODO: I suspect I will want to sort/filter by datetimes and by temperatures here as well
 	// using ranges or gt/lt, not jus a straight equals.
-	for _, k := range []string{"id", "user_id", "fermentor_id", "batch_id", "sensor_id"} {
+	for _, k := range []string{"id", "user_id", "batch_id", "sensor_id"} {
 		if v, ok := params[k]; ok {
 			values = append(values, v)
 			// TODO: Deal with values from sensor OR user table
@@ -108,7 +104,7 @@ func buildTemperatureMeasurementsQuery(params map[string]interface{}, db *sqlx.D
 	// as in BatchesForUser, this now seems dumb
 	// queryCols := []string{"id", "name", "created_at", "updated_at", "user_id"}
 	// If I need this many places, maybe make a const
-	for _, k := range []string{"id", "user_id", "fermentor_id", "batch_id", "sensor_id", "temperature",
+	for _, k := range []string{"id", "user_id", "batch_id", "sensor_id", "temperature",
 		"units", "recorded_at", "created_at", "updated_at"} {
 		selectCols += fmt.Sprintf("tm.%s, ", k)
 	}
