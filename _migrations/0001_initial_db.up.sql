@@ -42,10 +42,6 @@ CREATE TABLE IF NOT EXISTS user_authtokens(
  * and while the volumes and gravity values are not likely to need a double, these are pretty much
  * intended to go out a graphql interface which specifies using doubles
  */
-/* May make all of the doubles/ints here NOT NULL DEFAULT 0 but I am not sure.
-* It will work more cleanly with Go's defaults and 0 is rarely a valid value
-* but I would rather differentiate between not set and 0.
-*/
 CREATE TABLE IF NOT EXISTS batches(
   id SERIAL PRIMARY KEY,
   user_id integer REFERENCES users (id) ON DELETE SET NULL,
@@ -68,6 +64,7 @@ CREATE TABLE IF NOT EXISTS batches(
   updated_at timestamp with time zone
 );
 
+-- May remove Fermentors for now - they have no real use case
 CREATE TABLE IF NOT EXISTS fermentors(
   id SERIAL PRIMARY KEY,
   user_id integer REFERENCES users (id) ON DELETE SET NULL,
@@ -87,16 +84,28 @@ CREATE TABLE IF NOT EXISTS fermentors(
 CREATE TABLE IF NOT EXISTS sensors(
   id SERIAL PRIMARY KEY,
   user_id integer REFERENCES users (id) ON DELETE SET NULL,
-  -- Is this really necessary?  If this is attached to fermentor and
-	-- the fermentor is attached to a batch, then this is just extra nonsense
-  -- but maybe it is measuring ambient temps?
-  -- batch_id integer REFERENCES batches (id) ON DELETE SET NULL,
   fermentor_id integer REFERENCES fermentors (id) ON DELETE SET NULL,
   name text NOT NULL DEFAULT '',
   description text NOT NULL DEFAULT '',
 
   created_at timestamp with time zone DEFAULT current_timestamp,
   updated_at timestamp with time zone
+);
+
+-- store the association between a batch and a sensor permanently rather than making it ephemeral
+-- and using the temperature measurements to track that long term
+CREATE TABLE IF NOT EXISTS batch_sensor_association(
+  -- batch_id + sensor_id composite pk would make a lot of sense here
+  -- but doing it this way allows use to lose one or the other
+  batch_id integer REFERENCES batches (id) ON DELETE CASCADE NOT NULL,
+  sensor_id integer REFERENCES sensors (id) ON DELETE CASCADE NOT NULL,
+  associated_at timestamp with time zone,
+  disassociated_at timestamp with time zone,
+  description text NOT NULL DEFAULT '',
+
+  created_at timestamp with time zone DEFAULT current_timestamp,
+  updated_at timestamp with time zone,
+  PRIMARY KEY(batch_id, sensor_id)
 );
 
 -- Storing this here for now, but it may move to a timeseries db such as influxdb
