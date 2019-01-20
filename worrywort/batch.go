@@ -203,13 +203,15 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 // Not sure if this should live here - it works equally well in sensor.go
 // or maybe it should get its own .go file
 type BatchSensor struct {
-	BatchId int
-	SensorId int
-	Description string
-	AssociatedAt time.Time
-	DisassociatedAt *time.Time
+	BatchId int `db:"batch_id"`
+	SensorId int `db:"sensor_id"`
+	Description string `db:"description"`
+	AssociatedAt time.Time `db:"associated_at"`
+	DisassociatedAt *time.Time `db:"disassociated_at"`
 	Sensor *Sensor
 	Batch *Batch
+	CreatedAt *time.Time `db:"created_at"`
+	UpdatedAt *time.Time `db:"updated_at"`
 }
 
 // Creates the association between a batch and a sensor
@@ -224,8 +226,8 @@ func AssociateBatchToSensor(batch *Batch, sensor *Sensor, description string, as
 		associatedAt = &n
 	}
 
-	query := db.Rebind(`INSERT INTO batch_sensor_association (batch_id, sensor_id, description, associated_at, created_at,
-		updated_at) VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING created_at, updated_at`)
+	query := db.Rebind(`INSERT INTO batch_sensor_association (batch_id, sensor_id, description, associated_at,
+		created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING created_at, updated_at`)
 
 	err := db.QueryRow(
 		query, batch.Id, sensor.Id, description, associatedAt).Scan(&createdAt, &updatedAt)
@@ -239,4 +241,19 @@ func AssociateBatchToSensor(batch *Batch, sensor *Sensor, description string, as
 	association.Description = description
 	association.AssociatedAt = *associatedAt
 	return association, nil
+}
+
+func UpdateBatchSensorAssociation(b BatchSensor, db *sqlx.DB) (BatchSensor, error) {
+	var updatedAt time.Time
+
+	// TODO: Use introspection and reflection to set these rather than manually managing this?
+	query := db.Rebind(`UPDATE batch_sensor_association SET batch_id = ?, sensor_id = ?, description = ?,
+		associated_at = ? disassociated_at = ?, updated_at = NOW() WHERE batch_id = ? AND sensor_id = ? RETURNING updated_at`)
+	err := db.QueryRow(
+		query, b.BatchId, b.SensorId, b.Description, b.AssociatedAt, b.DisassociatedAt).Scan(&updatedAt)
+	if err != nil {
+		return b, err
+	}
+	b.UpdatedAt = updatedAt
+	return b, nil
 }

@@ -402,3 +402,58 @@ func TestFindBatches(t *testing.T) {
 func TestInsertBatch(t *testing.T) {}
 func TestUpdateBatch(t *testing.T) {}
 func TestSaveBatch(t *testing.T)   {}
+
+func TestAssociateBatchToSensor(t *texting.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err = SaveUser(db, u)
+	userId := sql.NullInt64{Int64: int64(u.Id), Valid: true}
+
+	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
+	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
+	batch := Batch{Name: "Testing", UserId: userId, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
+		VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, BrewNotes: "Brew Notes",
+		TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
+	batch, err = SaveBatch(db, batch)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	sensor, err := SaveSensor(db, Sensor{Name: "Test Sensor", CreatedBy: &u})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	association, err := AssociateBatchToSensor(batch, sensor, "Testing", nil, db)
+	if err != nil {
+		t.Errorf("Error: %v", err)
+	}
+
+	newAssociation := BatchSensor{}
+	q := `SELECT bs.sensor_id, bs.batch_id, bs.description, bs.assocated_at, bs.disassociated_at, bs.created_at,
+		bs.updated_at WHERE bs.sensor = ? AND bs.batch_id = ? AND bs.description = ? AND bs.disassocated_at IS NULL`
+	query := db.Rebind(q)
+	err = db.Get(&newAssociation, query, sensor.Id, batch.Id, "Testing")
+
+	if err != nil {
+		t.Errorf("%v", err)
+	}
+
+	if association.AssociateddAt.IsZero() {
+		t.Errorf("AssociateBatchToSensor did not set AssociatedAt")
+	}
+
+	if association.UpdatedAt.IsZero() {
+		t.Errorf("AssociateBatchToSensor did not set UpdatedAt")
+	}
+
+	if association.CreatedAt.IsZero() {
+		t.Errorf("AssociateBatchToSensor did not set CreatedAt")
+	}
+
+}
