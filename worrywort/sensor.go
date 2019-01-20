@@ -13,10 +13,10 @@ import (
 // TODO: This may also want extra metadata such as model or type?  That is probably
 // going too far for now, so keep it simple.
 type Sensor struct {
-	Id          int           `db:"id"`
-	Name        string        `db:"name"`
-	CreatedBy   *User         `db:"created_by,prefix=u"`
-	UserId      sql.NullInt64 `db:"user_id"`
+	Id        int           `db:"id"`
+	Name      string        `db:"name"`
+	CreatedBy *User         `db:"created_by,prefix=u"`
+	UserId    sql.NullInt64 `db:"user_id"`
 
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`

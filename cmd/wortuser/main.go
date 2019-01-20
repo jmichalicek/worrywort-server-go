@@ -1,12 +1,12 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"os"
-	"flag"
 )
 
 func main() {
@@ -42,12 +42,12 @@ func main() {
 
 	switch os.Args[1] {
 	case "cleartoken":
-			clearTokenCmd.Parse(os.Args[2:])
-		case "maketoken":
-			makeTokenCmd.Parse(os.Args[2:])
-		default:
-			fmt.Printf("%q is not valid command.\n", os.Args[1])
-			os.Exit(2)
+		clearTokenCmd.Parse(os.Args[2:])
+	case "maketoken":
+		makeTokenCmd.Parse(os.Args[2:])
+	default:
+		fmt.Printf("%q is not valid command.\n", os.Args[1])
+		os.Exit(2)
 	}
 
 	if clearTokenCmd.Parsed() {
