@@ -208,39 +208,50 @@ type BatchSensor struct {
 	Description string `db:"description"`
 	AssociatedAt time.Time `db:"associated_at"`
 	DisassociatedAt *time.Time `db:"disassociated_at"`
+
+	// TODO: Do I really want or need these here or the similar functionality on other structs?
+	// what if BatchId and Batch get out of sync? Perhaps make these private and use Sensor() and Batch()
 	Sensor *Sensor
 	Batch *Batch
-	CreatedAt *time.Time `db:"created_at"`
-	UpdatedAt *time.Time `db:"updated_at"`
+	// May make these all pointers - allow unset to be actually null/unset. or pq's sql.NullTime
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
 
 // Creates the association between a batch and a sensor
 // associatedAt is taken so that this can be created at a later date, used to fix missed associations, etc.
-func AssociateBatchToSensor(batch *Batch, sensor *Sensor, description string, associatedAt *time.Time, db *sqlx.DB) (*BatchSensor, error) {
+// TODO: Just pass batch and sensor ids? The whole struct is not needed here.
+// If I pass in pointers, I can safely attach them as well...
+func AssociateBatchToSensor(batch Batch, sensor Sensor, description string, associatedAt *time.Time, db *sqlx.DB) (*BatchSensor, error) {
 	var updatedAt time.Time
 	var createdAt time.Time
-	var association *BatchSensor
 
 	if associatedAt == nil {
 		n := time.Now()
 		associatedAt = &n
 	}
 
+	// TODO: This should work, but I am getting errors back about sql.Row has no StructScan.  Why is it a sql.Row and not
+	// a sqlx.Row?
+	// var bs *BatchSensor
+	// query := db.Rebind(`INSERT INTO batch_sensor_association (batch_id, sensor_id, description, associated_at,
+	// 	created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING batch_id, sensor_id, description, associated_at, disassociated_at, created_at, updated_at`)
+	//
+	// err := db.QueryRow(
+	// 	query, batch.Id, sensor.Id, description, associatedAt).StructScan(bs)
+
 	query := db.Rebind(`INSERT INTO batch_sensor_association (batch_id, sensor_id, description, associated_at,
 		created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING created_at, updated_at`)
 
 	err := db.QueryRow(
 		query, batch.Id, sensor.Id, description, associatedAt).Scan(&createdAt, &updatedAt)
+
 	if err != nil {
-		return association, err
+		return nil, err
 	}
 
-	// TODO: Can I just assign these directly now in Scan()?
-	association.BatchId = batch.Id
-	association.SensorId = sensor.Id
-	association.Description = description
-	association.AssociatedAt = *associatedAt
-	return association, nil
+	return &BatchSensor{BatchId: batch.Id, SensorId: sensor.Id, Description: description, AssociatedAt: *associatedAt,
+		UpdatedAt: updatedAt, CreatedAt: createdAt}, nil
 }
 
 func UpdateBatchSensorAssociation(b BatchSensor, db *sqlx.DB) (BatchSensor, error) {

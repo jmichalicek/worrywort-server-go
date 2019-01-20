@@ -403,7 +403,7 @@ func TestInsertBatch(t *testing.T) {}
 func TestUpdateBatch(t *testing.T) {}
 func TestSaveBatch(t *testing.T)   {}
 
-func TestAssociateBatchToSensor(t *texting.T) {
+func TestAssociateBatchToSensor(t *testing.T) {
 	db, err := setUpTestDb()
 	if err != nil {
 		t.Fatalf("Got error setting up database: %s", err)
@@ -435,8 +435,8 @@ func TestAssociateBatchToSensor(t *texting.T) {
 	}
 
 	newAssociation := BatchSensor{}
-	q := `SELECT bs.sensor_id, bs.batch_id, bs.description, bs.assocated_at, bs.disassociated_at, bs.created_at,
-		bs.updated_at WHERE bs.sensor = ? AND bs.batch_id = ? AND bs.description = ? AND bs.disassocated_at IS NULL`
+	q := `SELECT bs.sensor_id, bs.batch_id, bs.description, bs.associated_at, bs.disassociated_at, bs.created_at,
+		bs.updated_at FROM batch_sensor_association bs WHERE bs.sensor_id = ? AND bs.batch_id = ? AND bs.description = ? AND bs.disassociated_at IS NULL`
 	query := db.Rebind(q)
 	err = db.Get(&newAssociation, query, sensor.Id, batch.Id, "Testing")
 
@@ -444,7 +444,7 @@ func TestAssociateBatchToSensor(t *texting.T) {
 		t.Errorf("%v", err)
 	}
 
-	if association.AssociateddAt.IsZero() {
+	if association.AssociatedAt.IsZero() {
 		t.Errorf("AssociateBatchToSensor did not set AssociatedAt")
 	}
 
