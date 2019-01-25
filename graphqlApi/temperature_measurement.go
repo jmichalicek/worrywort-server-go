@@ -45,7 +45,7 @@ func (r *temperatureMeasurementResolver) Sensor(ctx context.Context) *sensorReso
 	// TODO: lookup sensor if not already populated
 	var resolved *sensorResolver
 	if r.m.Sensor != nil {
-		resolved = &sensorResolver{t: r.m.Sensor}
+		resolved = &sensorResolver{s: r.m.Sensor}
 	} else if r.m.SensorId.Valid {
 		db, ok := ctx.Value("db").(*sqlx.DB)
 		if !ok {
@@ -57,7 +57,7 @@ func (r *temperatureMeasurementResolver) Sensor(ctx context.Context) *sensorReso
 			log.Printf("%v", err)
 			return nil
 		}
-		resolved = &sensorResolver{t: sensor}
+		resolved = &sensorResolver{s: sensor}
 	}
 
 	return resolved

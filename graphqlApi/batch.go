@@ -3,6 +3,7 @@ package graphqlApi
 import (
 	"context"
 	"database/sql"
+	"errors"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
@@ -187,5 +188,104 @@ func (r *Resolver) CreateBatch(ctx context.Context, args *struct {
 
 	resolvedBatch := batchResolver{b: &batch}
 	result := createBatchPayload{b: &resolvedBatch}
+	return &result, nil
+}
+
+// Not sure this belongs here, but it'll do for now - associating sensors to a batch
+//TODO: Add BatchSensor type? Feels overly nested but where else is the Description for the association
+// going to come from?  It does not belong on the Sensor itself.
+type associateSensorToBatchInput struct {
+	BatchId     string
+	SensorId    string
+	Description *string
+}
+
+type batchSensorAssociationResolver struct {
+	// Id string?
+	// TODO: Maybe change this to just hold a pointer to the association struct, like other resolvers?
+	assoc *worrywort.BatchSensor
+	// Batch batchResolver
+	// Sensor sensorResolver
+	// Description string
+	// AssociatedAt string // time!
+	// DisassociatedAt *string // time!
+}
+
+func (b *batchSensorAssociationResolver) Batch() *batchResolver {
+	return &batchResolver{b: b.assoc.Batch}
+}
+func (b *batchSensorAssociationResolver) Sensor() *sensorResolver {
+	return &sensorResolver{s: b.assoc.Sensor}
+}
+func (b *batchSensorAssociationResolver) Description() string { return b.assoc.Description }
+func (b *batchSensorAssociationResolver) AssociatedAt() string {
+	return dateString(b.assoc.AssociatedAt)
+}
+func (b *batchSensorAssociationResolver) DisassociatedAt() *string {
+	d := dateString(*(b.assoc.DisassociatedAt))
+	return &d
+}
+
+// Mutation Payloads
+type associateSensorToBatchPayload struct {
+	assoc *batchSensorAssociationResolver
+}
+
+func (c *associateSensorToBatchPayload) BatchSensorAssociation() *batchSensorAssociationResolver {
+	return c.assoc
+}
+
+// TODO: Rename this?  At least it's obvious what it is/does.
+// Mutation to associate a sensor with a batch
+func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
+	Input *associateSensorToBatchInput
+}) (*associateSensorToBatchPayload, error) {
+	u, _ := authMiddleware.UserFromContext(ctx)
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
+
+	var inputPtr *associateSensorToBatchInput = args.Input
+	var input associateSensorToBatchInput = *inputPtr
+
+	var batchId sql.NullInt64
+	batchId = ToNullInt64(string(input.BatchId))
+	batchPtr, err := worrywort.FindBatch(map[string]interface{}{"user_id": userId, "id": batchId}, r.db)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			log.Printf("%v", err)
+		}
+		// TODO: return as a UserErrors similar to shopify to differentiate from a graphql syntax type error?
+		return nil, errors.New("Specified Batch does not exist.")
+	}
+
+	// TODO!: Make sure the sensor is not already associated with a batch
+	tempSensorId, err := strconv.ParseInt(string(input.SensorId), 10, 0)
+	sensorPtr, err := worrywort.FindSensor(map[string]interface{}{"id": tempSensorId, "user_id": userId}, r.db)
+	if err != nil {
+		// TODO: Probably need a friendlier error here or for our payload to have a shopify style userErrors
+		// and then not ever return nil from this either way...maybe
+		if err != sql.ErrNoRows {
+			log.Printf("%v", err)
+		}
+		// TODO: only return THIS error if it really does not exist.  May need other errors
+		// for other stuff
+		return nil, errors.New("Specified Sensor does not exist.")
+	}
+
+	description := ""
+	if input.Description != nil {
+		description = *input.Description
+	}
+	association, err := worrywort.AssociateBatchToSensor(*batchPtr, *sensorPtr, description, nil, r.db)
+	if err != nil {
+		log.Printf("%v", err)
+		return nil, errors.New("Specified Sensor does not exist.")
+	}
+
+	association.Batch = batchPtr
+	association.Sensor = sensorPtr
+	// resolvedBatch := batchResolver{b: &batch}
+	// resolvedSensor := sensorResolver{s: &sensor}
+	resolvedAssoc := batchSensorAssociationResolver{assoc: association}
+	result := associateSensorToBatchPayload{assoc: &resolvedAssoc}
 	return &result, nil
 }

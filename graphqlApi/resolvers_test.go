@@ -370,7 +370,7 @@ func TestSensorResolver(t *testing.T) {
 	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 	sensor := worrywort.NewSensor(1, "Therm1", &u, time.Now(), time.Now())
 	sensor.UserId = userId
-	r := sensorResolver{t: &sensor}
+	r := sensorResolver{s: &sensor}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = r.ID()
@@ -412,7 +412,7 @@ func TestSensorResolver(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
-		r2 := sensorResolver{t: &s2}
+		r2 := sensorResolver{s: &s2}
 		actual := r2.CreatedBy(ctx)
 		expected := &userResolver{u: &u}
 
@@ -490,7 +490,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 
 	t.Run("Sensor()", func(t *testing.T) {
 		ts := resolver.Sensor(ctx)
-		expected := sensorResolver{t: measurement.Sensor}
+		expected := sensorResolver{s: measurement.Sensor}
 		if expected != *ts {
 			t.Errorf("\nExpected: %v\ngot: %v", expected, ts)
 		}
