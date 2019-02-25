@@ -13,18 +13,10 @@ import (
 // TODO: This may also want extra metadata such as model or type?  That is probably
 // going too far for now, so keep it simple.
 type Sensor struct {
-	Id          int           `db:"id"`
-	Name        string        `db:"name"`
-	CreatedBy   *User         `db:"created_by,prefix=u"`
-	UserId      sql.NullInt64 `db:"user_id"`
-	FermentorId sql.NullInt64 `db:"fermentor_id"`
-	Fermentor   *Fermentor
-
-	// Is this really necessary?  If this is attached to fermentor and
-	// the fermentor is attached to a batch, then this is just extra nonsense
-	// BatchId sql.NullInt64 `db:"batch_id"`
-	Batch *Batch
-	// TODO: fk/id for current fermentor and current batch if attached to them?
+	Id        int           `db:"id"`
+	Name      string        `db:"name"`
+	CreatedBy *User         `db:"created_by,prefix=u"`
+	UserId    sql.NullInt64 `db:"user_id"`
 
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
@@ -63,7 +55,7 @@ func FindSensors(params map[string]interface{}, db *sqlx.DB) ([]*Sensor, error) 
 	sensors := []*Sensor{}
 	var values []interface{}
 	var where []string
-	for _, k := range []string{"id", "user_id", "fermentor_id"} {
+	for _, k := range []string{"id", "user_id"} {
 		if v, ok := params[k]; ok {
 			values = append(values, v)
 			// TODO: Deal with values from sensor OR user table
@@ -75,7 +67,7 @@ func FindSensors(params map[string]interface{}, db *sqlx.DB) ([]*Sensor, error) 
 	// as in BatchesForUser, this now seems dumb
 	// queryCols := []string{"id", "name", "created_at", "updated_at", "user_id"}
 	// If I need this many places, maybe make a const
-	for _, k := range []string{"id", "name", "created_at", "updated_at", "user_id", "fermentor_id"} {
+	for _, k := range []string{"id", "name", "created_at", "updated_at", "user_id"} {
 		selectCols += fmt.Sprintf("t.%s, ", k)
 	}
 
@@ -142,9 +134,9 @@ func InsertSensor(db *sqlx.DB, t Sensor) (Sensor, error) {
 	var createdAt time.Time
 	var sensorId int
 
-	query := db.Rebind(`INSERT INTO sensors (user_id, fermentor_id, name, updated_at)
-		VALUES (?, ?, ?, NOW()) RETURNING id, created_at, updated_at`)
-	err := db.QueryRow(query, t.UserId, t.FermentorId, t.Name).Scan(&sensorId, &createdAt, &updatedAt)
+	query := db.Rebind(`INSERT INTO sensors (user_id, name, updated_at)
+		VALUES (?, ?, NOW()) RETURNING id, created_at, updated_at`)
+	err := db.QueryRow(query, t.UserId, t.Name).Scan(&sensorId, &createdAt, &updatedAt)
 	if err != nil {
 		return t, err
 	}
@@ -160,10 +152,10 @@ func UpdateSensor(db *sqlx.DB, t Sensor) (Sensor, error) {
 	// TODO: TEST CASE
 	var updatedAt time.Time
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
-	query := db.Rebind(`UPDATE sensors SET user_id = ?, fermentor_id = ?, name = ?, updated_at = NOW()
+	query := db.Rebind(`UPDATE sensors SET user_id = ?, name = ?, updated_at = NOW()
 		WHERE id = ? RETURNING updated_at`)
 	err := db.QueryRow(
-		query, t.UserId, t.FermentorId, t.Name, t.Id).Scan(&updatedAt)
+		query, t.UserId, t.Name, t.Id).Scan(&updatedAt)
 	if err == nil {
 		t.UpdatedAt = updatedAt
 	}

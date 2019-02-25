@@ -1,6 +1,7 @@
 
-docker-dev:
-	docker-compose run --service-ports --rm worrywortd /bin/bash
+# //bin/bash is windows msys make hack
+dev:
+	docker-compose run --service-ports --rm worrywortd //bin/bash
 
 migrate-up:
 	migrate -source file://./_migrations -database postgres://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:5432/${DATABASE_NAME}?sslmode=disable up ${migrate_to}

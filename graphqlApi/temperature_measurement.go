@@ -45,7 +45,7 @@ func (r *temperatureMeasurementResolver) Sensor(ctx context.Context) *sensorReso
 	// TODO: lookup sensor if not already populated
 	var resolved *sensorResolver
 	if r.m.Sensor != nil {
-		resolved = &sensorResolver{t: r.m.Sensor}
+		resolved = &sensorResolver{s: r.m.Sensor}
 	} else if r.m.SensorId.Valid {
 		db, ok := ctx.Value("db").(*sqlx.DB)
 		if !ok {
@@ -57,28 +57,7 @@ func (r *temperatureMeasurementResolver) Sensor(ctx context.Context) *sensorReso
 			log.Printf("%v", err)
 			return nil
 		}
-		resolved = &sensorResolver{t: sensor}
-	}
-
-	return resolved
-}
-
-func (r *temperatureMeasurementResolver) Fermentor(ctx context.Context) *fermentorResolver {
-	var resolved *fermentorResolver
-	if r.m.Fermentor != nil {
-		resolved = &fermentorResolver{f: r.m.Fermentor}
-	} else if r.m.FermentorId.Valid {
-		db, ok := ctx.Value("db").(*sqlx.DB)
-		if !ok {
-			log.Printf("No database in context")
-			return nil
-		}
-		fermentor, err := worrywort.FindFermentor(map[string]interface{}{"id": r.m.FermentorId}, db)
-		if err != nil {
-			log.Printf("%v", err)
-			return nil
-		}
-		resolved = &fermentorResolver{f: fermentor}
+		resolved = &sensorResolver{s: sensor}
 	}
 
 	return resolved

@@ -113,8 +113,6 @@ var Schema = `
 		batch: Batch
 		# The Sensor which took the measurement
 		sensor: Sensor
-		# The Fermentor the sensor was attached to, if any
-		fermentor: Fermentor
 	}
 
 	type TemperatureMeasurementConnection {

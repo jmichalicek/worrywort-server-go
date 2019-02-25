@@ -175,7 +175,6 @@ func TestSaveSensor(t *testing.T) {
 }
 
 func TestSaveTemperatureMeasurement(t *testing.T) {
-	// TODO: Add fermentor to the saved measurement!  Currently saving a fermentor has not been implemented
 	db, err := setUpTestDb()
 	if err != nil {
 		t.Fatalf("Got error setting up database: %s", err)
@@ -403,3 +402,100 @@ func TestFindBatches(t *testing.T) {
 func TestInsertBatch(t *testing.T) {}
 func TestUpdateBatch(t *testing.T) {}
 func TestSaveBatch(t *testing.T)   {}
+
+func TestBatchSenssorAssociations(t *testing.T) {
+
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err = SaveUser(db, u)
+	userId := sql.NullInt64{Int64: int64(u.Id), Valid: true}
+
+	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
+	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
+	batch := Batch{Name: "Testing", UserId: userId, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
+		VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, BrewNotes: "Brew Notes",
+		TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
+	batch, err = SaveBatch(db, batch)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	sensor, err := SaveSensor(db, Sensor{Name: "Test Sensor", CreatedBy: &u})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	cleanAssociations := func() {
+		q := `DELETE FROM batch_sensor_association WHERE sensor_id = ? AND batch_id = ?`
+		q = db.Rebind(q)
+		_, err := db.Exec(q, sensor.Id, batch.Id)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	t.Run("AssociateBatchToSensor()", func(t *testing.T) {
+		defer cleanAssociations()
+		association, err := AssociateBatchToSensor(batch, sensor, "Testing", nil, db)
+		if err != nil {
+			t.Errorf("Error: %v", err)
+		}
+
+		var newAssociation BatchSensor
+		q := `SELECT bs.sensor_id, bs.batch_id, bs.description, bs.associated_at, bs.disassociated_at, bs.created_at,
+			bs.updated_at FROM batch_sensor_association bs WHERE bs.sensor_id = ? AND bs.batch_id = ? AND bs.description = ?
+			AND bs.associated_at = ? AND bs.created_at = ? AND bs.updated_at = ? AND bs.disassociated_at IS NULL`
+		query := db.Rebind(q)
+		err = db.Get(&newAssociation, query, sensor.Id, batch.Id, "Testing", association.AssociatedAt,
+			association.CreatedAt, association.UpdatedAt)
+
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+
+		// Make sure these really got set
+		if (*association).AssociatedAt.IsZero() {
+			t.Errorf("AssociateBatchToSensor did not set AssociatedAt")
+		}
+
+		if (*association).UpdatedAt.IsZero() {
+			t.Errorf("AssociateBatchToSensor did not set UpdatedAt")
+		}
+
+		if (*association).CreatedAt.IsZero() {
+			t.Errorf("AssociateBatchToSensor did not set CreatedAt")
+		}
+	})
+
+	t.Run("UpdateBatchSensorAssociation()", func(t *testing.T) {
+		defer cleanAssociations()
+		aPtr, err := AssociateBatchToSensor(batch, sensor, "Testing", nil, db)
+		if err != nil {
+			t.Fatalf("Error: %v", err)
+		}
+		association := *aPtr
+		association.Description = "Updated"
+		updated, err := UpdateBatchSensorAssociation(association, db)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		// Making sure the change was persisted to the db
+		updated2 := BatchSensor{}
+		q := `SELECT sensor_id, batch_id, description, associated_at, disassociated_at, created_at,
+			updated_at FROM batch_sensor_association bs WHERE sensor_id = ? AND batch_id = ? AND description = ? AND disassociated_at IS NULL`
+		query := db.Rebind(q)
+		err = db.Get(&updated2, query, association.SensorId, association.BatchId, "Updated")
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+
+		if !reflect.DeepEqual(updated, updated2) {
+			t.Errorf("Expected: %s\nGot: %s. Changes may not have persisted to the database.", spew.Sdump(updated), spew.Sdump(updated2))
+		}
+	})
+}

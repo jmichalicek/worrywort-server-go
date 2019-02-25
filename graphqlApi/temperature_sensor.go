@@ -11,28 +11,28 @@ import (
 
 // Resolve a worrywort.Sensor
 type sensorResolver struct {
-	t *worrywort.Sensor
+	s *worrywort.Sensor
 }
 
-func (r *sensorResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.t.Id)) }
-func (r *sensorResolver) CreatedAt() string { return dateString(r.t.CreatedAt) }
-func (r *sensorResolver) UpdatedAt() string { return dateString(r.t.UpdatedAt) }
+func (r *sensorResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.s.Id)) }
+func (r *sensorResolver) CreatedAt() string { return dateString(r.s.CreatedAt) }
+func (r *sensorResolver) UpdatedAt() string { return dateString(r.s.UpdatedAt) }
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
 func (r *sensorResolver) CreatedBy(ctx context.Context) *userResolver {
 	var resolved *userResolver
-	sensor := r.t
+	sensor := r.s
 	// Not sure these parens are necessary, but vs code complains without them
 	// because it seems to think I am referring to this function
 	if (sensor.CreatedBy) != nil {
-		resolved = &userResolver{u: r.t.CreatedBy}
+		resolved = &userResolver{u: r.s.CreatedBy}
 	} else if sensor.UserId.Valid {
 		db, ok := ctx.Value("db").(*sqlx.DB)
 		if !ok {
 			log.Printf("No database in context")
 			return nil
 		}
-		user, err := worrywort.LookupUser(int(r.t.UserId.Int64), db)
+		user, err := worrywort.LookupUser(int(r.s.UserId.Int64), db)
 		if err != nil {
 			log.Printf("%v", err)
 			return nil
@@ -42,7 +42,7 @@ func (r *sensorResolver) CreatedBy(ctx context.Context) *userResolver {
 	return resolved
 }
 
-func (r *sensorResolver) Name() string { return r.t.Name }
+func (r *sensorResolver) Name() string { return r.s.Name }
 
 type sensorEdge struct {
 	Cursor string

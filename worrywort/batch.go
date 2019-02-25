@@ -34,29 +34,29 @@ const (
 var TypeError error = errors.New("Invalid type specified")
 
 type Batch struct {
-	Id                 int            `db:"id"`
-	CreatedBy          *User          `db:"created_by,prefix=u"` // TODO: think I will change this to User
-	UserId             sql.NullInt64  `db:"user_id"`
-	Name               string         `db:"name"`
-	BrewNotes          string         `db:"brew_notes"`
-	TastingNotes       string         `db:"tasting_notes"`
-	BrewedDate         time.Time      `db:"brewed_date"`
-	BottledDate        time.Time      `db:"bottled_date"`
-	VolumeBoiled       float64        `db:"volume_boiled"` // sql nullfloats?
-	VolumeInFermentor  float64        `db:"volume_in_fermentor"`
-	VolumeUnits        VolumeUnitType `db:"volume_units"`
+	Id                int            `db:"id"`
+	CreatedBy         *User          `db:"created_by,prefix=u"` // TODO: think I will change this to User
+	UserId            sql.NullInt64  `db:"user_id"`
+	Name              string         `db:"name"`
+	BrewNotes         string         `db:"brew_notes"`
+	TastingNotes      string         `db:"tasting_notes"`
+	BrewedDate        time.Time      `db:"brewed_date"`
+	BottledDate       time.Time      `db:"bottled_date"`
+	VolumeBoiled      float64        `db:"volume_boiled"` // sql nullfloats?
+	VolumeInFermentor float64        `db:"volume_in_fermentor"`
+	VolumeUnits       VolumeUnitType `db:"volume_units"`
 	// TODO: Volume bottled?
 
 	// TODO: gravity in other units?  Brix, etc?
-	OriginalGravity    float64        `db:"original_gravity"`
-	FinalGravity       float64        `db:"final_gravity"` // TODO: sql.nullfloat64?
+	OriginalGravity float64 `db:"original_gravity"`
+	FinalGravity    float64 `db:"final_gravity"` // TODO: sql.nullfloat64?
 	// TODO: this stuff
 	// Should any of these temperatures really be here? they can be queried/calculated from the db already...
 	// although maybe should be a property but NOT a db field...
 	// and need the units... C or F.  Maybe should just always do F and then convert.
-	MaxTemperature     float64        `db:"max_temperature"`
-	MinTemperature     float64        `db:"min_temperature"`
-	AverageTemperature float64        `db:"average_temperature"`
+	MaxTemperature     float64 `db:"max_temperature"`
+	MinTemperature     float64 `db:"min_temperature"`
+	AverageTemperature float64 `db:"average_temperature"`
 	// handle this as a string.  It makes nearly everything easier and can easily be run through
 	// url.Parse if needed
 	RecipeURL string `db:"recipe_url"`
@@ -191,6 +191,79 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 		query, b.UserId, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
 		b.VolumeBoiled, b.VolumeInFermentor, b.VolumeUnits, b.OriginalGravity, b.FinalGravity, b.RecipeURL,
 		b.MaxTemperature, b.MinTemperature, b.AverageTemperature).Scan(&updatedAt)
+	if err != nil {
+		return b, err
+	}
+	b.UpdatedAt = updatedAt
+	return b, nil
+}
+
+// The association between a sensor and a batch. This shows when a sensor
+// was actively monitoring a specific batch in some way.
+// Not sure if this should live here - it works equally well in sensor.go
+// or maybe it should get its own .go file
+type BatchSensor struct {
+	BatchId         int        `db:"batch_id"`
+	SensorId        int        `db:"sensor_id"`
+	Description     string     `db:"description"`
+	AssociatedAt    time.Time  `db:"associated_at"`
+	DisassociatedAt *time.Time `db:"disassociated_at"`
+
+	// TODO: Do I really want or need these here or the similar functionality on other structs?
+	// what if BatchId and Batch get out of sync? Perhaps make these private and use Sensor() and Batch()
+	Sensor *Sensor
+	Batch  *Batch
+	// May make these all pointers - allow unset to be actually null/unset. or pq's sql.NullTime
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
+}
+
+// Creates the association between a batch and a sensor
+// associatedAt is taken so that this can be created at a later date, used to fix missed associations, etc.
+// TODO: Just pass batch and sensor ids? The whole struct is not needed here.
+// If I pass in pointers, I can safely attach them as well...
+// TODO: Why not follow same pattern as other structs with insert, save, etc.?
+func AssociateBatchToSensor(batch Batch, sensor Sensor, description string, associatedAt *time.Time, db *sqlx.DB) (*BatchSensor, error) {
+	var updatedAt time.Time
+	var createdAt time.Time
+	if associatedAt == nil {
+		n := time.Now()
+		associatedAt = &n
+	}
+
+	// TODO: This should work, but I am getting errors back about sql.Row has no StructScan.  Why is it a sql.Row and not
+	// a sqlx.Row?
+	// var bs *BatchSensor
+	// query := db.Rebind(`INSERT INTO batch_sensor_association (batch_id, sensor_id, description, associated_at,
+	// 	created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING batch_id, sensor_id, description, associated_at, disassociated_at, created_at, updated_at`)
+	//
+	// err := db.QueryRow(
+	// 	query, batch.Id, sensor.Id, description, associatedAt).StructScan(bs)
+
+	query := db.Rebind(`INSERT INTO batch_sensor_association (batch_id, sensor_id, description, associated_at,
+		created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING created_at, updated_at, associated_at`)
+
+	// This overwrites associatedAt with the db's value because otherwise we run into precision differences on input
+	// and output which gets weird when comparing
+	err := db.QueryRow(
+		query, batch.Id, sensor.Id, description, associatedAt).Scan(&createdAt, &updatedAt, associatedAt)
+
+	if err != nil {
+		return nil, err
+	}
+
+	bs := BatchSensor{BatchId: batch.Id, SensorId: sensor.Id, Description: description, AssociatedAt: *associatedAt,
+		UpdatedAt: updatedAt, CreatedAt: createdAt}
+	return &bs, nil
+}
+
+func UpdateBatchSensorAssociation(b BatchSensor, db *sqlx.DB) (BatchSensor, error) {
+	var updatedAt time.Time
+
+	// TODO: Use introspection and reflection to set these rather than manually managing this?
+	query := db.Rebind(`UPDATE batch_sensor_association SET description = ?, associated_at = ?, disassociated_at = ?,
+		updated_at = NOW() WHERE batch_id = ? AND sensor_id = ? RETURNING updated_at`)
+	err := db.QueryRow(query, b.Description, b.AssociatedAt, b.DisassociatedAt, b.BatchId, b.SensorId).Scan(&updatedAt)
 	if err != nil {
 		return b, err
 	}

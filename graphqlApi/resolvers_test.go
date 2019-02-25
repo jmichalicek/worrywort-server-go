@@ -370,7 +370,7 @@ func TestSensorResolver(t *testing.T) {
 	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 	sensor := worrywort.NewSensor(1, "Therm1", &u, time.Now(), time.Now())
 	sensor.UserId = userId
-	r := sensorResolver{t: &sensor}
+	r := sensorResolver{s: &sensor}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = r.ID()
@@ -412,7 +412,7 @@ func TestSensorResolver(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
-		r2 := sensorResolver{t: &s2}
+		r2 := sensorResolver{s: &s2}
 		actual := r2.CreatedBy(ctx)
 		expected := &userResolver{u: &u}
 
@@ -436,11 +436,9 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 	sensor := worrywort.NewSensor(1, "Therm1", &u, time.Now(), time.Now())
 	batch := makeTestBatch(u, true)
-	fermentor := worrywort.NewFermentor(1, "Ferm", "A Fermentor", 5.0, worrywort.GALLON, worrywort.BUCKET, true, true, u,
-		time.Now(), time.Now())
 	timeRecorded := time.Now().Add(time.Hour * time.Duration(-1))
 	measurement := worrywort.TemperatureMeasurement{Id: "shouldbeauuid", Temperature: 64.26, Units: worrywort.FAHRENHEIT, RecordedAt: timeRecorded,
-		Batch: &batch, Sensor: &sensor, Fermentor: &fermentor, CreatedBy: &u, UserId: userId, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+		Batch: &batch, Sensor: &sensor, CreatedBy: &u, UserId: userId, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	resolver := temperatureMeasurementResolver{m: &measurement}
 
 	t.Run("ID()", func(t *testing.T) {
@@ -490,17 +488,9 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 		}
 	})
 
-	t.Run("Fermentor()", func(t *testing.T) {
-		f := resolver.Fermentor(ctx)
-		expected := fermentorResolver{f: measurement.Fermentor}
-		if expected != *f {
-			t.Errorf("\nExpected: %v\ngot: %v", expected, *f)
-		}
-	})
-
 	t.Run("Sensor()", func(t *testing.T) {
 		ts := resolver.Sensor(ctx)
-		expected := sensorResolver{t: measurement.Sensor}
+		expected := sensorResolver{s: measurement.Sensor}
 		if expected != *ts {
 			t.Errorf("\nExpected: %v\ngot: %v", expected, ts)
 		}
@@ -535,6 +525,88 @@ func TestAuthTokenResolver(t *testing.T) {
 		expected := token.ForAuthenticationHeader()
 		if tokenStr != expected {
 			t.Errorf("\nExpected: %v\ngot: %v", expected, tokenStr)
+		}
+	})
+}
+
+// Placeholder tests which were copied/pasted and so going to fail
+func TestBatchSensorAssociationResolver(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "db", db)
+
+	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	// TODO; scrap NewSensor!!!!
+	sensor := worrywort.NewSensor(1, "Therm1", &u, time.Now(), time.Now())
+	batch := makeTestBatch(u, true)
+	association := worrywort.BatchSensor{
+		BatchId: batch.Id, SensorId: sensor.Id, Batch: &batch, Sensor: &sensor, Description: "Description",
+		AssociatedAt: time.Now()}
+	resolver := batchSensorAssociationResolver{assoc: &association}
+
+	// t.Run("ID()", func(t *testing.T) {
+	// 	var ID graphql.ID = r.ID()
+	// 	expected := graphql.ID(token.ForAuthenticationHeader())
+	// 	if ID != expected {
+	// 		t.Errorf("\nExpected: %v\ngot: %v", expected, ID)
+	// 	}
+	// })
+
+	t.Run("Batch()", func(t *testing.T) {
+		// Test when Batch is set
+		// modify to take/pass in context so batch can be looked up by id
+		b := resolver.Batch()
+		expected := batchResolver{b: association.Batch}
+		if expected != *b {
+			t.Errorf("\nExpected: %v\ngot: %v", expected, *b)
+		}
+		// Test when only BatchId is set?
+	})
+
+	t.Run("Sensor()", func(t *testing.T) {
+		s := resolver.Sensor()
+		expected := sensorResolver{s: &sensor}
+		if expected != *s {
+			t.Errorf("\nExpected: %v\ngot: %v", expected, *s)
+		}
+	})
+
+	t.Run("AssociatedAt()", func(t *testing.T) {
+		a := resolver.AssociatedAt()
+		expected := dateString(association.AssociatedAt)
+		if a != expected {
+			t.Errorf("\nExpected: %s\nGot: %v", expected, a)
+		}
+	})
+
+	t.Run("DisassociatedAt()", func(t *testing.T) {
+		d := resolver.DisassociatedAt()
+		if d != nil {
+			t.Errorf("\nExpected: nil\nGot: %v", d)
+		}
+
+		n := time.Now()
+		association.DisassociatedAt = &n
+		d = resolver.DisassociatedAt()
+		expected := n.Format(time.RFC3339)
+		if *d != expected {
+			t.Errorf("\nExpected: %s\nGot: %s", expected, *d)
+		}
+
+	})
+
+	t.Run("Description()", func(t *testing.T) {
+		d := resolver.Description()
+		// or compare to association.Description? Always torn on this...
+		// Make sure it matches the value expected or make sure it matches the value of
+		// the object populating it, whatever that might be?
+		if d != "Description" {
+			t.Errorf("\nExpected: Description\ngot: %v", d)
 		}
 	})
 }

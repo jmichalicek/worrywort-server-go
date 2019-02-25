@@ -158,7 +158,7 @@ func (r *Resolver) Sensor(ctx context.Context, args struct{ ID graphql.ID }) (*s
 	if err != nil {
 		log.Printf("%v", err)
 	} else if sensor != nil {
-		resolved = &sensorResolver{t: sensor}
+		resolved = &sensorResolver{s: sensor}
 	}
 	return resolved, err
 }
@@ -183,7 +183,7 @@ func (r *Resolver) Sensors(ctx context.Context, args struct {
 	}
 	edges := []*sensorEdge{}
 	for index, _ := range sensors {
-		sensorResolver := sensorResolver{t: sensors[index]}
+		sensorResolver := sensorResolver{s: sensors[index]}
 		// should base64 encode this cursor, but whatever for now
 		edge := &sensorEdge{Node: &sensorResolver, Cursor: string(sensorResolver.ID())}
 		edges = append(edges, edge)
