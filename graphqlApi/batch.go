@@ -212,6 +212,8 @@ type batchSensorAssociationResolver struct {
 }
 
 func (b *batchSensorAssociationResolver) Batch() *batchResolver {
+	// todo: take context and look it up if not already set?
+	// Batch(ctx context.Context)
 	return &batchResolver{b: b.assoc.Batch}
 }
 func (b *batchSensorAssociationResolver) Sensor() *sensorResolver {
@@ -221,9 +223,13 @@ func (b *batchSensorAssociationResolver) Description() string { return b.assoc.D
 func (b *batchSensorAssociationResolver) AssociatedAt() string {
 	return dateString(b.assoc.AssociatedAt)
 }
+
 func (b *batchSensorAssociationResolver) DisassociatedAt() *string {
-	d := dateString(*(b.assoc.DisassociatedAt))
-	return &d
+	if b.assoc.DisassociatedAt != nil {
+		d := dateString(*(b.assoc.DisassociatedAt))
+		return &d
+	}
+	return nil
 }
 
 // Mutation Payloads
