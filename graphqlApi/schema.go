@@ -36,6 +36,7 @@ var Schema = `
 		# but will definitely need an updateTemperatureMeasurement() to edit - ie. attach to a batch later, etc.
 		createTemperatureMeasurement(input: CreateTemperatureMeasurementInput!): CreateTemperatureMeasurementPayload
 		createBatch(input: CreateBatchInput!): CreateBatchPayload
+		associateSensorToBatch(input: AssociateSensorToBatchInput!): AssociateSensorToBatchPayload
 	}
 
 	enum VolumeUnit {
@@ -46,12 +47,6 @@ var Schema = `
 	enum TemperatureUnit {
 		FAHRENHEIT
 		CELSIUS
-	}
-
-	enum FermentorStyle {
-		BUCKET
-		CARBOY
-		CONICAL
 	}
 
 	type AuthToken {
@@ -86,6 +81,19 @@ var Schema = `
 	type BatchEdge {
 		cursor: String!
 		node: Batch!
+	}
+
+	type BatchSensorAssociation {
+		batch: Batch!
+		sensor: Sensor!
+		description: String
+		# datetime
+		associatedAt: String!
+		disAssociatedAt: String
+	}
+
+	type AssociateSensorToBatchPayload {
+		batchSensorAssociation: BatchSensorAssociation
 	}
 
 	type CreateBatchPayload {
@@ -187,6 +195,13 @@ var Schema = `
 		units: TemperatureUnit!
 		# The Batch being monitored if this was monitoring a Batch
 		batchId: ID
+	}
+
+	# Input data to associate a Sensor to a Batch
+	input AssociateSensorToBatchInput {
+		batchId: ID!
+		sensorId: ID!
+		description: String
 	}
 	`
 

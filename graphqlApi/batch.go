@@ -219,7 +219,7 @@ func (b *batchSensorAssociationResolver) Batch() *batchResolver {
 func (b *batchSensorAssociationResolver) Sensor() *sensorResolver {
 	return &sensorResolver{s: b.assoc.Sensor}
 }
-func (b *batchSensorAssociationResolver) Description() string { return b.assoc.Description }
+func (b *batchSensorAssociationResolver) Description() *string { return &b.assoc.Description }
 func (b *batchSensorAssociationResolver) AssociatedAt() string {
 	return dateString(b.assoc.AssociatedAt)
 }
