@@ -27,3 +27,9 @@ setup-test-db:
 	dropdb -h ${DATABASE_HOST} -U ${DATABASE_USER} --if-exists ${DATABASE_NAME}_test
 	createdb -h ${DATABASE_HOST} -U ${DATABASE_USER} ${DATABASE_NAME}_test -O ${DATABASE_USER}
 	migrate -source file://./_migrations -database postgres://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:5432/${DATABASE_NAME}_test?sslmode=disable up ${migrate_to}
+
+testcover:
+	go test ${module} -cover -coverprofile=coverage.out
+
+showcover:
+	go tool cover -func=coverage.out
