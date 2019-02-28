@@ -270,3 +270,31 @@ func UpdateBatchSensorAssociation(b BatchSensor, db *sqlx.DB) (BatchSensor, erro
 	b.UpdatedAt = updatedAt
 	return b, nil
 }
+
+func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*BatchSensor, error) {
+	// var association *BatchSensor = nil
+	association := BatchSensor{}
+	assocPtr := &association
+	var values []interface{}
+	var where []string
+	for _, k := range []string{"batch_id", "sensor_id"} {
+		if v, ok := params[k]; ok {
+			values = append(values, v)
+			// TODO: Deal with values from batch OR user table
+			where = append(where, fmt.Sprintf("ba.%s = ?", k))
+		}
+	}
+
+	selectCols := ""
+	queryCols := []string{"batch_id", "sensor_id", "description"}
+	for _, k := range queryCols {
+		selectCols += fmt.Sprintf("ba.%s, ", k)
+	}
+
+	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batch_sensor_association ba WHERE ` +
+		strings.Join(where, " AND ")
+
+	query := db.Rebind(q)
+	err := db.Get(assocPtr, query, values...)
+	return assocPtr, err
+}

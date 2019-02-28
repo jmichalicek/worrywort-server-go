@@ -644,7 +644,7 @@ func TestCreateBatchMutation(t *testing.T) {
 
 		// Look up the object in the db to be sure it was created
 		var batchId string = result.CreateBatch.Batch.Id
-		batch, err := worrywort.FindBatch(map[string]interface{}{"userId": userId, "id": batchId}, db)
+		batch, err := worrywort.FindBatch(map[string]interface{}{"user_id": userId, "id": batchId}, db)
 
 		if err == sql.ErrNoRows {
 			t.Error("Batch was not saved to the database. Query returned no results.")
@@ -677,14 +677,14 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	// sensorId := sql.NullInt64{Valid: true, Int64: int64(sensor.Id)}
+	sensorId := sql.NullInt64{Valid: true, Int64: int64(sensor.Id)}
 
 	batch, err := worrywort.SaveBatch(
 		db, worrywort.Batch{UserId: userId, CreatedBy: &u, Name: "Test batch"})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	// batchId := sql.NullInt64{Valid: true, Int64: int64(batch.Id)}
+	batchId := sql.NullInt64{Valid: true, Int64: int64(batch.Id)}
 
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
 
@@ -736,5 +736,16 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 			t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
 		}
 		// TODO: test that the association really got created in the db.
+		newAssoc, err := worrywort.FindBatchSensorAssociation(
+			map[string]interface{}{"user_id": userId, "batch_id": batchId, "sensor_id": sensorId}, db)
+
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+
+		expected = worrywort.BatchSensor{BatchId: batch.Id, SensorId: sensor.Id, Description: "It is associated"}
+		if !reflect.DeepEqual(expected, *newAssoc) {
+			t.Errorf("\nExpected: %v\nGot: %v", expected, newAssoc)
+		}
 	})
 }
