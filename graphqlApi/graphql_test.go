@@ -611,18 +611,20 @@ func TestCreateBatchMutation(t *testing.T) {
 		ctx = context.WithValue(ctx, "db", db)
 		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
 
-		// Some structs so that the json can be unmarshalled
+		// Some structs so that the json can be unmarshalled.
+		// Unsure why I am doing it this way here and not the same interface{} unmarshall as before.
 		type payloadBatch struct {
 			Typename string `json:"__typename"`
 			Id       string `json:"id"`
 		}
-		type createBatchPayload struct {
+
+		type cbPayload struct {
 			Typename string       `json:"__typename"`
 			Batch    payloadBatch `json:"batch"`
 		}
 
 		type createBatch struct {
-			CreateBatch createBatchPayload `json:"createBatch"`
+			CreateBatch cbPayload `json:"createBatch"`
 		}
 
 		var result createBatch
@@ -652,5 +654,87 @@ func TestCreateBatchMutation(t *testing.T) {
 
 		// TODO: Really should maybe make sure all properties were inserted
 
+	})
+}
+
+func TestAssociateSensorToBatchMutation(t *testing.T) {
+	const DefaultUserKey string = "user"
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := worrywort.NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err = worrywort.SaveUser(db, u)
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
+
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	sensor, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: userId, Name: "Test Sensor", CreatedBy: &u})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	// sensorId := sql.NullInt64{Valid: true, Int64: int64(sensor.Id)}
+
+	batch, err := worrywort.SaveBatch(
+		db, worrywort.Batch{UserId: userId, CreatedBy: &u, Name: "Test batch"})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	// batchId := sql.NullInt64{Valid: true, Int64: int64(batch.Id)}
+
+	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+
+	t.Run("Test associate to batch", func(t *testing.T) {
+		variables := map[string]interface{}{
+			"input": map[string]interface{}{
+				"batchId": strconv.Itoa(batch.Id),
+				"sensorId": strconv.Itoa(sensor.Id),
+				"description": "It is associated",
+			},
+		}
+		query := `
+			mutation associateSensorToBatch($input: AssociateSensorToBatchInput!) {
+				associateSensorToBatch(input: $input) {
+					__typename
+					batchSensorAssociation {
+						__typename
+					}
+				}
+			}`
+
+		operationName := ""
+		ctx := context.Background()
+		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+		ctx = context.WithValue(ctx, "db", db)
+		result := worrywortSchema.Exec(ctx, query, operationName, variables)
+
+		var expected interface{}
+		// TODO: check the batch and sensor ids
+		err := json.Unmarshal(
+			[]byte(
+				fmt.Sprintf(
+					`{"associateSensorToBatch": {
+						"__typename":"AssociateSensorToBatchPayload",
+						"batchSensorAssociation": {
+							"__typename": "BatchSensorAssociation"}}}`)),
+			&expected)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+
+		var actual interface{}
+		err = json.Unmarshal(result.Data, &actual)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+
+		if !reflect.DeepEqual(expected, actual) {
+			t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
+		}
+		// TODO: test that the association really got created in the db.
 	})
 }
