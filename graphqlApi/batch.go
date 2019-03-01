@@ -278,6 +278,13 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 		return nil, errors.New("Specified Sensor does not exist.")
 	}
 
+	existing, err := worrywort.FindBatchSensorAssociation(
+		map[string]interface{}{"sensor_id": tempSensorId, "disassociated_at": nil}, r.db)
+	if existing != nil {
+		log.Printf("ASSOC ALREADY EXISTS!!!! %v", existing.DisassociatedAt)
+		return nil, errors.New("Sensor already associated to Batch.")
+	}
+
 	description := ""
 	if input.Description != nil {
 		description = *input.Description

@@ -259,7 +259,9 @@ func AssociateBatchToSensor(batch Batch, sensor Sensor, description string, asso
 	return &bs, nil
 }
 
-func UpdateBatchSensorAssociation(b BatchSensor, db *sqlx.DB) (BatchSensor, error) {
+func UpdateBatchSensorAssociation(b BatchSensor, db *sqlx.DB) (*BatchSensor, error) {
+	// TODO: Tempted to make these take a BatchSensor to modify and a dict of changes... maybe. sort of elixir/ecto style.
+	// TODO: not sure how I feel about taking struct, returning pointer to the struct...
 	var updatedAt time.Time
 
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
@@ -267,10 +269,10 @@ func UpdateBatchSensorAssociation(b BatchSensor, db *sqlx.DB) (BatchSensor, erro
 		updated_at = NOW() WHERE id = ? RETURNING updated_at`)
 	err := db.QueryRow(query, b.BatchId, b.SensorId, b.Description, b.AssociatedAt, b.DisassociatedAt, b.Id).Scan(&updatedAt)
 	if err != nil {
-		return b, err
+		return &b, err
 	}
 	b.UpdatedAt = updatedAt
-	return b, nil
+	return &b, nil
 }
 
 func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*BatchSensor, error) {
@@ -279,11 +281,15 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 	assocPtr := &association
 	var values []interface{}
 	var where []string
-	for _, k := range []string{"batch_id", "sensor_id", "id"} {
+	for _, k := range []string{"batch_id", "sensor_id", "id", "disassociated_at"} {
 		if v, ok := params[k]; ok {
-			values = append(values, v)
-			// TODO: Deal with values from batch OR user table
-			where = append(where, fmt.Sprintf("ba.%s = ?", k))
+			if v != nil {
+				values = append(values, v)
+				// TODO: Deal with values from batch OR user table
+				where = append(where, fmt.Sprintf("ba.%s = ?", k))
+			} else {
+				where = append(where, fmt.Sprintf("ba.%s IS NULL ", k))
+			}
 		}
 	}
 
@@ -297,7 +303,15 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batch_sensor_association ba WHERE ` +
 		strings.Join(where, " AND ")
 
+	fmt.Printf("%v", q)
+
 	query := db.Rebind(q)
 	err := db.Get(assocPtr, query, values...)
+	if err != nil {
+		// TODO: seems like I should be able to just have assoc be a nil ptr in the first place
+		// then I would not need to do this.  This bit is here becaus assoc is a zero value, not nil,
+		// so assocPtr is not ever nil
+		assocPtr = nil
+	}
 	return assocPtr, err
 }

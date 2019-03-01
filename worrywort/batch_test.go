@@ -496,7 +496,7 @@ func TestBatchSenssorAssociations(t *testing.T) {
 			t.Fatalf("%v", err)
 		}
 
-		if !reflect.DeepEqual(updated, updated2) {
+		if !reflect.DeepEqual(*updated, updated2) {
 			t.Errorf("Expected: %s\nGot: %s. Changes may not have persisted to the database.", spew.Sdump(updated), spew.Sdump(updated2))
 		}
 	})
