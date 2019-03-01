@@ -828,5 +828,9 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		if result.Pl.Assoc.Typename != "BatchSensorAssociation" {
 			t.Errorf("associateBatchToSensor returned unexpected type for Assoc: %s", result.Pl.Assoc.Typename)
 		}
+
+		if result.Pl.Assoc.Id == previousAssoc.Id {
+			t.Errorf("associateBatchToSensor returned previous association id. New association was expected.")
+		}
 	})
 }
