@@ -84,6 +84,7 @@ var Schema = `
 	}
 
 	type BatchSensorAssociation {
+		id: ID!
 		batch: Batch!
 		sensor: Sensor!
 		description: String

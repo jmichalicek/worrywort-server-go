@@ -211,6 +211,7 @@ type batchSensorAssociationResolver struct {
 	// DisassociatedAt *string // time!
 }
 
+func (b *batchSensorAssociationResolver) Id() graphql.ID { return graphql.ID(b.assoc.Id) }
 func (b *batchSensorAssociationResolver) Batch() *batchResolver {
 	// todo: take context and look it up if not already set?
 	// Batch(ctx context.Context)
