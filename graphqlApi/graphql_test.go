@@ -763,70 +763,70 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		}
 	})
 
-	// t.Run("Test reassociate to batch", func(t *testing.T) {
-	// 	defer cleanAssociations()
-	//
-	// 	previousAssoc, err := worrywort.AssociateBatchToSensor(batch, sensor, "Testing", nil, db)
-	// 	if err != nil {
-	// 		t.Fatalf("%v", err)
-	// 	}
-	// 	n := time.Now()
-	// 	previousAssoc.DisassociatedAt = &n
-	// 	previousAssoc, err = worrywort.UpdateBatchSensorAssociation(*previousAssoc, db)
-	// 	if err != nil {
-	// 		t.Fatalf("%v", err)
-	// 	}
-	// 	variables := map[string]interface{}{
-	// 		"input": map[string]interface{}{
-	// 			"batchId": strconv.Itoa(batch.Id),
-	// 			"sensorId": strconv.Itoa(sensor.Id),
-	// 			"description": "It is associated",
-	// 		},
-	// 	}
-	// 	query := `
-	// 		mutation associateSensorToBatch($input: AssociateSensorToBatchInput!) {
-	// 			associateSensorToBatch(input: $input) {
-	// 				__typename
-	// 				batchSensorAssociation {
-	// 					__typename
-	// 					id
-	// 				}
-	// 			}
-	// 		}`
-	//
-	// 	operationName := ""
-	// 	ctx := context.Background()
-	// 	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
-	// 	ctx = context.WithValue(ctx, "db", db)
-	// 	resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
-	// 	t.Fatalf(spew.Sdump("%v", resultData))
-	// 	// type payloadAssoc struct {
-	// 	// 	Typename string `json:"__typename"`
-	// 	// 	Id       string `json:"id"`
-	// 	// }
-	// 	//
-	// 	// type payload struct {
-	// 	// 	Typename string       `json:"__typename"`
-	// 	// 	Assoc    *payloadAssoc `json:"BatchSensorAssociation"`
-	// 	// }
-	// 	//
-	// 	// type createAssoc struct {
-	// 	// 	Pl payload `json:"associateSensorToBatch"`
-	// 	// }
-	// 	//
-	// 	// var result createAssoc
-	// 	// err = json.Unmarshal(resultData.Data, &result)
-	// 	// if err != nil {
-	// 	// 	t.Fatalf("%v: %v", result, resultData)
-	// 	// }
-	// 	//
-	// 	// // Test the returned graphql types
-	// 	// if result.Pl.Typename != "AssociateSensorToBatchPayload" {
-	// 	// 	t.Errorf("associateBatchToSensor returned unexpected type: %s", result.Pl.Typename)
-	// 	// }
-	// 	//
-	// 	// if result.Pl.Assoc != nil {
-	// 	// 	t.Errorf("associateBatchToSensor returned unexpected type for Assoc: %s", result.Pl.Assoc.Typename)
-	// 	// }
-	// })
+	t.Run("Test reassociate to batch", func(t *testing.T) {
+		defer cleanAssociations()
+
+		previousAssoc, err := worrywort.AssociateBatchToSensor(batch, sensor, "Testing", nil, db)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		n := time.Now()
+		previousAssoc.DisassociatedAt = &n
+		previousAssoc, err = worrywort.UpdateBatchSensorAssociation(*previousAssoc, db)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		variables := map[string]interface{}{
+			"input": map[string]interface{}{
+				"batchId": strconv.Itoa(batch.Id),
+				"sensorId": strconv.Itoa(sensor.Id),
+				"description": "It is associated",
+			},
+		}
+		query := `
+			mutation associateSensorToBatch($input: AssociateSensorToBatchInput!) {
+				associateSensorToBatch(input: $input) {
+					__typename
+					batchSensorAssociation {
+						__typename
+						id
+					}
+				}
+			}`
+
+		operationName := ""
+		ctx := context.Background()
+		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+		ctx = context.WithValue(ctx, "db", db)
+		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
+		// t.Fatalf(spew.Sdump("%v", resultData))
+		type payloadAssoc struct {
+			Typename string `json:"__typename"`
+			Id       string `json:"id"`
+		}
+
+		type payload struct {
+			Typename string       `json:"__typename"`
+			Assoc    *payloadAssoc `json:"BatchSensorAssociation"`
+		}
+
+		type createAssoc struct {
+			Pl payload `json:"associateSensorToBatch"`
+		}
+
+		var result createAssoc
+		err = json.Unmarshal(resultData.Data, &result)
+		if err != nil {
+			t.Fatalf("%v: %v", result, resultData)
+		}
+
+		// Test the returned graphql types
+		if result.Pl.Typename != "AssociateSensorToBatchPayload" {
+			t.Errorf("associateBatchToSensor returned unexpected type: %s", result.Pl.Typename)
+		}
+
+		if result.Pl.Assoc.Typename != "BatchSensorAssociation" {
+			t.Errorf("associateBatchToSensor returned unexpected type for Assoc: %s", result.Pl.Assoc.Typename)
+		}
+	})
 }

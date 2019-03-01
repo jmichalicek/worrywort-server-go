@@ -303,8 +303,6 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batch_sensor_association ba WHERE ` +
 		strings.Join(where, " AND ")
 
-	fmt.Printf("%v", q)
-
 	query := db.Rebind(q)
 	err := db.Get(assocPtr, query, values...)
 	if err != nil {
