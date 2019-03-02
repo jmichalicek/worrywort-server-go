@@ -211,6 +211,7 @@ type batchSensorAssociationResolver struct {
 	// DisassociatedAt *string // time!
 }
 
+func (b *batchSensorAssociationResolver) Id() graphql.ID { return graphql.ID(b.assoc.Id) }
 func (b *batchSensorAssociationResolver) Batch() *batchResolver {
 	// todo: take context and look it up if not already set?
 	// Batch(ctx context.Context)
@@ -219,7 +220,7 @@ func (b *batchSensorAssociationResolver) Batch() *batchResolver {
 func (b *batchSensorAssociationResolver) Sensor() *sensorResolver {
 	return &sensorResolver{s: b.assoc.Sensor}
 }
-func (b *batchSensorAssociationResolver) Description() string { return b.assoc.Description }
+func (b *batchSensorAssociationResolver) Description() *string { return &b.assoc.Description }
 func (b *batchSensorAssociationResolver) AssociatedAt() string {
 	return dateString(b.assoc.AssociatedAt)
 }
@@ -235,11 +236,16 @@ func (b *batchSensorAssociationResolver) DisassociatedAt() *string {
 // Mutation Payloads
 type associateSensorToBatchPayload struct {
 	assoc *batchSensorAssociationResolver
+	// err *userErrorResolver
 }
 
 func (c *associateSensorToBatchPayload) BatchSensorAssociation() *batchSensorAssociationResolver {
 	return c.assoc
 }
+
+// func (c *associateSensorToBatchPayload) UserErrors() *userErrorResolver {
+// 	return c.err
+// }
 
 // TODO: Rename this?  At least it's obvious what it is/does.
 // Mutation to associate a sensor with a batch
@@ -255,7 +261,7 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 	var batchId sql.NullInt64
 	batchId = ToNullInt64(string(input.BatchId))
 	batchPtr, err := worrywort.FindBatch(map[string]interface{}{"user_id": userId, "id": batchId}, r.db)
-	if err != nil {
+	if err != nil || batchPtr == nil {
 		if err != sql.ErrNoRows {
 			log.Printf("%v", err)
 		}
@@ -266,7 +272,7 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 	// TODO!: Make sure the sensor is not already associated with a batch
 	tempSensorId, err := strconv.ParseInt(string(input.SensorId), 10, 0)
 	sensorPtr, err := worrywort.FindSensor(map[string]interface{}{"id": tempSensorId, "user_id": userId}, r.db)
-	if err != nil {
+	if err != nil || sensorPtr == nil {
 		// TODO: Probably need a friendlier error here or for our payload to have a shopify style userErrors
 		// and then not ever return nil from this either way...maybe
 		if err != sql.ErrNoRows {
@@ -277,9 +283,22 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 		return nil, errors.New("Specified Sensor does not exist.")
 	}
 
-	description := ""
+	// TODO: Is this correct?  Maybe I really want to associate a sensor with 2 batches, such as for
+	// ambient air temperature. Maybe this should only ensure it's not associated with the same batch twice.
+	existing, err := worrywort.FindBatchSensorAssociation(
+		map[string]interface{}{"sensor_id": tempSensorId, "disassociated_at": nil}, r.db)
+	if existing != nil {
+		return nil, errors.New("Sensor already associated to Batch.")
+		// err := userErrorResolver{f: []string{"sensor"}, err: "Sensor already associated to Batch."}
+		// result := associateSensorToBatchPayload{assoc: nil, err: &err}
+		// return &result, nil
+	}
+
+	var description string
 	if input.Description != nil {
 		description = *input.Description
+	} else {
+		description = ""
 	}
 	association, err := worrywort.AssociateBatchToSensor(*batchPtr, *sensorPtr, description, nil, r.db)
 	if err != nil {

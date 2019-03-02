@@ -611,18 +611,20 @@ func TestCreateBatchMutation(t *testing.T) {
 		ctx = context.WithValue(ctx, "db", db)
 		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
 
-		// Some structs so that the json can be unmarshalled
+		// Some structs so that the json can be unmarshalled.
+		// Unsure why I am doing it this way here and not the same interface{} unmarshall as before.
 		type payloadBatch struct {
 			Typename string `json:"__typename"`
 			Id       string `json:"id"`
 		}
-		type createBatchPayload struct {
+
+		type cbPayload struct {
 			Typename string       `json:"__typename"`
 			Batch    payloadBatch `json:"batch"`
 		}
 
 		type createBatch struct {
-			CreateBatch createBatchPayload `json:"createBatch"`
+			CreateBatch cbPayload `json:"createBatch"`
 		}
 
 		var result createBatch
@@ -642,7 +644,7 @@ func TestCreateBatchMutation(t *testing.T) {
 
 		// Look up the object in the db to be sure it was created
 		var batchId string = result.CreateBatch.Batch.Id
-		batch, err := worrywort.FindBatch(map[string]interface{}{"userId": userId, "id": batchId}, db)
+		batch, err := worrywort.FindBatch(map[string]interface{}{"user_id": userId, "id": batchId}, db)
 
 		if err == sql.ErrNoRows {
 			t.Error("Batch was not saved to the database. Query returned no results.")
@@ -652,5 +654,256 @@ func TestCreateBatchMutation(t *testing.T) {
 
 		// TODO: Really should maybe make sure all properties were inserted
 
+	})
+}
+
+func TestAssociateSensorToBatchMutation(t *testing.T) {
+
+	query := `
+		mutation associateSensorToBatch($input: AssociateSensorToBatchInput!) {
+			associateSensorToBatch(input: $input) {
+				__typename
+				batchSensorAssociation {
+					__typename
+					id
+				}
+			}
+		}`
+
+		// Structs for marshalling json to so that actual values can easily be checked and used
+		type payloadAssoc struct {
+			Typename string `json:"__typename"`
+			Id       string `json:"id"`
+		}
+
+		type payload struct {
+			Typename string       `json:"__typename"`
+			Assoc    *payloadAssoc `json:"BatchSensorAssociation"`
+		}
+
+		type createAssoc struct {
+			Pl payload `json:"associateSensorToBatch"`
+		}
+
+	const DefaultUserKey string = "user"
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := worrywort.NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err = worrywort.SaveUser(db, u)
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
+
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	sensor, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: userId, Name: "Test Sensor", CreatedBy: &u})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	sensorId := sql.NullInt64{Valid: true, Int64: int64(sensor.Id)}
+
+	batch, err := worrywort.SaveBatch(
+		db, worrywort.Batch{UserId: userId, CreatedBy: &u, Name: "Test batch"})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	batchId := sql.NullInt64{Valid: true, Int64: int64(batch.Id)}
+
+	u2 := worrywort.NewUser(0, "user2@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u2, err = worrywort.SaveUser(db, u2)
+	userId2 := sql.NullInt64{Valid: true, Int64: int64(u2.Id)}
+
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	sensor2, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: userId2, Name: "Test Sensor 2", CreatedBy: &u2})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	batch2, err := worrywort.SaveBatch(
+		db, worrywort.Batch{UserId: userId2, CreatedBy: &u2, Name: "Test batch 2"})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+
+	operationName := ""
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+	ctx = context.WithValue(ctx, "db", db)
+
+	cleanAssociations := func() {
+		q := `DELETE FROM batch_sensor_association WHERE sensor_id = ? AND batch_id = ?`
+		q = db.Rebind(q)
+		_, err := db.Exec(q, sensor.Id, batch.Id)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	t.Run("Test associate to batch", func(t *testing.T) {
+		defer cleanAssociations()
+		variables := map[string]interface{}{
+			"input": map[string]interface{}{
+				"batchId": strconv.Itoa(batch.Id),
+				"sensorId": strconv.Itoa(sensor.Id),
+				"description": "It is associated",
+			},
+		}
+
+		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
+		var result createAssoc
+		err = json.Unmarshal(resultData.Data, &result)
+		if err != nil {
+			t.Fatalf("%v: %v", result, resultData)
+		}
+
+		// Test the returned graphql types
+		if result.Pl.Typename != "AssociateSensorToBatchPayload" {
+			t.Errorf("associateBatchToSensor returned unexpected type: %s", result.Pl.Typename)
+		}
+
+		if result.Pl.Assoc.Typename != "BatchSensorAssociation" {
+			t.Errorf("associateBatchToSensor returned unexpected type for Assoc: %s", result.Pl.Assoc.Typename)
+		}
+
+		// Make sure it was really created in the db
+		newAssoc, err := worrywort.FindBatchSensorAssociation(
+			map[string]interface{}{"id": result.Pl.Assoc.Id, "batch_id": batchId, "sensor_id": sensorId}, db)
+
+		if err == sql.ErrNoRows {
+			t.Error("BatchSensor was not saved to the database. Query returned no results.")
+		} else if err != nil {
+			t.Errorf("Error: %v and BatchSensor: %v", err, newAssoc)
+		}
+	})
+
+	t.Run("Test reassociate to batch", func(t *testing.T) {
+		defer cleanAssociations()
+
+		previousAssoc, err := worrywort.AssociateBatchToSensor(batch, sensor, "Testing", nil, db)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		n := time.Now()
+		previousAssoc.DisassociatedAt = &n
+		previousAssoc, err = worrywort.UpdateBatchSensorAssociation(*previousAssoc, db)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		variables := map[string]interface{}{
+			"input": map[string]interface{}{
+				"batchId": strconv.Itoa(batch.Id),
+				"sensorId": strconv.Itoa(sensor.Id),
+				"description": "It is associated",
+			},
+		}
+
+		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
+		var result createAssoc
+		err = json.Unmarshal(resultData.Data, &result)
+		if err != nil {
+			t.Fatalf("%v: %v", result, resultData)
+		}
+
+		// Test the returned graphql types
+		if result.Pl.Typename != "AssociateSensorToBatchPayload" {
+			t.Errorf("associateBatchToSensor returned unexpected type: %s", result.Pl.Typename)
+		}
+
+		if result.Pl.Assoc.Typename != "BatchSensorAssociation" {
+			t.Errorf("associateBatchToSensor returned unexpected type for Assoc: %s", result.Pl.Assoc.Typename)
+		}
+
+		if result.Pl.Assoc.Id == previousAssoc.Id {
+			t.Errorf("associateBatchToSensor returned previous association id. New association was expected.")
+		}
+	})
+
+	t.Run("Sensor already associated to same batch", func(t *testing.T) {
+		defer cleanAssociations()
+		_, err := worrywort.AssociateBatchToSensor(batch, sensor, "Testing", nil, db)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+
+		variables := map[string]interface{}{
+			"input": map[string]interface{}{
+				"batchId": strconv.Itoa(batch.Id),
+				"sensorId": strconv.Itoa(sensor.Id),
+				"description": "It is associated",
+			},
+		}
+
+		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
+		var result createAssoc
+		err = json.Unmarshal(resultData.Data, &result)
+		if err != nil {
+			t.Fatalf("%v: %v", result, resultData)
+		}
+		if result.Pl.Assoc != nil {
+			t.Errorf("Expected null payload in response, got: %v", resultData.Data)
+		}
+
+		if resultData.Errors[0].Message != "Sensor already associated to Batch." {
+			t.Errorf("Expected query error `Sensor already associated to Batch.`, Got: %v", resultData.Errors)
+		}
+	})
+
+	t.Run("Batch not owned by user", func(t *testing.T) {
+		defer cleanAssociations()
+		variables := map[string]interface{}{
+			"input": map[string]interface{}{
+				"batchId": strconv.Itoa(batch2.Id),
+				"sensorId": strconv.Itoa(sensor.Id),
+				"description": "It is associated",
+			},
+		}
+
+		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
+		var result createAssoc
+		err = json.Unmarshal(resultData.Data, &result)
+		if err != nil {
+			t.Fatalf("%v: %v", result, resultData)
+		}
+		if result.Pl.Assoc != nil {
+			t.Errorf("Expected null payload in response, got: %v", resultData.Data)
+		}
+
+		if resultData.Errors[0].Message != "Specified Batch does not exist." {
+			t.Errorf("Expected query error `Specified Batch does not exist.`, Got: %v", resultData.Errors)
+		}
+	})
+
+	t.Run("Sensor not owned by user", func(t *testing.T) {
+		defer cleanAssociations()
+		variables := map[string]interface{}{
+			"input": map[string]interface{}{
+				"batchId": strconv.Itoa(batch.Id),
+				"sensorId": strconv.Itoa(sensor2.Id),
+				"description": "It is associated",
+			},
+		}
+
+		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
+		var result createAssoc
+		err = json.Unmarshal(resultData.Data, &result)
+		if err != nil {
+			t.Fatalf("%v: %v", result, resultData)
+		}
+		if result.Pl.Assoc != nil {
+			t.Errorf("Expected null payload in response, got: %v", resultData.Data)
+		}
+
+		if resultData.Errors[0].Message != "Specified Sensor does not exist." {
+			t.Errorf("Expected query error `Specified Batch does not exist.`, Got: %v", resultData.Errors)
+		}
 	})
 }

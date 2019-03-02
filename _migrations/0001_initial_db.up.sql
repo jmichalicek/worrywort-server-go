@@ -94,18 +94,18 @@ CREATE TABLE IF NOT EXISTS sensors(
 -- store the association between a batch and a sensor permanently rather than making it ephemeral
 -- and using the temperature measurements to track that long term
 CREATE TABLE IF NOT EXISTS batch_sensor_association(
-  -- batch_id + sensor_id composite pk would make a lot of sense here
-  -- but doing it this way allows use to lose one or the other
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- used to be PK of (batch_id, sensor_id).. but maybe you disassociate then re-associate. meh.
   batch_id integer REFERENCES batches (id) ON DELETE CASCADE NOT NULL,
   sensor_id integer REFERENCES sensors (id) ON DELETE CASCADE NOT NULL,
-  associated_at timestamp with time zone,
+  associated_at timestamp with time zone DEFAULT current_timestamp,
   disassociated_at timestamp with time zone,
   description text NOT NULL DEFAULT '',
 
   created_at timestamp with time zone DEFAULT current_timestamp,
-  updated_at timestamp with time zone,
-  PRIMARY KEY(batch_id, sensor_id)
+  updated_at timestamp with time zone
 );
+CREATE INDEX IF NOT EXISTS batch_sensor_association_associated_at_index ON batch_sensor_association (associated_at);
 
 -- Storing this here for now, but it may move to a timeseries db such as influxdb
 CREATE TABLE IF NOT EXISTS temperature_measurements(

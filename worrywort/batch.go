@@ -95,6 +95,7 @@ func (b Batch) StrictEqual(other Batch) bool {
 // TODO: Use fields() to iterate over the fields and use the `db`
 // tag to map field name to db field.
 func FindBatch(params map[string]interface{}, db *sqlx.DB) (*Batch, error) {
+	// TODO: This is a dumb way to do it and I should do it like in temperature_measurement.go
 	batches, err := FindBatches(params, db)
 	if err == nil && len(batches) >= 1 {
 		return batches[0], err
@@ -131,7 +132,6 @@ func FindBatches(params map[string]interface{}, db *sqlx.DB) ([]*Batch, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return batches, nil
 }
 
@@ -203,6 +203,7 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 // Not sure if this should live here - it works equally well in sensor.go
 // or maybe it should get its own .go file
 type BatchSensor struct {
+	Id string `db:"id"` // use a uuid
 	BatchId         int        `db:"batch_id"`
 	SensorId        int        `db:"sensor_id"`
 	Description     string     `db:"description"`
@@ -226,6 +227,7 @@ type BatchSensor struct {
 func AssociateBatchToSensor(batch Batch, sensor Sensor, description string, associatedAt *time.Time, db *sqlx.DB) (*BatchSensor, error) {
 	var updatedAt time.Time
 	var createdAt time.Time
+	assocId := ""
 	if associatedAt == nil {
 		n := time.Now()
 		associatedAt = &n
@@ -241,32 +243,73 @@ func AssociateBatchToSensor(batch Batch, sensor Sensor, description string, asso
 	// 	query, batch.Id, sensor.Id, description, associatedAt).StructScan(bs)
 
 	query := db.Rebind(`INSERT INTO batch_sensor_association (batch_id, sensor_id, description, associated_at,
-		created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING created_at, updated_at, associated_at`)
+		created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at, associated_at`)
 
 	// This overwrites associatedAt with the db's value because otherwise we run into precision differences on input
 	// and output which gets weird when comparing
 	err := db.QueryRow(
-		query, batch.Id, sensor.Id, description, associatedAt).Scan(&createdAt, &updatedAt, associatedAt)
+		query, batch.Id, sensor.Id, description, associatedAt).Scan(&assocId, &createdAt, &updatedAt, associatedAt)
 
 	if err != nil {
 		return nil, err
 	}
 
-	bs := BatchSensor{BatchId: batch.Id, SensorId: sensor.Id, Description: description, AssociatedAt: *associatedAt,
-		UpdatedAt: updatedAt, CreatedAt: createdAt}
+	bs := BatchSensor{Id: assocId, BatchId: batch.Id, SensorId: sensor.Id, Description: description,
+		AssociatedAt: *associatedAt, UpdatedAt: updatedAt, CreatedAt: createdAt}
 	return &bs, nil
 }
 
-func UpdateBatchSensorAssociation(b BatchSensor, db *sqlx.DB) (BatchSensor, error) {
+func UpdateBatchSensorAssociation(b BatchSensor, db *sqlx.DB) (*BatchSensor, error) {
+	// TODO: Tempted to make these take a BatchSensor to modify and a dict of changes... maybe. sort of elixir/ecto style.
+	// TODO: not sure how I feel about taking struct, returning pointer to the struct...
 	var updatedAt time.Time
 
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
-	query := db.Rebind(`UPDATE batch_sensor_association SET description = ?, associated_at = ?, disassociated_at = ?,
-		updated_at = NOW() WHERE batch_id = ? AND sensor_id = ? RETURNING updated_at`)
-	err := db.QueryRow(query, b.Description, b.AssociatedAt, b.DisassociatedAt, b.BatchId, b.SensorId).Scan(&updatedAt)
+	query := db.Rebind(`UPDATE batch_sensor_association SET batch_id = ?, sensor_id = ?, description = ?, associated_at = ?, disassociated_at = ?,
+		updated_at = NOW() WHERE id = ? RETURNING updated_at`)
+	err := db.QueryRow(query, b.BatchId, b.SensorId, b.Description, b.AssociatedAt, b.DisassociatedAt, b.Id).Scan(&updatedAt)
 	if err != nil {
-		return b, err
+		return &b, err
 	}
 	b.UpdatedAt = updatedAt
-	return b, nil
+	return &b, nil
+}
+
+func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*BatchSensor, error) {
+	// var association *BatchSensor = nil
+	association := BatchSensor{}
+	assocPtr := &association
+	var values []interface{}
+	var where []string
+	for _, k := range []string{"batch_id", "sensor_id", "id", "disassociated_at"} {
+		if v, ok := params[k]; ok {
+			if v != nil {
+				values = append(values, v)
+				// TODO: Deal with values from batch OR user table
+				where = append(where, fmt.Sprintf("ba.%s = ?", k))
+			} else {
+				where = append(where, fmt.Sprintf("ba.%s IS NULL ", k))
+			}
+		}
+	}
+
+	selectCols := ""
+	queryCols := []string{"id", "batch_id", "sensor_id", "description", "associated_at", "disassociated_at",
+		"updated_at", "created_at"}
+	for _, k := range queryCols {
+		selectCols += fmt.Sprintf("ba.%s, ", k)
+	}
+
+	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batch_sensor_association ba WHERE ` +
+		strings.Join(where, " AND ")
+
+	query := db.Rebind(q)
+	err := db.Get(assocPtr, query, values...)
+	if err != nil {
+		// TODO: seems like I should be able to just have assoc be a nil ptr in the first place
+		// then I would not need to do this.  This bit is here becaus assoc is a zero value, not nil,
+		// so assocPtr is not ever nil
+		assocPtr = nil
+	}
+	return assocPtr, err
 }

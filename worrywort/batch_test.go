@@ -447,11 +447,12 @@ func TestBatchSenssorAssociations(t *testing.T) {
 		}
 
 		var newAssociation BatchSensor
-		q := `SELECT bs.sensor_id, bs.batch_id, bs.description, bs.associated_at, bs.disassociated_at, bs.created_at,
-			bs.updated_at FROM batch_sensor_association bs WHERE bs.sensor_id = ? AND bs.batch_id = ? AND bs.description = ?
-			AND bs.associated_at = ? AND bs.created_at = ? AND bs.updated_at = ? AND bs.disassociated_at IS NULL`
+		q := `SELECT bs.id, bs.sensor_id, bs.batch_id, bs.description, bs.associated_at, bs.disassociated_at, bs.created_at,
+			bs.updated_at FROM batch_sensor_association bs WHERE bs.id = ? AND bs.sensor_id = ? AND bs.batch_id = ?
+			AND bs.description = ? AND bs.associated_at = ? AND bs.created_at = ? AND bs.updated_at = ?
+			AND bs.disassociated_at IS NULL`
 		query := db.Rebind(q)
-		err = db.Get(&newAssociation, query, sensor.Id, batch.Id, "Testing", association.AssociatedAt,
+		err = db.Get(&newAssociation, query, association.Id, sensor.Id, batch.Id, "Testing", association.AssociatedAt,
 			association.CreatedAt, association.UpdatedAt)
 
 		if err != nil {
@@ -486,15 +487,16 @@ func TestBatchSenssorAssociations(t *testing.T) {
 		}
 		// Making sure the change was persisted to the db
 		updated2 := BatchSensor{}
-		q := `SELECT sensor_id, batch_id, description, associated_at, disassociated_at, created_at,
-			updated_at FROM batch_sensor_association bs WHERE sensor_id = ? AND batch_id = ? AND description = ? AND disassociated_at IS NULL`
+		q := `SELECT id, sensor_id, batch_id, description, associated_at, disassociated_at, created_at,
+			updated_at FROM batch_sensor_association bs WHERE id = ? AND sensor_id = ? AND batch_id = ? AND description = ?
+			AND disassociated_at IS NULL`
 		query := db.Rebind(q)
-		err = db.Get(&updated2, query, association.SensorId, association.BatchId, "Updated")
+		err = db.Get(&updated2, query, association.Id, association.SensorId, association.BatchId, "Updated")
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
 
-		if !reflect.DeepEqual(updated, updated2) {
+		if !reflect.DeepEqual(*updated, updated2) {
 			t.Errorf("Expected: %s\nGot: %s. Changes may not have persisted to the database.", spew.Sdump(updated), spew.Sdump(updated2))
 		}
 	})

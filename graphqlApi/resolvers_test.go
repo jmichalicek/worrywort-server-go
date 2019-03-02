@@ -605,7 +605,7 @@ func TestBatchSensorAssociationResolver(t *testing.T) {
 		// or compare to association.Description? Always torn on this...
 		// Make sure it matches the value expected or make sure it matches the value of
 		// the object populating it, whatever that might be?
-		if d != "Description" {
+		if *d != "Description" {
 			t.Errorf("\nExpected: Description\ngot: %v", d)
 		}
 	})
