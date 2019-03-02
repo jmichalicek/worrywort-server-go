@@ -95,6 +95,7 @@ func (b Batch) StrictEqual(other Batch) bool {
 // TODO: Use fields() to iterate over the fields and use the `db`
 // tag to map field name to db field.
 func FindBatch(params map[string]interface{}, db *sqlx.DB) (*Batch, error) {
+	// TODO: This is a dumb way to do it and I should do it like in temperature_measurement.go
 	batches, err := FindBatches(params, db)
 	if err == nil && len(batches) >= 1 {
 		return batches[0], err
@@ -131,7 +132,6 @@ func FindBatches(params map[string]interface{}, db *sqlx.DB) ([]*Batch, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return batches, nil
 }
 

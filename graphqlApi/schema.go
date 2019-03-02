@@ -165,6 +165,11 @@ var Schema = `
 		updatedAt: String!
 	}
 
+	type UserError {
+		field: [String!]
+		error: String!
+	}
+
 	# Input data to create a Batch
 	input CreateBatchInput {
 		# A name for the Bath
