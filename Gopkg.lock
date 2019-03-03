@@ -18,6 +18,19 @@
   version = "v1.1.1"
 
 [[projects]]
+  digest = "1:f9f45f75f332e03fc7e9fe9188ea4e1ce4d14779ef34fa1b023da67518e36327"
+  name = "github.com/google/go-cmp"
+  packages = [
+    "cmp",
+    "cmp/internal/diff",
+    "cmp/internal/function",
+    "cmp/internal/value",
+  ]
+  pruneopts = ""
+  revision = "3af367b6b30c263d47e8895973edcca9a49cf029"
+  version = "v0.2.0"
+
+[[projects]]
   digest = "1:c1d7e883c50a26ea34019320d8ae40fad86c9e5d56e63a1ba2cb618cef43e986"
   name = "github.com/google/uuid"
   packages = ["."]
@@ -107,6 +120,7 @@
   input-imports = [
     "github.com/DATA-DOG/go-txdb",
     "github.com/davecgh/go-spew/spew",
+    "github.com/google/go-cmp/cmp",
     "github.com/google/uuid",
     "github.com/graph-gophers/graphql-go",
     "github.com/graph-gophers/graphql-go/relay",
