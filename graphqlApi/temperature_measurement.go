@@ -22,6 +22,7 @@ func (r *temperatureMeasurementResolver) Temperature() float64                 {
 func (r *temperatureMeasurementResolver) Units() worrywort.TemperatureUnitType { return r.m.Units }
 func (r *temperatureMeasurementResolver) Batch(ctx context.Context) *batchResolver {
 	// TODO: dataloader, caching, etc.
+	// this is not going to scale well like this due to how TemperatureMeasurement.Batch() works.
 	var resolved *batchResolver
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {

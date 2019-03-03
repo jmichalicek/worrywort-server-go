@@ -35,15 +35,18 @@ func (tm *TemperatureMeasurement) Batch(db *sqlx.DB) (*Batch, error) {
 	if tm.batch == nil {
 		// TODO: again... sure I should be able to just make a nil pointer to Batch right off here.
 		b := Batch{}
-		values := []interface{}{tm.RecordedAt, tm.SensorId}
+		values := []interface{}{tm.RecordedAt, tm.RecordedAt, tm.SensorId}
 
 		// TODO: I would rather have just a central ORM-ish function to do this, but it's way easier
 		// to write an efficient query for it here.
+		// Because associated_at can be modified, in the case that disassociated is null, we could potentially
+		// get the wrong association without checking the associated_at time as well
 		q := `SELECT b.* FROM batches b LEFT JOIN batch_sensor_association bsa
-			ON bsa.batch_id = b.id AND (bsa.disassociated_at IS NULL OR bsa.disassociated_at > ?) WHERE bsa.sensor_id = ?
+			ON bsa.batch_id = b.id AND bsa.associated_at <= ?
+			AND (bsa.disassociated_at IS NULL OR bsa.disassociated_at >= ?) WHERE bsa.sensor_id = ?
 			LIMIT 1`
 		// q := `SELECT b.* FROM batch_sensor_association bsa INNER JOIN batches b ON batch.id = bsa.batch_id WHERE
-		//  (bsa.disassociated_at IS NULL OR bsa.disassociated_at > ?) AND bsa.sensor_id = ? LIMIT 1`
+		//  AND bsa.associated_at <= ? (bsa.disassociated_at IS NULL OR bsa.disassociated_at > ?) AND bsa.sensor_id = ? LIMIT 1`
 
 		query := db.Rebind(q)
 		err := db.Get(&b, query, values...)

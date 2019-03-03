@@ -227,10 +227,15 @@ type BatchSensor struct {
 func AssociateBatchToSensor(batch Batch, sensor Sensor, description string, associatedAt *time.Time, db *sqlx.DB) (*BatchSensor, error) {
 	var updatedAt time.Time
 	var createdAt time.Time
+	var assocTime time.Time
 	assocId := ""
 	if associatedAt == nil {
-		n := time.Now()
-		associatedAt = &n
+		// do not modify the associatedAt pointer - we just want to allow it to be nil
+		// so a new var is made here and this is what will get assigned to.  sqlx also does not deal with
+		// associatedAt being passed in as nil and just using that in db.QueryRow, so this manually deals with that.
+		assocTime = time.Now()
+	} else {
+		assocTime = *associatedAt
 	}
 
 	// TODO: This should work, but I am getting errors back about sql.Row has no StructScan.  Why is it a sql.Row and not
@@ -245,19 +250,19 @@ func AssociateBatchToSensor(batch Batch, sensor Sensor, description string, asso
 	batchId := sql.NullInt64{Int64: int64(batch.Id), Valid: true}
 	sensorId := sql.NullInt64{Int64: int64(sensor.Id), Valid: true}
 	query := db.Rebind(`INSERT INTO batch_sensor_association (batch_id, sensor_id, description, associated_at,
-		created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at, associated_at`)
+		updated_at) VALUES (?, ?, ?, ?, NOW()) RETURNING id, created_at, updated_at, associated_at`)
 
 	// This overwrites associatedAt with the db's value because otherwise we run into precision differences on input
 	// and output which gets weird when comparing
 	err := db.QueryRow(
-		query, batchId, sensorId, description, associatedAt).Scan(&assocId, &createdAt, &updatedAt, associatedAt)
+		query, batchId, sensorId, description, assocTime).Scan(&assocId, &createdAt, &updatedAt, &assocTime)
 
 	if err != nil {
 		return nil, err
 	}
 
 	bs := BatchSensor{Id: assocId, BatchId: batchId, SensorId: sensorId, Description: description,
-		AssociatedAt: *associatedAt, UpdatedAt: updatedAt, CreatedAt: createdAt}
+		AssociatedAt: assocTime, UpdatedAt: updatedAt, CreatedAt: createdAt}
 	return &bs, nil
 }
 

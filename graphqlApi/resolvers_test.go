@@ -10,6 +10,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+	// "fmt"
+	"github.com/google/go-cmp/cmp"
 )
 
 func setUpTestDb() (*sqlx.DB, error) {
@@ -432,16 +434,35 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	ctx = context.WithValue(ctx, "db", db)
 
 	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
 	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
-	sensor := worrywort.NewSensor(1, "Therm1", &u, time.Now(), time.Now())
+	// sensor := worrywort.NewSensor(1, "Therm1", &u, time.Now(), time.Now())
+	sensor := worrywort.Sensor{Name: "Therm1", UserId: userId, CreatedBy: &u}
 	sensor, err = worrywort.SaveSensor(db, sensor)
-	batch := makeTestBatch(u, true)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	sensorId := sql.NullInt64{Int64: int64(sensor.Id), Valid: true}
+	batch := makeTestBatch(u, false)
 	batch, err = worrywort.SaveBatch(db, batch)
-	timeRecorded := time.Now().Add(time.Hour * time.Duration(-1))
-	measurement := worrywort.TemperatureMeasurement{Id: "shouldbeauuid", Temperature: 64.26, Units: worrywort.FAHRENHEIT,
-		RecordedAt: timeRecorded, Sensor: &sensor, CreatedBy: &u, UserId: userId, CreatedAt: time.Now(),
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	// batchId := sql.NullInt64{Int64: int64(batch.Id), Valid: true}
+	assoc, err := worrywort.AssociateBatchToSensor(batch, sensor, "", nil, db)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	timeRecorded := assoc.AssociatedAt.Add(time.Minute * time.Duration(1))
+	measurement := worrywort.TemperatureMeasurement{Temperature: 64.26, Units: worrywort.FAHRENHEIT,
+		RecordedAt: timeRecorded, SensorId: sensorId, Sensor: &sensor, CreatedBy: &u, UserId: userId, CreatedAt: time.Now(),
 		UpdatedAt: time.Now()}
 	measurement, err = worrywort.SaveTemperatureMeasurement(db, measurement)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
 	resolver := temperatureMeasurementResolver{m: &measurement}
 
 	t.Run("ID()", func(t *testing.T) {
@@ -484,10 +505,13 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 
 	t.Run("Batch()", func(t *testing.T) {
 		b := resolver.Batch(ctx)
-		// expectedBatch, _ := measurement.Batch(db)
 		expected := batchResolver{b: &batch}
-		if expected != *b {
-			t.Errorf("\nExpected: %v\ngot: %v", expected, batch)
+		cmpOpts := []cmp.Option{
+			cmp.AllowUnexported(*b),
+	    cmp.AllowUnexported(*b.b),
+		}
+		if !cmp.Equal(*b, expected, cmpOpts...) {
+			t.Errorf(cmp.Diff(*b, expected, cmpOpts...))
 		}
 	})
 
@@ -544,8 +568,12 @@ func TestBatchSensorAssociationResolver(t *testing.T) {
 	ctx = context.WithValue(ctx, "db", db)
 
 	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
-	// TODO; scrap NewSensor!!!!
-	sensor := worrywort.NewSensor(1, "Therm1", &u, time.Now(), time.Now())
+	userId := sql.NullInt64{Int64: int64(u.Id), Valid: true}
+	sensor := worrywort.Sensor{Name: "Therm1", UserId: userId, CreatedBy: &u}
+	sensor, err = worrywort.SaveSensor(db, sensor)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
 	batch := makeTestBatch(u, true)
 	batchId := sql.NullInt64{Int64: int64(batch.Id), Valid: true}
 	sensorId := sql.NullInt64{Int64: int64(sensor.Id), Valid: true}
