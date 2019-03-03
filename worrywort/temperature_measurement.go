@@ -6,6 +6,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"strings"
 	"time"
+	// "github.com/davecgh/go-spew/spew"
 )
 
 // A single recorded temperature measurement from a temperatureSensor
@@ -30,20 +31,22 @@ type TemperatureMeasurement struct {
 }
 
 func (tm *TemperatureMeasurement) Batch(db *sqlx.DB) (*Batch, error) {
+	// TODO: Is this a good idea? it's not going to scale with list queries on graphql stuff
 	if tm.batch == nil {
 		// TODO: again... sure I should be able to just make a nil pointer to Batch right off here.
 		b := Batch{}
-		values := []interface{}{tm.SensorId}
+		values := []interface{}{tm.RecordedAt, tm.SensorId}
 
 		// TODO: I would rather have just a central ORM-ish function to do this, but it's way easier
 		// to write an efficient query for it here.
-		q := `SELECT b.* FROM batches b INNER JOIN batch_sensor_association bas ON bas.batch_id = b.id
-			INNER JOIN sensors s ON s.id = bas.sensor_id
-			WHERE s.id = ?`
+		q := `SELECT b.* FROM batches b LEFT JOIN batch_sensor_association bsa
+			ON bsa.batch_id = b.id AND (bsa.disassociated_at IS NULL OR bsa.disassociated_at > ?) WHERE bsa.sensor_id = ?
+			LIMIT 1`
+		// q := `SELECT b.* FROM batch_sensor_association bsa INNER JOIN batches b ON batch.id = bsa.batch_id WHERE
+		//  (bsa.disassociated_at IS NULL OR bsa.disassociated_at > ?) AND bsa.sensor_id = ? LIMIT 1`
 
 		query := db.Rebind(q)
 		err := db.Get(&b, query, values...)
-
 		if err != nil {
 			// TODO: log error
 			return nil, err

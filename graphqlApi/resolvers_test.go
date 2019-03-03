@@ -335,7 +335,6 @@ func TestFermentorResolver(t *testing.T) {
 	})
 
 	t.Run("CreatedBy()", func(t *testing.T) {
-
 		var actual *userResolver = r.CreatedBy(ctx)
 		expected := userResolver{u: f.CreatedBy}
 		if *actual != expected {
@@ -435,11 +434,14 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
 	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 	sensor := worrywort.NewSensor(1, "Therm1", &u, time.Now(), time.Now())
+	sensor, err = worrywort.SaveSensor(db, sensor)
 	batch := makeTestBatch(u, true)
+	batch, err = worrywort.SaveBatch(db, batch)
 	timeRecorded := time.Now().Add(time.Hour * time.Duration(-1))
 	measurement := worrywort.TemperatureMeasurement{Id: "shouldbeauuid", Temperature: 64.26, Units: worrywort.FAHRENHEIT,
 		RecordedAt: timeRecorded, Sensor: &sensor, CreatedBy: &u, UserId: userId, CreatedAt: time.Now(),
 		UpdatedAt: time.Now()}
+	measurement, err = worrywort.SaveTemperatureMeasurement(db, measurement)
 	resolver := temperatureMeasurementResolver{m: &measurement}
 
 	t.Run("ID()", func(t *testing.T) {
@@ -482,10 +484,10 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 
 	t.Run("Batch()", func(t *testing.T) {
 		b := resolver.Batch(ctx)
-		expectedBatch, _ := measurement.Batch(db)
-		expected := batchResolver{b: expectedBatch}
+		// expectedBatch, _ := measurement.Batch(db)
+		expected := batchResolver{b: &batch}
 		if expected != *b {
-			t.Errorf("\nExpected: %v\ngot: %v", expected, *b)
+			t.Errorf("\nExpected: %v\ngot: %v", expected, batch)
 		}
 	})
 
@@ -545,8 +547,10 @@ func TestBatchSensorAssociationResolver(t *testing.T) {
 	// TODO; scrap NewSensor!!!!
 	sensor := worrywort.NewSensor(1, "Therm1", &u, time.Now(), time.Now())
 	batch := makeTestBatch(u, true)
+	batchId := sql.NullInt64{Int64: int64(batch.Id), Valid: true}
+	sensorId := sql.NullInt64{Int64: int64(sensor.Id), Valid: true}
 	association := worrywort.BatchSensor{
-		BatchId: batch.Id, SensorId: sensor.Id, Batch: &batch, Sensor: &sensor, Description: "Description",
+		BatchId: batchId, SensorId: sensorId, Batch: &batch, Sensor: &sensor, Description: "Description",
 		AssociatedAt: time.Now()}
 	resolver := batchSensorAssociationResolver{assoc: &association}
 

@@ -204,8 +204,8 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 // or maybe it should get its own .go file
 type BatchSensor struct {
 	Id string `db:"id"` // use a uuid
-	BatchId         int        `db:"batch_id"`
-	SensorId        int        `db:"sensor_id"`
+	BatchId         sql.NullInt64        `db:"batch_id"`
+	SensorId        sql.NullInt64        `db:"sensor_id"`
 	Description     string     `db:"description"`
 	AssociatedAt    time.Time  `db:"associated_at"`
 	DisassociatedAt *time.Time `db:"disassociated_at"`
@@ -242,19 +242,21 @@ func AssociateBatchToSensor(batch Batch, sensor Sensor, description string, asso
 	// err := db.QueryRow(
 	// 	query, batch.Id, sensor.Id, description, associatedAt).StructScan(bs)
 
+	batchId := sql.NullInt64{Int64: int64(batch.Id), Valid: true}
+	sensorId := sql.NullInt64{Int64: int64(sensor.Id), Valid: true}
 	query := db.Rebind(`INSERT INTO batch_sensor_association (batch_id, sensor_id, description, associated_at,
 		created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at, associated_at`)
 
 	// This overwrites associatedAt with the db's value because otherwise we run into precision differences on input
 	// and output which gets weird when comparing
 	err := db.QueryRow(
-		query, batch.Id, sensor.Id, description, associatedAt).Scan(&assocId, &createdAt, &updatedAt, associatedAt)
+		query, batchId, sensorId, description, associatedAt).Scan(&assocId, &createdAt, &updatedAt, associatedAt)
 
 	if err != nil {
 		return nil, err
 	}
 
-	bs := BatchSensor{Id: assocId, BatchId: batch.Id, SensorId: sensor.Id, Description: description,
+	bs := BatchSensor{Id: assocId, BatchId: batchId, SensorId: sensorId, Description: description,
 		AssociatedAt: *associatedAt, UpdatedAt: updatedAt, CreatedAt: createdAt}
 	return &bs, nil
 }
