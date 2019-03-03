@@ -16,8 +16,9 @@ type TemperatureMeasurement struct {
 	Temperature float64             `db:"temperature"`
 	Units       TemperatureUnitType `db:"units"`
 	RecordedAt  time.Time           `db:"recorded_at"` // when the measurement was recorded
+	// I could leave batch public and set it... it doesn't have to exist on the table.
+	// but I think forcing use of Batch() enforces consistency
 	batch       *Batch
-	BatchId     sql.NullInt64       `db:"batch_id"`
 	Sensor      *Sensor             `db:"sensor,prefix=ts"`
 	SensorId    sql.NullInt64       `db:"sensor_id"`
 
@@ -78,12 +79,11 @@ func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 	var createdAt time.Time
 	var measurementId string
 
-	insertVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt, tm.BatchId,
-		tm.SensorId}
+	insertVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt, tm.SensorId}
 
 	query := db.Rebind(`INSERT INTO temperature_measurements (user_id, temperature, units, recorded_at, created_at,
-		updated_at, batch_id, sensor_id)
-		VALUES (?, ?, ?, ?, NOW(), NOW(), ?, ?) RETURNING id, created_at, updated_at`)
+		updated_at, sensor_id)
+		VALUES (?, ?, ?, ?, NOW(), NOW(), ?) RETURNING id, created_at, updated_at`)
 	err := db.QueryRow(query, insertVals...).Scan(&measurementId, &createdAt, &updatedAt)
 	if err != nil {
 		return tm, err
@@ -101,11 +101,11 @@ func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 // Returns the same, unmodified User and errors on error
 func UpdateTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (TemperatureMeasurement, error) {
 	var updatedAt time.Time
-	paramVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt, tm.BatchId, tm.SensorId}
+	paramVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt, tm.SensorId}
 	paramVals = append(paramVals, tm.Id)
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
 	query := db.Rebind(`UPDATE temperature_measurements SET user_id = ?, temperature = ?, units = ?,
-		recorded_at = ?, updated_at = NOW(), batch_id = ?, sensor_id = ? WHERE id = ? RETURNING updated_at`)
+		recorded_at = ?, updated_at = NOW(), sensor_id = ? WHERE id = ? RETURNING updated_at`)
 	err := db.QueryRow(query, paramVals...).Scan(&updatedAt)
 	if err != nil {
 		return tm, err

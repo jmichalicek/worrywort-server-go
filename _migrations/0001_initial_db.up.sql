@@ -114,7 +114,6 @@ CREATE TABLE IF NOT EXISTS temperature_measurements(
   user_id integer REFERENCES users (id) ON DELETE SET NULL,
   -- Not sure these are really necessary now if the batch_sensor_association is used instead
   -- sensor_id will still be needed, but batch_id is really not
-  batch_id integer REFERENCES batches (id) ON DELETE SET NULL,
   sensor_id integer REFERENCES sensors (id) ON DELETE SET NULL,
   temperature double precision NOT NULL DEFAULT 0.0,
   units integer NOT NULL DEFAULT 0,

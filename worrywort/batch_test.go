@@ -193,16 +193,10 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 	}
 	sensorId := sql.NullInt64{Valid: true, Int64: int64(sensor.Id)}
 
-	b, err := SaveBatch(db, Batch{CreatedBy: &u, Name: "Test batch"})
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-	batchId := sql.NullInt64{Valid: true, Int64: int64(b.Id)}
-
 	t.Run("Save New Measurement With All Fields", func(t *testing.T) {
 		m, err := SaveTemperatureMeasurement(db,
 			TemperatureMeasurement{CreatedBy: &u, UserId: userId, Sensor: &sensor, SensorId: sensorId,
-				Temperature: 70.0, Units: FAHRENHEIT, BatchId: batchId, RecordedAt: time.Now()})
+				Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()})
 		if err != nil {
 			t.Errorf("%v", err)
 		}
@@ -275,9 +269,6 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 		updatedMeasurement, err := SaveTemperatureMeasurement(db, m)
 		if err != nil {
 			t.Errorf("%v", err)
-		}
-		if updatedMeasurement.BatchId != m.BatchId {
-			t.Errorf("SaveTemperatureMeasurement did not update the Batch")
 		}
 
 		if m.UpdatedAt == updatedMeasurement.UpdatedAt {
