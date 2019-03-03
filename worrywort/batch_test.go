@@ -202,7 +202,7 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 	t.Run("Save New Measurement With All Fields", func(t *testing.T) {
 		m, err := SaveTemperatureMeasurement(db,
 			TemperatureMeasurement{CreatedBy: &u, UserId: userId, Sensor: &sensor, SensorId: sensorId,
-				Temperature: 70.0, Units: FAHRENHEIT, Batch: &b, BatchId: batchId, RecordedAt: time.Now()})
+				Temperature: 70.0, Units: FAHRENHEIT, BatchId: batchId, RecordedAt: time.Now()})
 		if err != nil {
 			t.Errorf("%v", err)
 		}
@@ -235,7 +235,8 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 
 	t.Run("Save New Measurement Without Optional Fields", func(t *testing.T) {
 		m, err := SaveTemperatureMeasurement(db,
-			TemperatureMeasurement{CreatedBy: &u, UserId: userId, SensorId: sensorId, Sensor: &sensor, Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()})
+			TemperatureMeasurement{CreatedBy: &u, UserId: userId, SensorId: sensorId, Sensor: &sensor, Temperature: 70.0,
+				Units: FAHRENHEIT, RecordedAt: time.Now()})
 		if err != nil {
 			t.Errorf("%v", err)
 		}
@@ -263,33 +264,82 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 
 	t.Run("Update Temperature Measurement", func(t *testing.T) {
 		m, err := SaveTemperatureMeasurement(db,
-			TemperatureMeasurement{CreatedBy: &u, UserId: userId, SensorId: sensorId, Sensor: &sensor, Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()})
+			TemperatureMeasurement{CreatedBy: &u, UserId: userId, SensorId: sensorId, Sensor: &sensor, Temperature: 70.0,
+				Units: FAHRENHEIT, RecordedAt: time.Now()})
 		if err != nil {
 			t.Errorf("%v", err)
 		}
 		// set date back in the past so that our date comparison consistenyly works
 		m.UpdatedAt = sensor.UpdatedAt.AddDate(0, 0, -1)
 		// TODO: Intend to change this so that we set BatchId and save to update the Batch, not assign an object
-		m.Batch = &b
 		updatedMeasurement, err := SaveTemperatureMeasurement(db, m)
 		if err != nil {
 			t.Errorf("%v", err)
 		}
-		if updatedMeasurement.Batch != &b {
+		if updatedMeasurement.BatchId != m.BatchId {
 			t.Errorf("SaveTemperatureMeasurement did not update the Batch")
 		}
 
 		if m.UpdatedAt == updatedMeasurement.UpdatedAt {
 			t.Errorf("SaveSensor did not update UpdatedAt. Expected: %v\nGot: %v", m.UpdatedAt, updatedMeasurement.UpdatedAt)
 		}
-
-		// Now unset the batch, just to see
-		m.Batch = nil
-		updatedMeasurement, err = SaveTemperatureMeasurement(db, m)
-		if updatedMeasurement.Batch != nil {
-			t.Errorf("SaveTemperatureMeasurement did not remove the Batch")
-		}
 	})
+}
+
+func TestTemperatureMeasurementModel(t *testing.T) {
+		// Set up the db using sql.Open() and sqlx.NewDb() rather than sqlx.Open() so that the custom
+		// `txdb` db type may be used with Open() but can still be registered as postgres with sqlx
+		// so that sqlx' Rebind() functions.
+
+		db, err := setUpTestDb()
+		if err != nil {
+			t.Fatalf("Got error setting up database: %s", err)
+		}
+		defer db.Close()
+
+		u := NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+		u, err = SaveUser(db, u)
+
+		if err != nil {
+			t.Fatalf("failed to insert user: %s", err)
+		}
+		userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
+
+		createdAt := time.Now().Round(time.Microsecond)
+		updatedAt := time.Now().Round(time.Microsecond)
+		// THe values when returned by postgres will be microsecond accuracy, but golang default
+		// is nanosecond, so we round these for easy comparison
+		brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
+		bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
+		batch := Batch{UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5, VolumeInFermentor: 4.5,
+			VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedAt: createdAt, UpdatedAt: updatedAt,
+			BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
+		batch, err = SaveBatch(db, batch)
+		if err != nil {
+			t.Fatalf("Unexpected error saving batch: %s", err)
+		}
+		sensor, err := SaveSensor(db, Sensor{Name: "Test Sensor", CreatedBy: &u})
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		sensorId := sql.NullInt64{Valid: true, Int64: int64(sensor.Id)}
+
+		measurement, err := SaveTemperatureMeasurement(db,
+			TemperatureMeasurement{CreatedBy: &u, UserId: userId, SensorId: sensorId,
+				Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()})
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+
+		t.Run("Batch()", func(t *testing.T) {
+			b, err := measurement.Batch(db)
+			if err != nil {
+				t.Errorf("%v", err)
+			}
+			if batch != *b {
+				t.Errorf("Expected: %v\nGot: %v")
+			}
+		})
 }
 
 func TestFindBatch(t *testing.T) {

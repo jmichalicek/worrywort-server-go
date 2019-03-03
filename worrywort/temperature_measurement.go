@@ -15,7 +15,7 @@ type TemperatureMeasurement struct {
 	Temperature float64             `db:"temperature"`
 	Units       TemperatureUnitType `db:"units"`
 	RecordedAt  time.Time           `db:"recorded_at"` // when the measurement was recorded
-	Batch       *Batch              `db:"batch,prefix=b"`
+	batch       *Batch
 	BatchId     sql.NullInt64       `db:"batch_id"`
 	Sensor      *Sensor             `db:"sensor,prefix=ts"`
 	SensorId    sql.NullInt64       `db:"sensor_id"`
@@ -27,6 +27,31 @@ type TemperatureMeasurement struct {
 	// when the record was created
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
+}
+
+func (tm *TemperatureMeasurement) Batch(db *sqlx.DB) (*Batch, error) {
+	if tm.batch == nil {
+		// TODO: again... sure I should be able to just make a nil pointer to Batch right off here.
+		b := Batch{}
+		values := []interface{}{tm.SensorId}
+
+		// TODO: I would rather have just a central ORM-ish function to do this, but it's way easier
+		// to write an efficient query for it here.
+		q := `SELECT b.* FROM batches b INNER JOIN batch_sensor_association bas ON bas.batch_id = b.id
+			INNER JOIN sensors s ON s.id = bas.sensor_id
+			WHERE s.id = ?`
+
+		query := db.Rebind(q)
+		err := db.Get(&b, query, values...)
+
+		if err != nil {
+			// TODO: log error
+			return nil, err
+		} else {
+			tm.batch = &b
+		}
+	}
+	return tm.batch, nil
 }
 
 // Save the User to the database.  If User.Id() is 0
@@ -70,7 +95,6 @@ func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 // Returns the same, unmodified User and errors on error
 func UpdateTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (TemperatureMeasurement, error) {
 	var updatedAt time.Time
-
 	paramVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt, tm.BatchId, tm.SensorId}
 	paramVals = append(paramVals, tm.Id)
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
