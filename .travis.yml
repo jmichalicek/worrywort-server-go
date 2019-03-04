@@ -13,7 +13,6 @@ before_install:
   - chmod u+x $HOME/gopath/bin/dep
   - wget https://github.com/golang-migrate/migrate/releases/download/v3.2.0/migrate.linux-amd64.tar.gz -O $HOME/migrate.linux-amd64.tar.gz
   - tar -zxvf $HOME/migrate.linux-amd64.tar.gz -C $HOME/gopath/bin/
-  - go get -t -v ./...
 before_script:
   - go vet ./...
   - createdb -h localhost -U postgres worrywort_test -O postgres
@@ -24,7 +23,8 @@ install:
 #   - export GOPATH="${TRAVIS_BUILD_DIR}/Godeps/_workspace:$GOPATH"
 #   - export PATH="${TRAVIS_BUILD_DIR}/Godeps/_workspace/bin:$PATH"
 script:
-  - go test -v -race -coverprofile=coverage.txt -covermode=atomic
+  # - go test -v -race -coverprofile=coverage.txt -covermode=atomic
+  - ./codecovtest.sh
   - dep status
 
 after_success:
