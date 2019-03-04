@@ -22,22 +22,19 @@ func (r *temperatureMeasurementResolver) Temperature() float64                 {
 func (r *temperatureMeasurementResolver) Units() worrywort.TemperatureUnitType { return r.m.Units }
 func (r *temperatureMeasurementResolver) Batch(ctx context.Context) *batchResolver {
 	// TODO: dataloader, caching, etc.
+	// this is not going to scale well like this due to how TemperatureMeasurement.Batch() works.
 	var resolved *batchResolver
-	if r.m.Batch != nil {
-		resolved = &batchResolver{b: r.m.Batch}
-	} else if r.m.BatchId.Valid {
-		db, ok := ctx.Value("db").(*sqlx.DB)
-		if !ok {
-			log.Printf("No database in context")
-			return nil
-		}
-		batch, err := worrywort.FindBatch(map[string]interface{}{"id": r.m.BatchId}, db)
-		if err != nil {
-			log.Printf("%v", err)
-			return nil
-		}
-		resolved = &batchResolver{b: batch}
+	db, ok := ctx.Value("db").(*sqlx.DB)
+	if !ok {
+		log.Printf("No database in context")
+		return nil
 	}
+	b, err := r.m.Batch(db)
+	if err != nil {
+		log.Printf("%v", err)
+		return nil
+	}
+	resolved = &batchResolver{b: b}
 	return resolved
 }
 

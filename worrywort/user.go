@@ -21,7 +21,7 @@ var UserNotFoundError error = errors.New("User not found")
 type User struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
 	// TODO: Considering having a separate username from the email
-	Id        int    `db:"id"`
+	Id        int    `db:"id"` // TODO: make this a sql.NullInt64.. not that it should be nullable... hmm.
 	FirstName string `db:"first_name"`
 	LastName  string `db:"last_name"`
 	Email     string `db:"email"`

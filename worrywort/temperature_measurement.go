@@ -6,6 +6,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"strings"
 	"time"
+	// "github.com/davecgh/go-spew/spew"
 )
 
 // A single recorded temperature measurement from a temperatureSensor
@@ -15,8 +16,9 @@ type TemperatureMeasurement struct {
 	Temperature float64             `db:"temperature"`
 	Units       TemperatureUnitType `db:"units"`
 	RecordedAt  time.Time           `db:"recorded_at"` // when the measurement was recorded
-	Batch       *Batch              `db:"batch,prefix=b"`
-	BatchId     sql.NullInt64       `db:"batch_id"`
+	// I could leave batch public and set it... it doesn't have to exist on the table.
+	// but I think forcing use of Batch() enforces consistency
+	batch       *Batch
 	Sensor      *Sensor             `db:"sensor,prefix=ts"`
 	SensorId    sql.NullInt64       `db:"sensor_id"`
 
@@ -27,6 +29,36 @@ type TemperatureMeasurement struct {
 	// when the record was created
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
+}
+
+func (tm *TemperatureMeasurement) Batch(db *sqlx.DB) (*Batch, error) {
+	// TODO: Is this a good idea? it's not going to scale with list queries on graphql stuff
+	if tm.batch == nil {
+		// TODO: again... sure I should be able to just make a nil pointer to Batch right off here.
+		b := Batch{}
+		values := []interface{}{tm.RecordedAt, tm.RecordedAt, tm.SensorId}
+
+		// TODO: I would rather have just a central ORM-ish function to do this, but it's way easier
+		// to write an efficient query for it here.
+		// Because associated_at can be modified, in the case that disassociated is null, we could potentially
+		// get the wrong association without checking the associated_at time as well
+		q := `SELECT b.* FROM batches b LEFT JOIN batch_sensor_association bsa
+			ON bsa.batch_id = b.id AND bsa.associated_at <= ?
+			AND (bsa.disassociated_at IS NULL OR bsa.disassociated_at >= ?) WHERE bsa.sensor_id = ?
+			LIMIT 1`
+		// q := `SELECT b.* FROM batch_sensor_association bsa INNER JOIN batches b ON batch.id = bsa.batch_id WHERE
+		//  AND bsa.associated_at <= ? (bsa.disassociated_at IS NULL OR bsa.disassociated_at > ?) AND bsa.sensor_id = ? LIMIT 1`
+
+		query := db.Rebind(q)
+		err := db.Get(&b, query, values...)
+		if err != nil {
+			// TODO: log error
+			return nil, err
+		} else {
+			tm.batch = &b
+		}
+	}
+	return tm.batch, nil
 }
 
 // Save the User to the database.  If User.Id() is 0
@@ -47,12 +79,11 @@ func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 	var createdAt time.Time
 	var measurementId string
 
-	insertVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt, tm.BatchId,
-		tm.SensorId}
+	insertVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt, tm.SensorId}
 
 	query := db.Rebind(`INSERT INTO temperature_measurements (user_id, temperature, units, recorded_at, created_at,
-		updated_at, batch_id, sensor_id)
-		VALUES (?, ?, ?, ?, NOW(), NOW(), ?, ?) RETURNING id, created_at, updated_at`)
+		updated_at, sensor_id)
+		VALUES (?, ?, ?, ?, NOW(), NOW(), ?) RETURNING id, created_at, updated_at`)
 	err := db.QueryRow(query, insertVals...).Scan(&measurementId, &createdAt, &updatedAt)
 	if err != nil {
 		return tm, err
@@ -70,12 +101,11 @@ func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 // Returns the same, unmodified User and errors on error
 func UpdateTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (TemperatureMeasurement, error) {
 	var updatedAt time.Time
-
-	paramVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt, tm.BatchId, tm.SensorId}
+	paramVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt, tm.SensorId}
 	paramVals = append(paramVals, tm.Id)
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
 	query := db.Rebind(`UPDATE temperature_measurements SET user_id = ?, temperature = ?, units = ?,
-		recorded_at = ?, updated_at = NOW(), batch_id = ?, sensor_id = ? WHERE id = ? RETURNING updated_at`)
+		recorded_at = ?, updated_at = NOW(), sensor_id = ? WHERE id = ? RETURNING updated_at`)
 	err := db.QueryRow(query, paramVals...).Scan(&updatedAt)
 	if err != nil {
 		return tm, err

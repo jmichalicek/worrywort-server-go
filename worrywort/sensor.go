@@ -28,11 +28,6 @@ func (t Sensor) queryColumns() []string {
 	return []string{"id", "name", "created_at", "updated_at", "user_id"}
 }
 
-// Returns a new Sensor
-func NewSensor(id int, name string, createdBy *User, createdAt, updatedAt time.Time) Sensor {
-	return Sensor{Id: id, Name: name, CreatedBy: createdBy, CreatedAt: createdAt, UpdatedAt: updatedAt}
-}
-
 // Look up a single temperature sensor
 // returns the first match, like .first() in Django
 // May change this up to just look up by id and then any other comparisons could

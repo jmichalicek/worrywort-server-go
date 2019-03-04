@@ -90,7 +90,7 @@ var Schema = `
 		description: String
 		# datetime
 		associatedAt: String!
-		disAssociatedAt: String
+		disassociatedAt: String
 	}
 
 	type AssociateSensorToBatchPayload {

@@ -308,20 +308,6 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 		return nil, errors.New("Specified Sensor does not exist.")
 	}
 
-	var batchPtr *worrywort.Batch = nil
-	var batchId sql.NullInt64
-	if input.BatchId != nil {
-		batchId = ToNullInt64(string(*input.BatchId))
-		batchPtr, err = worrywort.FindBatch(map[string]interface{}{"user_id": u.Id, "id": batchId}, r.db)
-		if err != nil {
-			if err != sql.ErrNoRows {
-				log.Printf("%v", err)
-			}
-			// return nil, errors.New("Batch not found") ?  Need a TemperatureMeasurementCreate type for that
-			// as TemperatureMeasurementCreate {userErrors: [UserError] temperatureMeasurement: TemperatureMeasurement}
-			return nil, errors.New("Specified Batch does not exist.")
-		}
-	}
 	// err becomes nil here if it was set within `if input.BatchId` stuff so we have to catch ALL of the errors in there
 	// golang variable scoping I need to learn about?
 
@@ -334,8 +320,7 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 	}
 
 	t := worrywort.TemperatureMeasurement{Sensor: sensorPtr, SensorId: sensorId,
-		Temperature: input.Temperature, Units: unitType, RecordedAt: recordedAt, CreatedBy: &u, UserId: userId,
-		Batch: batchPtr, BatchId: batchId}
+		Temperature: input.Temperature, Units: unitType, RecordedAt: recordedAt, CreatedBy: &u, UserId: userId}
 	t, err = worrywort.SaveTemperatureMeasurement(r.db, t)
 	if err != nil {
 		log.Printf("Failed to save TemperatureMeasurement: %v\n", err)
