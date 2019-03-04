@@ -369,7 +369,7 @@ func TestSensorResolver(t *testing.T) {
 
 	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
 	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
-	sensor := worrywort.NewSensor(1, "Therm1", &u, time.Now(), time.Now())
+	sensor := worrywort.Sensor{Id: 1, Name: "Therm1", UserId: userId, CreatedBy: &u, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	sensor.UserId = userId
 	r := sensorResolver{s: &sensor}
 
@@ -438,7 +438,6 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
-	// sensor := worrywort.NewSensor(1, "Therm1", &u, time.Now(), time.Now())
 	sensor := worrywort.Sensor{Name: "Therm1", UserId: userId, CreatedBy: &u}
 	sensor, err = worrywort.SaveSensor(db, sensor)
 	if err != nil {

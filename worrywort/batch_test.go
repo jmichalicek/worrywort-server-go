@@ -80,20 +80,6 @@ func TestSaveFermentor(t *testing.T) {
 	})
 }
 
-func TestNewSensor(t *testing.T) {
-	createdAt := time.Now()
-	updatedAt := time.Now()
-	u := NewUser(1, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	expected := Sensor{Id: 1, Name: "Therm1", CreatedBy: &u, CreatedAt: createdAt, UpdatedAt: updatedAt}
-
-	therm := NewSensor(1, "Therm1", &u, createdAt, updatedAt)
-
-	if therm != expected {
-		t.Errorf("Expected:\n%v\n\nGot:\n%v\n", expected, therm)
-	}
-
-}
-
 func TestFindSensor(t *testing.T) {
 	db, err := setUpTestDb()
 	if err != nil {
