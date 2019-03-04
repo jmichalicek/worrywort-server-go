@@ -257,7 +257,6 @@ func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
 // Input types
 // Create a temperatureMeasurement... review docs on how to really implement this
 type createTemperatureMeasurementInput struct {
-	BatchId     *graphql.ID
 	RecordedAt  string //time.Time
 	Temperature float64
 	SensorId    graphql.ID
@@ -284,6 +283,8 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 
 	var inputPtr *createTemperatureMeasurementInput = args.Input
+	// TODO: make sure input was not nil. Technically the schema does this for us
+	// but might be safer to handle here, too, or at least have a test case for it.
 	var input createTemperatureMeasurementInput = *inputPtr
 	var unitType worrywort.TemperatureUnitType
 
@@ -307,9 +308,6 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 		// for other stuff
 		return nil, errors.New("Specified Sensor does not exist.")
 	}
-
-	// err becomes nil here if it was set within `if input.BatchId` stuff so we have to catch ALL of the errors in there
-	// golang variable scoping I need to learn about?
 
 	// for actual iso 8601, use "2006-01-02T15:04:05-0700"
 	// TODO: test parsing both

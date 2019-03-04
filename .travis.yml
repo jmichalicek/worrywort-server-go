@@ -23,8 +23,13 @@ install:
 #   - export GOPATH="${TRAVIS_BUILD_DIR}/Godeps/_workspace:$GOPATH"
 #   - export PATH="${TRAVIS_BUILD_DIR}/Godeps/_workspace/bin:$PATH"
 script:
-  - go test -v -cover ./...
+  # - go test -v -race -coverprofile=coverage.txt -covermode=atomic
+  - bash ./codecovtest.sh
   - dep status
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
+
 # Instead of manual setup and build, consider using docker-compose just like for dev
 # http://elliot.land/post/using-docker-compose-on-travis-ci
 services:

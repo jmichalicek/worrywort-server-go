@@ -350,13 +350,6 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 	}
 	sensorId := sql.NullInt64{Valid: true, Int64: int64(sensor.Id)}
 
-	batch, err := worrywort.SaveBatch(
-		db, worrywort.Batch{UserId: userId, CreatedBy: &u, Name: "Test batch"})
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-	batchId := sql.NullInt64{Valid: true, Int64: int64(batch.Id)}
-
 	u2 := worrywort.NewUser(0, "user2@example.com", "Justin", "M", time.Now(), time.Now())
 	u2, err = worrywort.SaveUser(db, u2)
 
@@ -369,7 +362,6 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 	t.Run("Test measurement is created with valid data", func(t *testing.T) {
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":     strconv.Itoa(int(batchId.Int64)),
 				"sensorId":    strconv.Itoa(int(sensorId.Int64)),
 				"units":       "FAHRENHEIT",
 				"temperature": 70.0,
