@@ -199,8 +199,6 @@ var Schema = `
 		sensorId: ID!
 		# The units the temperature was taken in
 		units: TemperatureUnit!
-		# The Batch being monitored if this was monitoring a Batch
-		batchId: ID
 	}
 
 	# Input data to associate a Sensor to a Batch
