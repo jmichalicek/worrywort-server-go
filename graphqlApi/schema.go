@@ -37,6 +37,7 @@ var Schema = `
 		createTemperatureMeasurement(input: CreateTemperatureMeasurementInput!): CreateTemperatureMeasurementPayload
 		createBatch(input: CreateBatchInput!): CreateBatchPayload
 		associateSensorToBatch(input: AssociateSensorToBatchInput!): AssociateSensorToBatchPayload
+		updateBatchSensorAssociation(input: UpdateBatchSensorAssociationInput!): UpdateBatchSensorAssociationPayload
 	}
 
 	enum VolumeUnit {
@@ -84,16 +85,20 @@ var Schema = `
 	}
 
 	type BatchSensorAssociation {
-		id: ID!
-		batch: Batch!
-		sensor: Sensor!
-		description: String
 		# datetime
 		associatedAt: String!
+		batch: Batch!
+		description: String
 		disassociatedAt: String
+		id: ID!
+		sensor: Sensor!
 	}
 
 	type AssociateSensorToBatchPayload {
+		batchSensorAssociation: BatchSensorAssociation
+	}
+
+	type UpdateBatchSensorAssociationPayload {
 		batchSensorAssociation: BatchSensorAssociation
 	}
 
@@ -204,8 +209,16 @@ var Schema = `
 	# Input data to associate a Sensor to a Batch
 	input AssociateSensorToBatchInput {
 		batchId: ID!
-		sensorId: ID!
 		description: String
+		sensorId: ID!
+	}
+
+	# Update a batchSensorAssociation to match the given input
+	input UpdateBatchSensorAssociationInput {
+		associatedAt: String!
+		id: ID!
+		description: String
+		disassociatedAt: String
 	}
 	`
 

@@ -22,12 +22,6 @@ type Sensor struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
-// Returns a list of the db columns to use for a SELECT query
-func (t Sensor) queryColumns() []string {
-	// TODO: Way to dynamically build this using the `db` tag and reflection/introspection
-	return []string{"id", "name", "created_at", "updated_at", "user_id"}
-}
-
 // Look up a single temperature sensor
 // returns the first match, like .first() in Django
 // May change this up to just look up by id and then any other comparisons could

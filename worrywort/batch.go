@@ -268,7 +268,7 @@ func AssociateBatchToSensor(batch Batch, sensor Sensor, description string, asso
 
 func UpdateBatchSensorAssociation(b BatchSensor, db *sqlx.DB) (*BatchSensor, error) {
 	// TODO: Tempted to make these take a BatchSensor to modify and a dict of changes... maybe. sort of elixir/ecto style.
-	// TODO: not sure how I feel about taking struct, returning pointer to the struct...
+	// TODO: not sure how I feel about taking struct, returning pointer to the struct... maybe just take the pointer?
 	var updatedAt time.Time
 
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
@@ -284,6 +284,7 @@ func UpdateBatchSensorAssociation(b BatchSensor, db *sqlx.DB) (*BatchSensor, err
 
 func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*BatchSensor, error) {
 	// var association *BatchSensor = nil
+	// TODO: join batch and sensor tables and pre-populate the nested batch and sensor?
 	association := BatchSensor{}
 	assocPtr := &association
 	var values []interface{}
