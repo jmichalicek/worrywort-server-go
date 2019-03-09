@@ -33,3 +33,6 @@ testcover:
 
 showcover:
 	go tool cover -func=coverage.out
+
+codeship-test: setup-test-db
+	bash ./codecovtest.sh

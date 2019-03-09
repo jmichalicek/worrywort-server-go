@@ -1,9 +1,3 @@
-- name: install_deps_ls
-  service: worrywortd
-  command: ls -alh
-- name: install_deps_whoami
-  service: worrywortd
-  command: whoami
 - name: install_deps
   service: worrywortd
   command: sudo dep ensure
@@ -12,7 +6,7 @@
   command: go vet ./...
 - name: go_test
   service: worrywortd
-  command: make setup-test-db && bash ./codecovtest.sh
+  command: make codeship-test
 - name: codecov
   service: worrywortd
   command: bash -c "curl -s https://codecov.io/bash"
