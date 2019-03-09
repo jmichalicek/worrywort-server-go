@@ -12,6 +12,7 @@ database:
     - worrywort_db:/var/lib/postgresql/data
 worrywortd:
   # image: worrywort-server-dev  # I should just build and maintain the image separately, would speed this up.
+  encrypted_env_file: codeship.env.encrypted
   depends_on:
     - database
   working_dir: /go/src/github.com/jmichalicek/worrywort-server-go
