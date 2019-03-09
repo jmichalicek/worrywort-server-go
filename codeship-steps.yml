@@ -1,6 +1,6 @@
 - name: install_deps
   service: worrywortd
-  command: sudo dep ensure
+  command: dep ensure
 - name: go_vet
   service: worrywortd
   command: go vet ./...

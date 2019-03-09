@@ -18,3 +18,5 @@ USER developer
 RUN mkdir -p /go/src/github.com/jmichalicek/worrywort-server-go
 WORKDIR /go/src/github.com/jmichalicek/worrywort-server-go
 EXPOSE 8080
+# Try to play nicely with codeship pro
+USER root
