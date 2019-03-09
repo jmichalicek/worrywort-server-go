@@ -9,4 +9,4 @@
   command: make codeship-test
 - name: codecov
   service: worrywortd
-  command: bash -c "curl -s https://codecov.io/bash"
+  command: make codecov-upload

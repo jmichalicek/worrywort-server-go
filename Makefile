@@ -36,3 +36,6 @@ showcover:
 
 codeship-test: setup-test-db
 	bash ./codecovtest.sh
+
+codecov-upload:
+	curl -s https://codecov.io/bash | bash
