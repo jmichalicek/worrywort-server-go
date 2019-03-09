@@ -11,7 +11,6 @@ database:
   volumes:
     - worrywort_db:/var/lib/postgresql/data
 worrywortd:
-  image: worrywort-server-dev
   depends_on:
     - database
   working_dir: /go/src/github.com/jmichalicek/worrywort-server-go
