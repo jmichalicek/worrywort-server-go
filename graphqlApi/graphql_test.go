@@ -979,7 +979,8 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	}
 
 	assoc1, _ := worrywort.AssociateBatchToSensor(batch, sensor, "Description", nil, db)
-	assoc2, _ := worrywort.AssociateBatchToSensor(batch2, sensor2, "Description", nil, db)
+	assoc2, _ := worrywort.AssociateBatchToSensor(batch, sensor2, "Description", nil, db)
+	assoc3, _ := worrywort.AssociateBatchToSensor(batch2, sensor, "Description", nil, db)
 
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
 
@@ -988,17 +989,17 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
 	ctx = context.WithValue(ctx, "db", db)
 
-	cleanAssociations := func() {
-		q := `DELETE FROM batch_sensor_association WHERE sensor_id = ? AND batch_id = ?`
-		q = db.Rebind(q)
-		_, err := db.Exec(q, sensor.Id, batch.Id)
-		if err != nil {
-			panic(err)
-		}
-	}
+	// TODO: may want to reset after each test
+	// cleanAssociations := func() {
+	// 	q := `DELETE FROM batch_sensor_association WHERE sensor_id = ? AND batch_id = ?`
+	// 	q = db.Rebind(q)
+	// 	_, err := db.Exec(q, sensor.Id, batch.Id)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// }
 
 	t.Run("Update with description and disassociatedAt", func(t *testing.T) {
-		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
 				"id": assoc1.Id,
@@ -1027,33 +1028,70 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 		// Make sure it was really created in the db
 		newAssoc, _ := worrywort.FindBatchSensorAssociation(
 			map[string]interface{}{"id": assoc1.Id}, db)
+		// TODO: I do not like this, but it's the easiest way to compare just what I want here. Maybe I should write
+		// custom equals() methods and I am sure go-cmp filterPath or filterValue can deal with this.
+		newAssoc.Batch = nil
+		newAssoc.Sensor = nil
 
 		assocAt, _ := time.Parse(time.RFC3339, "2019-01-01T12:01:01Z")
 		disassocAt, _ := time.Parse(time.RFC3339, "2019-01-01T12:02:01Z")
 		expected := worrywort.BatchSensor{
-			Id: assoc1.Id, Description: "Updated description", Sensor: &sensor, Batch: &batch,
+			Id: assoc1.Id, Description: "Updated description",
 			AssociatedAt: assocAt, DisassociatedAt: &disassocAt, CreatedAt: assoc1.CreatedAt, UpdatedAt: newAssoc.UpdatedAt,
 			SensorId: assoc1.SensorId, BatchId: assoc1.BatchId}
 
-		if newAssoc.Description != "Updated description" {
-			t.Errorf("Expected description: \"Updated description\"\nGot description: %v\n", newAssoc.Description)
+		if !cmp.Equal(*newAssoc, expected, nil) {
+			t.Errorf(cmp.Diff(newAssoc, expected, nil))
+		}
+	})
+
+	t.Run("Update with blank description and null disassociatedAt", func(t *testing.T) {
+		variables := map[string]interface{}{
+			"input": map[string]interface{}{
+				"id": assoc1.Id,
+				"description": nil,
+				"associatedAt": "2019-01-01T12:01:01Z",
+				"disassociatedAt": nil,
+			},
 		}
 
-		// cmpOpts := []cmp.Option{
-		// 	cmp.AllowUnexported(*b),
-	  //   cmp.AllowUnexported(*b.b),
-		// }
-		// if !cmp.Equal(*b, expected, cmpOpts...) {
-		// 	t.Errorf(cmp.Diff(*b, expected, cmpOpts...))
-		// }
-		if !cmp.Equal(newAssoc, expected, nil) {
+		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
+		var result createAssoc
+		err = json.Unmarshal(resultData.Data, &result)
+		if err != nil {
+			t.Fatalf("%v: %v", result, resultData)
+		}
+
+		// Test the returned graphql types
+		if result.Pl.Typename != "UpdateBatchSensorAssociationPayload" {
+			t.Errorf("updateBatchSensorAssociation returned unexpected type: %s", result.Pl.Typename)
+		}
+
+		if result.Pl.Assoc.Typename != "BatchSensorAssociation" {
+			t.Errorf("updateBatchSensorAssociation returned unexpected type for Assoc: %s", result.Pl.Assoc.Typename)
+		}
+
+		// Make sure it was really created in the db
+		newAssoc, _ := worrywort.FindBatchSensorAssociation(
+			map[string]interface{}{"id": assoc1.Id}, db)
+		// TODO: I do not like this, but it's the easiest way to compare just what I want here. Maybe I should write
+		// custom equals() methods and I am sure go-cmp filterPath or filterValue can deal with this.
+		newAssoc.Batch = nil
+		newAssoc.Sensor = nil
+
+		assocAt, _ := time.Parse(time.RFC3339, "2019-01-01T12:01:01Z")
+		expected := worrywort.BatchSensor{
+			Id: assoc1.Id, Description: "",
+			AssociatedAt: assocAt, DisassociatedAt: nil, CreatedAt: assoc1.CreatedAt, UpdatedAt: newAssoc.UpdatedAt,
+			SensorId: assoc1.SensorId, BatchId: assoc1.BatchId}
+
+		if !cmp.Equal(*newAssoc, expected, nil) {
 			t.Errorf(cmp.Diff(newAssoc, expected, nil))
 		}
 
 	})
 
 	t.Run("Batch not owned by user", func(t *testing.T) {
-		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
 				"id": assoc2.Id,
@@ -1073,18 +1111,15 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 			t.Errorf("Expected null payload in response, got: %v", resultData.Data)
 		}
 
-		if resultData.Errors[0].Message != "Specified Batch does not exist." {
-			t.Errorf("Expected query error `Specified Batch does not exist.`, Got: %v", resultData.Errors)
+		if resultData.Errors[0].Message != "BatchSensorAssociation does not exist." {
+			t.Errorf("Expected query error `BatchSensorAssociation does not exist.`, Got: %v", resultData.Errors)
 		}
 	})
 
 	t.Run("Sensor not owned by user", func(t *testing.T) {
-		defer cleanAssociations()
-		// TODO: Make assoc2 and assoc3 where assoc2 is batch assoc with wrong user, assoc 3 is sensor assoc
-		// with wrong user. neither of these should happen, but lets test just in case.
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"id": assoc2.Id,
+				"id": assoc3.Id,
 				"description": "It is associated",
 				"associatedAt": "2019-01-01T12:01:01Z",
 				"disassociatedAt": "2019-01-01T12:02:01Z",
@@ -1101,8 +1136,8 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 			t.Errorf("Expected null payload in response, got: %v", resultData.Data)
 		}
 
-		if resultData.Errors[0].Message != "Specified Sensor does not exist." {
-			t.Errorf("Expected query error `Specified Batch does not exist.`, Got: %v", resultData.Errors)
+		if resultData.Errors[0].Message != "BatchSensorAssociation does not exist." {
+			t.Errorf("Expected query error `BatchSensorAssociation does not exist.`, Got: %v", resultData.Errors)
 		}
 	})
 }
