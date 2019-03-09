@@ -1,12 +1,12 @@
 - name: install_deps
-  service: cms
+  service: worrywortd
   command: dep ensure
 - name: go_vet
-  service: cms
+  service: worrywortd
   command: go vet ./...
 - name: go_test
-  service: cms
+  service: worrywortd
   command: make setup-test-db && bash ./codecovtest.sh
 - name: codecov
-  service: cms
+  service: worrywortd
   command: bash -c "curl -s https://codecov.io/bash"
