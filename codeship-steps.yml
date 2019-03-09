@@ -1,6 +1,12 @@
+- name: install_deps_ls
+  service: worrywortd
+  command: ls -alh
+- name: install_deps_whoami
+  service: worrywortd
+  command: whoami
 - name: install_deps
   service: worrywortd
-  command: sudo ls -al && sudo dep ensure
+  command: sudo dep ensure
 - name: go_vet
   service: worrywortd
   command: go vet ./...
