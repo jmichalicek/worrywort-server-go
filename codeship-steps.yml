@@ -1,0 +1,12 @@
+- name: install_deps
+  service: cms
+  command: dep ensure
+- name: go_vet
+  service: cms
+  command: go vet ./...
+- name: go_test
+  service: cms
+  command: make setup-test-db && bash ./codecovtest.sh
+- name: codecov
+  service: cms
+  command: bash -c "curl -s https://codecov.io/bash"

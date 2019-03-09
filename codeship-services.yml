@@ -1,0 +1,32 @@
+# codeship yml is more or less a docker-compose.yml
+database:
+  image: "postgres:9.6.2"
+  # image: healthcheck/postgres:alpine
+  environment:
+      - POSTGRES_PASSWORD=developer
+      - POSTGRES_USER=developer
+      - POSTGRES_DB=worrywort
+      - PGDATA=/var/lib/postgresql/data/pgdata
+  privileged: true
+  volumes:
+    - worrywort_db:/var/lib/postgresql/data
+worrywortd:
+  image: worrywort-server-dev
+  depends_on:
+    - database
+  working_dir: /go/src/github.com/jmichalicek/worrywort-server-go
+  # command: /home/developer/docker_entrypoints/dev_entrypoint.sh
+  build:
+    context: .
+    dockerfile: Dockerfile.dev
+  environment:
+    DATABASE_HOST: database
+    DATABASE_NAME: worrywort
+    DATABASE_PASSWORD: developer
+    DATABASE_USER: developer
+    PGPASSWORD: developer
+    PGUSER: developer
+    PGDATABASE: worrywort
+    PGHOST: database
+  volumes:
+    - .:/go/src/github.com/jmichalicek/worrywort-server-go/
