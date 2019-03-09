@@ -19,3 +19,5 @@ vendor/
 # environment variable stuff
 .envrc
 **/*.code-workspace
+**/codeship.aes
+**/codeship.env

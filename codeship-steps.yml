@@ -1,0 +1,12 @@
+- name: install_deps
+  service: worrywortd
+  command: dep ensure
+- name: go_vet
+  service: worrywortd
+  command: go vet ./...
+- name: go_test
+  service: worrywortd
+  command: make codeship-test
+- name: codecov
+  service: worrywortd
+  command: make codecov-upload
