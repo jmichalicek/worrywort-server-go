@@ -212,8 +212,8 @@ type BatchSensor struct {
 
 	// TODO: Do I really want or need these here or the similar functionality on other structs?
 	// what if BatchId and Batch get out of sync? Perhaps make these private and use Sensor() and Batch()
-	Sensor *Sensor `db:"sensor,prefix=s"`
-	Batch  *Batch `db:"batch,prefix=b"`
+	Sensor *Sensor `db:"s,prefix=s"`
+	Batch  *Batch `db:"b,prefix=b"`
 	// May make these all pointers - allow unset to be actually null/unset. or pq's sql.NullTime
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
@@ -297,14 +297,26 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 		selectCols += fmt.Sprintf("ba.%s, ", k)
 	}
 
+	batchQueryCols := []string{"id", "name", "brew_notes", "tasting_notes", "brewed_date", "bottled_date",
+		"volume_boiled", "volume_in_fermentor", "volume_units", "original_gravity", "final_gravity", "recipe_url",
+		"max_temperature", "min_temperature", "average_temperature", "created_at", "updated_at", "user_id"}
+	for _, k := range batchQueryCols {
+		selectCols += fmt.Sprintf("b.%s AS \"b.%s\", ", k, k)
+	}
+
+	sensorQueryCols :=[]string{"id", "name", "created_at", "updated_at", "user_id"}
+	for _, k := range sensorQueryCols {
+		selectCols += fmt.Sprintf("s.%s AS \"s.%s\", ", k, k)
+	}
+
 	userId, ok := params["user_id"]
-	joins := `INNER JOIN sensors s ON bsa.sensor_id = s.id `
+	joins := ` INNER JOIN sensors s ON ba.sensor_id = s.id `
 	if ok && userId != nil {
 			joins = joins + ` AND s.user_id = ? `
 			values = append(values, userId)
 	}
 	// this seems dumb and repetitive. It works for now, though.
-	joins = joins + ` INNER_JOIN batches b on bsa.batch_id = b.id`
+	joins = joins + ` INNER JOIN batches b on ba.batch_id = b.id`
 	if ok && userId != nil {
 			joins = joins + ` AND b.user_id = ? `
 			values = append(values, userId)
@@ -322,7 +334,9 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 		}
 	}
 
-	q := `SELECT ` + strings.Trim(selectCols, ", ") + `s.*, b.* FROM batch_sensor_association ba WHERE ` +
+	// TODO: no good, clean, maintainable way to manage joins with sqlx. tired of this. replace with
+	// gorm or pop/fizz.
+	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batch_sensor_association ba ` + joins + ` WHERE ` +
 		strings.Join(where, " AND ")
 
 	query := db.Rebind(q)

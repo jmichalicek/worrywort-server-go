@@ -15,6 +15,7 @@ import (
 	"time"
 )
 
+// log.SetFlags(log.LstdFlags | log.Lshortfile)
 var SERVER_ERROR = errors.New("Unexpected server error.")
 
 // This also could be handled in middleware, but then I would need two separate
@@ -53,6 +54,9 @@ type Resolver struct {
 
 /* This is the root resolver */
 func NewResolver(db *sqlx.DB) *Resolver {
+	// Lshortfile tells me too little - filename, but not which package it is in, etc.
+	// Llongfile tells me too much - the full path at build from the go root. I really just need from the project root dir.
+	log.SetFlags(log.LstdFlags | log.Llongfile)
 	return &Resolver{db: db}
 }
 

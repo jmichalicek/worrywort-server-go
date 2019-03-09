@@ -711,7 +711,8 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor2, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: userId2, Name: "Test Sensor 2", CreatedBy: &u2})
+	sensor2, err := worrywort.SaveSensor(
+		db, worrywort.Sensor{UserId: userId2, Name: "Test Sensor 2", CreatedBy: &u2})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -738,7 +739,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		}
 	}
 
-	t.Run("Test associate to batch", func(t *testing.T) {
+	t.Run("associate to batch", func(t *testing.T) {
 		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
@@ -749,7 +750,6 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		}
 
 		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
-		fmt.Printf("\n******************\n%v\n**************\n", spew.Sdump(resultData))
 		var result createAssoc
 		err = json.Unmarshal(resultData.Data, &result)
 		if err != nil {
@@ -997,7 +997,7 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 		}
 	}
 
-	t.Run("Test update with description and disassociatedAt", func(t *testing.T) {
+	t.Run("Update with description and disassociatedAt", func(t *testing.T) {
 		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{

@@ -62,7 +62,6 @@ func FindSensors(params map[string]interface{}, db *sqlx.DB) ([]*Sensor, error) 
 
 	// TODO: Can I easily dynamically add in joining and attaching the User to this without overcomplicating the code?
 	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM sensors t WHERE ` + strings.Join(where, " AND ")
-
 	query := db.Rebind(q)
 	err := db.Select(&sensors, query, values...)
 
