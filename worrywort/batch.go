@@ -212,8 +212,8 @@ type BatchSensor struct {
 
 	// TODO: Do I really want or need these here or the similar functionality on other structs?
 	// what if BatchId and Batch get out of sync? Perhaps make these private and use Sensor() and Batch()
-	Sensor *Sensor
-	Batch  *Batch
+	Sensor *Sensor `db:"sensor,prefix=s"`
+	Batch  *Batch `db:"batch,prefix=b"`
 	// May make these all pointers - allow unset to be actually null/unset. or pq's sql.NullTime
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
@@ -289,6 +289,27 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 	assocPtr := &association
 	var values []interface{}
 	var where []string
+
+	selectCols := ""
+	queryCols := []string{"id", "batch_id", "sensor_id", "description", "associated_at", "disassociated_at",
+		"updated_at", "created_at"}
+	for _, k := range queryCols {
+		selectCols += fmt.Sprintf("ba.%s, ", k)
+	}
+
+	userId, ok := params["user_id"]
+	joins := `INNER JOIN sensors s ON bsa.sensor_id = s.id `
+	if ok && userId != nil {
+			joins = joins + ` AND s.user_id = ? `
+			values = append(values, userId)
+	}
+	// this seems dumb and repetitive. It works for now, though.
+	joins = joins + ` INNER_JOIN batches b on bsa.batch_id = b.id`
+	if ok && userId != nil {
+			joins = joins + ` AND b.user_id = ? `
+			values = append(values, userId)
+	}
+
 	for _, k := range []string{"batch_id", "sensor_id", "id", "disassociated_at"} {
 		if v, ok := params[k]; ok {
 			if v != nil {
@@ -301,14 +322,7 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 		}
 	}
 
-	selectCols := ""
-	queryCols := []string{"id", "batch_id", "sensor_id", "description", "associated_at", "disassociated_at",
-		"updated_at", "created_at"}
-	for _, k := range queryCols {
-		selectCols += fmt.Sprintf("ba.%s, ", k)
-	}
-
-	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batch_sensor_association ba WHERE ` +
+	q := `SELECT ` + strings.Trim(selectCols, ", ") + `s.*, b.* FROM batch_sensor_association ba WHERE ` +
 		strings.Join(where, " AND ")
 
 	query := db.Rebind(q)

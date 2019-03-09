@@ -373,27 +373,27 @@ func (r *Resolver) UpdatebatchSensorAssociation(ctx context.Context, args *struc
 	associationId := int64(aId)
 
 	association, err := worrywort.FindBatchSensorAssociation(
-		map[string]interface{}{"id": associationId}, db)
+		map[string]interface{}{"id": associationId, "user_id": userId}, db)
 
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: This is a bit inefficient and I should really just be joining the batch and/or sensor on here
-	// to get this in one query
-	sensor, err := worrywort.FindSensor(map[string]interface{}{"id": association.SensorId, "user_id": userId}, db)
-	if sensor == nil {
-		return nil, errors.New("BatchSensorAssociation Not Found")
-	} else if err != nil {
-		return nil, err
-	}
-
-	batch, err := worrywort.FindBatch(map[string]interface{}{"id": association.BatchId, "user_id": userId}, db)
-	if batch == nil {
-		return nil, errors.New("BatchSensorAssociation Not Found")
-	} else if err != nil {
-		return nil, err
-	}
+	// // TODO: This is a bit inefficient and I should really just be joining the batch and/or sensor on here
+	// // to get this in one query
+	// sensor, err := worrywort.FindSensor(map[string]interface{}{"id": association.SensorId, "user_id": userId}, db)
+	// if sensor == nil {
+	// 	return nil, errors.New("BatchSensorAssociation Not Found")
+	// } else if err != nil {
+	// 	return nil, err
+	// }
+	//
+	// batch, err := worrywort.FindBatch(map[string]interface{}{"id": association.BatchId, "user_id": userId}, db)
+	// if batch == nil {
+	// 	return nil, errors.New("BatchSensorAssociation Not Found")
+	// } else if err != nil {
+	// 	return nil, err
+	// }
 
 	var description string
 	if input.Description != nil {
@@ -409,8 +409,8 @@ func (r *Resolver) UpdatebatchSensorAssociation(ctx context.Context, args *struc
 	if err != nil {
 		return nil, err
 	}
-	association.Sensor = sensor
-	association.Batch = batch
+	// association.Sensor = sensor
+	// association.Batch = batch
 
 	resolvedAssoc := batchSensorAssociationResolver{assoc: association}
 	result := updateBatchSensorAssociationPayload{assoc: &resolvedAssoc}
