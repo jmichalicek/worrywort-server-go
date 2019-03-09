@@ -7,6 +7,7 @@ import (
 	"fmt"
 	txdb "github.com/DATA-DOG/go-txdb"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/google/go-cmp/cmp"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/graphqlApi"
@@ -21,6 +22,8 @@ import (
 	"testing"
 	"time"
 )
+
+const DefaultUserKey string = "user"
 
 func TestMain(m *testing.M) {
 	dbUser, _ := os.LookupEnv("DATABASE_USER")
@@ -145,7 +148,6 @@ func TestLoginMutation(t *testing.T) {
 }
 
 func TestBatchQuery(t *testing.T) {
-	const DefaultUserKey string = "user"
 	db, err := setUpTestDb()
 	if err != nil {
 		t.Fatalf("Got error setting up database: %s", err)
@@ -329,7 +331,6 @@ func TestBatchQuery(t *testing.T) {
 }
 
 func TestCreateTemperatureMeasurementMutation(t *testing.T) {
-	const DefaultUserKey string = "user"
 	db, err := setUpTestDb()
 	if err != nil {
 		t.Fatalf("Got error setting up database: %s", err)
@@ -436,7 +437,6 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 }
 
 func TestSensorQuery(t *testing.T) {
-	const DefaultUserKey string = "user"
 	db, err := setUpTestDb()
 	if err != nil {
 		t.Fatalf("Got error setting up database: %s", err)
@@ -563,7 +563,6 @@ func TestSensorQuery(t *testing.T) {
 }
 
 func TestCreateBatchMutation(t *testing.T) {
-	const DefaultUserKey string = "user"
 	db, err := setUpTestDb()
 	if err != nil {
 		t.Fatalf("Got error setting up database: %s", err)
@@ -677,7 +676,6 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 			Pl payload `json:"associateSensorToBatch"`
 		}
 
-	const DefaultUserKey string = "user"
 	db, err := setUpTestDb()
 	if err != nil {
 		t.Fatalf("Got error setting up database: %s", err)
@@ -713,7 +711,8 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor2, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: userId2, Name: "Test Sensor 2", CreatedBy: &u2})
+	sensor2, err := worrywort.SaveSensor(
+		db, worrywort.Sensor{UserId: userId2, Name: "Test Sensor 2", CreatedBy: &u2})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -740,7 +739,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		}
 	}
 
-	t.Run("Test associate to batch", func(t *testing.T) {
+	t.Run("associate to batch", func(t *testing.T) {
 		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
@@ -896,6 +895,249 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 
 		if resultData.Errors[0].Message != "Specified Sensor does not exist." {
 			t.Errorf("Expected query error `Specified Batch does not exist.`, Got: %v", resultData.Errors)
+		}
+	})
+}
+
+func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
+
+	query := `
+		mutation updateBatchSensorAssociation($input: UpdateBatchSensorAssociationInput!) {
+			updateBatchSensorAssociation(input: $input) {
+				__typename
+				batchSensorAssociation {
+					__typename
+					id
+				}
+			}
+		}`
+
+		// Structs for marshalling json to so that actual values can easily be checked and used
+		type payloadAssoc struct {
+			Typename string `json:"__typename"`
+			Id       string `json:"id"`
+		}
+
+		type payload struct {
+			Typename string       `json:"__typename"`
+			Assoc    *payloadAssoc `json:"BatchSensorAssociation"`
+		}
+
+		type createAssoc struct {
+			Pl payload `json:"updateBatchSensorAssociation"`
+		}
+
+
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := worrywort.NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err = worrywort.SaveUser(db, u)
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
+
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	sensor, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: userId, Name: "Test Sensor", CreatedBy: &u})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	batch, err := worrywort.SaveBatch(
+		db, worrywort.Batch{UserId: userId, CreatedBy: &u, Name: "Test batch"})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	u2 := worrywort.NewUser(0, "user2@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u2, err = worrywort.SaveUser(db, u2)
+	userId2 := sql.NullInt64{Valid: true, Int64: int64(u2.Id)}
+
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	batch2, err := worrywort.SaveBatch(
+		db, worrywort.Batch{UserId: userId2, CreatedBy: &u, Name: "Test batch 2"})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	sensor2, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: userId2, Name: "Test Sensor 2", CreatedBy: &u2})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	batch2, err = worrywort.SaveBatch(
+		db, worrywort.Batch{UserId: userId2, CreatedBy: &u2, Name: "Test batch 2"})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	assoc1, _ := worrywort.AssociateBatchToSensor(batch, sensor, "Description", nil, db)
+	assoc2, _ := worrywort.AssociateBatchToSensor(batch, sensor2, "Description", nil, db)
+	assoc3, _ := worrywort.AssociateBatchToSensor(batch2, sensor, "Description", nil, db)
+
+	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+
+	operationName := ""
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+	ctx = context.WithValue(ctx, "db", db)
+
+	// TODO: may want to reset after each test
+	// cleanAssociations := func() {
+	// 	q := `DELETE FROM batch_sensor_association WHERE sensor_id = ? AND batch_id = ?`
+	// 	q = db.Rebind(q)
+	// 	_, err := db.Exec(q, sensor.Id, batch.Id)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// }
+
+	t.Run("Update with description and disassociatedAt", func(t *testing.T) {
+		variables := map[string]interface{}{
+			"input": map[string]interface{}{
+				"id": assoc1.Id,
+				"description": "Updated description",
+				"associatedAt": "2019-01-01T12:01:01Z",
+				"disassociatedAt": "2019-01-01T12:02:01Z",
+			},
+		}
+
+		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
+		var result createAssoc
+		err = json.Unmarshal(resultData.Data, &result)
+		if err != nil {
+			t.Fatalf("%v: %v", result, resultData)
+		}
+
+		// Test the returned graphql types
+		if result.Pl.Typename != "UpdateBatchSensorAssociationPayload" {
+			t.Errorf("updateBatchSensorAssociation returned unexpected type: %s", result.Pl.Typename)
+		}
+
+		if result.Pl.Assoc.Typename != "BatchSensorAssociation" {
+			t.Errorf("updateBatchSensorAssociation returned unexpected type for Assoc: %s", result.Pl.Assoc.Typename)
+		}
+
+		// Make sure it was really created in the db
+		newAssoc, _ := worrywort.FindBatchSensorAssociation(
+			map[string]interface{}{"id": assoc1.Id}, db)
+		// TODO: I do not like this, but it's the easiest way to compare just what I want here. Maybe I should write
+		// custom equals() methods and I am sure go-cmp filterPath or filterValue can deal with this.
+		newAssoc.Batch = nil
+		newAssoc.Sensor = nil
+
+		assocAt, _ := time.Parse(time.RFC3339, "2019-01-01T12:01:01Z")
+		disassocAt, _ := time.Parse(time.RFC3339, "2019-01-01T12:02:01Z")
+		expected := worrywort.BatchSensor{
+			Id: assoc1.Id, Description: "Updated description",
+			AssociatedAt: assocAt, DisassociatedAt: &disassocAt, CreatedAt: assoc1.CreatedAt, UpdatedAt: newAssoc.UpdatedAt,
+			SensorId: assoc1.SensorId, BatchId: assoc1.BatchId}
+
+		if !cmp.Equal(*newAssoc, expected, nil) {
+			t.Errorf(cmp.Diff(newAssoc, expected, nil))
+		}
+	})
+
+	t.Run("Update with blank description and null disassociatedAt", func(t *testing.T) {
+		variables := map[string]interface{}{
+			"input": map[string]interface{}{
+				"id": assoc1.Id,
+				"description": nil,
+				"associatedAt": "2019-01-01T12:01:01Z",
+				"disassociatedAt": nil,
+			},
+		}
+
+		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
+		var result createAssoc
+		err = json.Unmarshal(resultData.Data, &result)
+		if err != nil {
+			t.Fatalf("%v: %v", result, resultData)
+		}
+
+		// Test the returned graphql types
+		if result.Pl.Typename != "UpdateBatchSensorAssociationPayload" {
+			t.Errorf("updateBatchSensorAssociation returned unexpected type: %s", result.Pl.Typename)
+		}
+
+		if result.Pl.Assoc.Typename != "BatchSensorAssociation" {
+			t.Errorf("updateBatchSensorAssociation returned unexpected type for Assoc: %s", result.Pl.Assoc.Typename)
+		}
+
+		// Make sure it was really created in the db
+		newAssoc, _ := worrywort.FindBatchSensorAssociation(
+			map[string]interface{}{"id": assoc1.Id}, db)
+		// TODO: I do not like this, but it's the easiest way to compare just what I want here. Maybe I should write
+		// custom equals() methods and I am sure go-cmp filterPath or filterValue can deal with this.
+		newAssoc.Batch = nil
+		newAssoc.Sensor = nil
+
+		assocAt, _ := time.Parse(time.RFC3339, "2019-01-01T12:01:01Z")
+		expected := worrywort.BatchSensor{
+			Id: assoc1.Id, Description: "",
+			AssociatedAt: assocAt, DisassociatedAt: nil, CreatedAt: assoc1.CreatedAt, UpdatedAt: newAssoc.UpdatedAt,
+			SensorId: assoc1.SensorId, BatchId: assoc1.BatchId}
+
+		if !cmp.Equal(*newAssoc, expected, nil) {
+			t.Errorf(cmp.Diff(newAssoc, expected, nil))
+		}
+
+	})
+
+	t.Run("Batch not owned by user", func(t *testing.T) {
+		variables := map[string]interface{}{
+			"input": map[string]interface{}{
+				"id": assoc2.Id,
+				"description": "It is associated",
+				"associatedAt": "2019-01-01T12:01:01Z",
+				"disassociatedAt": "2019-01-01T12:02:01Z",
+			},
+		}
+
+		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
+		var result createAssoc
+		err = json.Unmarshal(resultData.Data, &result)
+		if err != nil {
+			t.Fatalf("%v: %v", result, resultData)
+		}
+		if result.Pl.Assoc != nil {
+			t.Errorf("Expected null payload in response, got: %v", resultData.Data)
+		}
+
+		if resultData.Errors[0].Message != "BatchSensorAssociation does not exist." {
+			t.Errorf("Expected query error `BatchSensorAssociation does not exist.`, Got: %v", resultData.Errors)
+		}
+	})
+
+	t.Run("Sensor not owned by user", func(t *testing.T) {
+		variables := map[string]interface{}{
+			"input": map[string]interface{}{
+				"id": assoc3.Id,
+				"description": "It is associated",
+				"associatedAt": "2019-01-01T12:01:01Z",
+				"disassociatedAt": "2019-01-01T12:02:01Z",
+			},
+		}
+
+		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
+		var result createAssoc
+		err = json.Unmarshal(resultData.Data, &result)
+		if err != nil {
+			t.Fatalf("%v: %v", result, resultData)
+		}
+		if result.Pl.Assoc != nil {
+			t.Errorf("Expected null payload in response, got: %v", resultData.Data)
+		}
+
+		if resultData.Errors[0].Message != "BatchSensorAssociation does not exist." {
+			t.Errorf("Expected query error `BatchSensorAssociation does not exist.`, Got: %v", resultData.Errors)
 		}
 	})
 }

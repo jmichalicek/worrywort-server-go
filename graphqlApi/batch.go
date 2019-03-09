@@ -175,7 +175,6 @@ func (r *Resolver) CreateBatch(ctx context.Context, args *struct {
 			return nil, err
 		}
 	}
-	log.Printf("Bottled at %v", bottledAt)
 
 	// TODO: Handle all of the optional inputs which could come in as null here but should be empty string when saved
 	// or could come in as an empty string but should be saved to db as null or nullint, etc.
@@ -198,6 +197,13 @@ type associateSensorToBatchInput struct {
 	BatchId     string
 	SensorId    string
 	Description *string
+}
+
+type updateBatchSensorAssociationInput struct {
+	ID     string
+	Description *string
+	AssociatedAt string
+	DisassociatedAt *string
 }
 
 type batchSensorAssociationResolver struct {
@@ -227,8 +233,9 @@ func (b *batchSensorAssociationResolver) AssociatedAt() string {
 
 func (b *batchSensorAssociationResolver) DisassociatedAt() *string {
 	if b.assoc.DisassociatedAt != nil {
-		d := dateString(*(b.assoc.DisassociatedAt))
-		return &d
+		// nullableDateString
+		d := nullableDateString(*(b.assoc.DisassociatedAt))
+		return d
 	}
 	return nil
 }
@@ -243,6 +250,18 @@ func (c *associateSensorToBatchPayload) BatchSensorAssociation() *batchSensorAss
 	return c.assoc
 }
 
+// Seems like maybe a nested struct may be in order with the BatchSensorAssociation(), etc.
+type updateBatchSensorAssociationPayload struct {
+	assoc *batchSensorAssociationResolver
+	// err *userErrorResolver
+}
+
+func (c *updateBatchSensorAssociationPayload) BatchSensorAssociation() *batchSensorAssociationResolver {
+	return c.assoc
+}
+
+
+
 // func (c *associateSensorToBatchPayload) UserErrors() *userErrorResolver {
 // 	return c.err
 // }
@@ -255,12 +274,18 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 	u, _ := authMiddleware.UserFromContext(ctx)
 	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 
+	db, ok := ctx.Value("db").(*sqlx.DB)
+	if !ok {
+		log.Printf("No database in context")
+		return nil, SERVER_ERROR
+	}
+
 	var inputPtr *associateSensorToBatchInput = args.Input
 	var input associateSensorToBatchInput = *inputPtr
 
 	var batchId sql.NullInt64
 	batchId = ToNullInt64(string(input.BatchId))
-	batchPtr, err := worrywort.FindBatch(map[string]interface{}{"user_id": userId, "id": batchId}, r.db)
+	batchPtr, err := worrywort.FindBatch(map[string]interface{}{"user_id": userId, "id": batchId}, db)
 	if err != nil || batchPtr == nil {
 		if err != sql.ErrNoRows {
 			log.Printf("%v", err)
@@ -271,7 +296,7 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 
 	// TODO!: Make sure the sensor is not already associated with a batch
 	tempSensorId, err := strconv.ParseInt(string(input.SensorId), 10, 0)
-	sensorPtr, err := worrywort.FindSensor(map[string]interface{}{"id": tempSensorId, "user_id": userId}, r.db)
+	sensorPtr, err := worrywort.FindSensor(map[string]interface{}{"id": tempSensorId, "user_id": userId}, db)
 	if err != nil || sensorPtr == nil {
 		// TODO: Probably need a friendlier error here or for our payload to have a shopify style userErrors
 		// and then not ever return nil from this either way...maybe
@@ -286,12 +311,15 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 	// TODO: Is this correct?  Maybe I really want to associate a sensor with 2 batches, such as for
 	// ambient air temperature. Maybe this should only ensure it's not associated with the same batch twice.
 	existing, err := worrywort.FindBatchSensorAssociation(
-		map[string]interface{}{"sensor_id": tempSensorId, "disassociated_at": nil}, r.db)
+		map[string]interface{}{"sensor_id": tempSensorId, "disassociated_at": nil, "user_id": userId}, db)
+
 	if existing != nil {
 		return nil, errors.New("Sensor already associated to Batch.")
-		// err := userErrorResolver{f: []string{"sensor"}, err: "Sensor already associated to Batch."}
-		// result := associateSensorToBatchPayload{assoc: nil, err: &err}
-		// return &result, nil
+	}
+
+	if err != nil && err != sql.ErrNoRows{
+		log.Printf("%v", err)
+		return nil, SERVER_ERROR
 	}
 
 	var description string
@@ -300,7 +328,7 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 	} else {
 		description = ""
 	}
-	association, err := worrywort.AssociateBatchToSensor(*batchPtr, *sensorPtr, description, nil, r.db)
+	association, err := worrywort.AssociateBatchToSensor(*batchPtr, *sensorPtr, description, nil, db)
 	if err != nil {
 		log.Printf("%v", err)
 		return nil, errors.New("Specified Sensor does not exist.")
@@ -308,9 +336,69 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 
 	association.Batch = batchPtr
 	association.Sensor = sensorPtr
-	// resolvedBatch := batchResolver{b: &batch}
-	// resolvedSensor := sensorResolver{s: &sensor}
 	resolvedAssoc := batchSensorAssociationResolver{assoc: association}
 	result := associateSensorToBatchPayload{assoc: &resolvedAssoc}
+	return &result, nil
+}
+
+func (r *Resolver) UpdatebatchSensorAssociation(ctx context.Context, args *struct {
+	Input *updateBatchSensorAssociationInput
+}) (*updateBatchSensorAssociationPayload, error) {
+	u, _ := authMiddleware.UserFromContext(ctx)
+	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
+
+	db, ok := ctx.Value("db").(*sqlx.DB)
+	if !ok {
+		log.Printf("No database in context")
+		return nil, SERVER_ERROR
+	}
+
+	var inputPtr *updateBatchSensorAssociationInput = args.Input
+	var input updateBatchSensorAssociationInput = *inputPtr
+
+	var disassociatedAt *time.Time = nil
+	if input.DisassociatedAt != nil {
+		d, err := time.Parse(time.RFC3339, *(input.DisassociatedAt))
+		if err != nil {
+			// TODO: See what the actual error types are and try to return friendlier errors which are not golang specific messaging
+			return nil, err
+		} else {
+			disassociatedAt = &d
+		}
+	}
+
+	associatedAt, err := time.Parse(time.RFC3339, input.AssociatedAt)
+	if err != nil {
+		// TODO: See what the actual error types are and try to return friendlier errors which are not golang specific messaging
+		return nil, err
+	}
+
+	association, err := worrywort.FindBatchSensorAssociation(
+		map[string]interface{}{"id": string(input.ID), "user_id": userId}, db)
+
+	if err == sql.ErrNoRows {
+		return nil, errors.New("BatchSensorAssociation does not exist.")
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var description string
+	if input.Description != nil {
+		description = *input.Description
+	} else {
+		description = ""
+	}
+	association.Description = description
+	association.AssociatedAt = associatedAt
+	association.DisassociatedAt = disassociatedAt
+
+	association, err = worrywort.UpdateBatchSensorAssociation(*association, db)
+	if err != nil {
+		return nil, err
+	}
+
+	resolvedAssoc := batchSensorAssociationResolver{assoc: association}
+	result := updateBatchSensorAssociationPayload{assoc: &resolvedAssoc}
 	return &result, nil
 }

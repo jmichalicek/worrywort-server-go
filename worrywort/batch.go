@@ -212,8 +212,8 @@ type BatchSensor struct {
 
 	// TODO: Do I really want or need these here or the similar functionality on other structs?
 	// what if BatchId and Batch get out of sync? Perhaps make these private and use Sensor() and Batch()
-	Sensor *Sensor
-	Batch  *Batch
+	Sensor *Sensor `db:"s,prefix=s"`
+	Batch  *Batch `db:"b,prefix=b"`
 	// May make these all pointers - allow unset to be actually null/unset. or pq's sql.NullTime
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
@@ -268,7 +268,7 @@ func AssociateBatchToSensor(batch Batch, sensor Sensor, description string, asso
 
 func UpdateBatchSensorAssociation(b BatchSensor, db *sqlx.DB) (*BatchSensor, error) {
 	// TODO: Tempted to make these take a BatchSensor to modify and a dict of changes... maybe. sort of elixir/ecto style.
-	// TODO: not sure how I feel about taking struct, returning pointer to the struct...
+	// TODO: not sure how I feel about taking struct, returning pointer to the struct... maybe just take the pointer?
 	var updatedAt time.Time
 
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
@@ -284,10 +284,44 @@ func UpdateBatchSensorAssociation(b BatchSensor, db *sqlx.DB) (*BatchSensor, err
 
 func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*BatchSensor, error) {
 	// var association *BatchSensor = nil
+	// TODO: join batch and sensor tables and pre-populate the nested batch and sensor?
 	association := BatchSensor{}
 	assocPtr := &association
 	var values []interface{}
 	var where []string
+
+	selectCols := ""
+	queryCols := []string{"id", "batch_id", "sensor_id", "description", "associated_at", "disassociated_at",
+		"updated_at", "created_at"}
+	for _, k := range queryCols {
+		selectCols += fmt.Sprintf("ba.%s, ", k)
+	}
+
+	batchQueryCols := []string{"id", "name", "brew_notes", "tasting_notes", "brewed_date", "bottled_date",
+		"volume_boiled", "volume_in_fermentor", "volume_units", "original_gravity", "final_gravity", "recipe_url",
+		"max_temperature", "min_temperature", "average_temperature", "created_at", "updated_at", "user_id"}
+	for _, k := range batchQueryCols {
+		selectCols += fmt.Sprintf("b.%s AS \"b.%s\", ", k, k)
+	}
+
+	sensorQueryCols :=[]string{"id", "name", "created_at", "updated_at", "user_id"}
+	for _, k := range sensorQueryCols {
+		selectCols += fmt.Sprintf("s.%s AS \"s.%s\", ", k, k)
+	}
+
+	userId, ok := params["user_id"]
+	joins := ` INNER JOIN sensors s ON ba.sensor_id = s.id `
+	if ok && userId != nil {
+			joins = joins + ` AND s.user_id = ? `
+			values = append(values, userId)
+	}
+	// this seems dumb and repetitive. It works for now, though.
+	joins = joins + ` INNER JOIN batches b on ba.batch_id = b.id`
+	if ok && userId != nil {
+			joins = joins + ` AND b.user_id = ? `
+			values = append(values, userId)
+	}
+
 	for _, k := range []string{"batch_id", "sensor_id", "id", "disassociated_at"} {
 		if v, ok := params[k]; ok {
 			if v != nil {
@@ -300,14 +334,9 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 		}
 	}
 
-	selectCols := ""
-	queryCols := []string{"id", "batch_id", "sensor_id", "description", "associated_at", "disassociated_at",
-		"updated_at", "created_at"}
-	for _, k := range queryCols {
-		selectCols += fmt.Sprintf("ba.%s, ", k)
-	}
-
-	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batch_sensor_association ba WHERE ` +
+	// TODO: no good, clean, maintainable way to manage joins with sqlx. tired of this. replace with
+	// gorm or pop/fizz.
+	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batch_sensor_association ba ` + joins + ` WHERE ` +
 		strings.Join(where, " AND ")
 
 	query := db.Rebind(q)

@@ -22,12 +22,6 @@ type Sensor struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
-// Returns a list of the db columns to use for a SELECT query
-func (t Sensor) queryColumns() []string {
-	// TODO: Way to dynamically build this using the `db` tag and reflection/introspection
-	return []string{"id", "name", "created_at", "updated_at", "user_id"}
-}
-
 // Look up a single temperature sensor
 // returns the first match, like .first() in Django
 // May change this up to just look up by id and then any other comparisons could
@@ -68,7 +62,6 @@ func FindSensors(params map[string]interface{}, db *sqlx.DB) ([]*Sensor, error) 
 
 	// TODO: Can I easily dynamically add in joining and attaching the User to this without overcomplicating the code?
 	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM sensors t WHERE ` + strings.Join(where, " AND ")
-
 	query := db.Rebind(q)
 	err := db.Select(&sensors, query, values...)
 
