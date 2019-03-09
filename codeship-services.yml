@@ -7,10 +7,11 @@ database:
       - POSTGRES_USER=developer
       - POSTGRES_DB=worrywort
       - PGDATA=/var/lib/postgresql/data/pgdata
-  privileged: true
+  # privileged: true
   volumes:
     - worrywort_db:/var/lib/postgresql/data
 worrywortd:
+  # image: worrywort-server-dev  # I should just build and maintain the image separately, would speed this up.
   depends_on:
     - database
   working_dir: /go/src/github.com/jmichalicek/worrywort-server-go
