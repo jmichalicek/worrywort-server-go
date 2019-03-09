@@ -17,6 +17,7 @@ worrywortd:
     - database
   working_dir: /go/src/github.com/jmichalicek/worrywort-server-go
   # command: /home/developer/docker_entrypoints/dev_entrypoint.sh
+  cached: true
   build:
     context: .
     dockerfile: Dockerfile.dev
