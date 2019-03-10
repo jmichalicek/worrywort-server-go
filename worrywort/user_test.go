@@ -5,24 +5,28 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"testing"
 	"time"
+	"github.com/google/go-cmp/cmp"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func TestNewUser(t *testing.T) {
 	createdAt := time.Now()
 	updatedAt := time.Now()
-	u := NewUser(1, "user@example.com", "Justin", "Michalicek", createdAt, updatedAt)
-
-	expectedUser := User{Id: 1, Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek",
+	u := NewUser(nil, "user@example.com", "Justin", "Michalicek", createdAt, updatedAt)
+	expectedUser := User{Id: u.Id, Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek",
 		CreatedAt: createdAt, UpdatedAt: updatedAt}
 	if u != expectedUser {
 		t.Errorf("Expected:\n\n%v\n\nGot:\n\n%v", expectedUser, u)
+	}
+	if u.Id != nil {
+		t.Errorf("NewUser returned with unexpected user id %v", u.Id)
 	}
 }
 
 func TestUserStruct(t *testing.T) {
 	createdAt := time.Now()
 	updatedAt := time.Now().Add(time.Hour * time.Duration(1))
-	u := NewUser(1, "user@example.com", "Justin", "Michalicek", createdAt, updatedAt)
+	u := NewUser(nil, "user@example.com", "Justin", "Michalicek", createdAt, updatedAt)
 
 	t.Run("SetUserPassword()", func(t *testing.T) {
 		password := "password"
@@ -49,7 +53,7 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 		t.Fatalf("Got error setting up database: %s", err)
 	}
 	defer db.Close()
-	user := NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	user := NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	password := "password"
 	user, err = SetUserPassword(user, password, bcrypt.MinCost)
 	if err != nil {
@@ -63,14 +67,14 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 	//func TestLookupUser(t *testing.T) {
 	t.Run("TestLookupUser", func(t *testing.T) {
 		t.Run("Test valid user id returns user", func(t *testing.T) {
-			actual, err := LookupUser(user.Id, db)
+			actual, err := LookupUser(*user.Id, db)
 
 			if err != nil {
 				t.Errorf("LookupUser() returned error %v", err)
 			}
 
-			if user != *actual {
-				t.Errorf("Expected: %v, got: %v", user, actual)
+			if !cmp.Equal(user, *actual) {
+				t.Errorf("Expected: -  Got: +\n%s", cmp.Diff(&user, actual))
 			}
 		})
 
@@ -102,8 +106,9 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 				t.Errorf("TestLookupUserByToken() returned error %v", err)
 			}
 
-			if user != actual {
-				t.Errorf("Expected: %v, got: %v", user, actual)
+			if !cmp.Equal(user, actual) {
+				// this or cmp.Diff()?  This is easier to tell which was expected
+				t.Errorf("Expected: %v, got: %v", spew.Sdump(user), spew.Sdump(actual))
 			}
 		})
 
@@ -144,15 +149,15 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 				t.Errorf("Got unexpected error: %v", err)
 			}
 
-			if u != user {
-				t.Errorf("Expected: %v\ngot: %v", user, u)
+			if !cmp.Equal(u, user) {
+				t.Errorf("User did not match: %v", cmp.Diff(u, user))
 			}
 		})
 
 		t.Run("Test valid username and password mistmatch returns error and empty User{}", func(t *testing.T) {
 			u, err := AuthenticateLogin(user.Email, "a", db)
 			if err != bcrypt.ErrMismatchedHashAndPassword {
-				t.Errorf("Expected error: %v\nGot: %v", UserNotFoundError, err)
+				t.Errorf("Expected error: %v\nGot: %v", bcrypt.ErrMismatchedHashAndPassword, err)
 			}
 
 			if u != (User{}) {

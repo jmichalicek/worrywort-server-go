@@ -93,7 +93,7 @@ func (r *batchResolver) CreatedBy(ctx context.Context) (*userResolver, error) {
 		log.Printf("No database in context")
 		return nil, SERVER_ERROR
 	}
-	user, err := worrywort.LookupUser(int(r.b.UserId.Int64), db)
+	user, err := worrywort.LookupUser(int(r.b.UserId), db)
 	return &userResolver{u: user}, err
 }
 
@@ -154,7 +154,6 @@ func (r *Resolver) CreateBatch(ctx context.Context, args *struct {
 	Input *createBatchInput
 }) (*createBatchPayload, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
-	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 
 	var inputPtr *createBatchInput = args.Input
 	var input createBatchInput = *inputPtr
@@ -178,7 +177,7 @@ func (r *Resolver) CreateBatch(ctx context.Context, args *struct {
 
 	// TODO: Handle all of the optional inputs which could come in as null here but should be empty string when saved
 	// or could come in as an empty string but should be saved to db as null or nullint, etc.
-	batch := worrywort.Batch{UserId: userId, Name: input.Name, BrewedDate: brewedAt, BottledDate: bottledAt}
+	batch := worrywort.Batch{UserId: u.Id, Name: input.Name, BrewedDate: brewedAt, BottledDate: bottledAt}
 	batch, err = worrywort.SaveBatch(r.db, batch)
 	if err != nil {
 		log.Printf("Failed to save Batch: %v\n", err)
@@ -272,7 +271,6 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 	Input *associateSensorToBatchInput
 }) (*associateSensorToBatchPayload, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
-	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
@@ -284,8 +282,8 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 	var input associateSensorToBatchInput = *inputPtr
 
 	var batchId sql.NullInt64
-	batchId = ToNullInt64(string(input.BatchId))
-	batchPtr, err := worrywort.FindBatch(map[string]interface{}{"user_id": userId, "id": batchId}, db)
+	batchId = int32(input.BatchId)
+	batchPtr, err := worrywort.FindBatch(map[string]interface{}{"user_id": u.Id, "id": batchId}, db)
 	if err != nil || batchPtr == nil {
 		if err != sql.ErrNoRows {
 			log.Printf("%v", err)
@@ -296,7 +294,7 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 
 	// TODO!: Make sure the sensor is not already associated with a batch
 	tempSensorId, err := strconv.ParseInt(string(input.SensorId), 10, 0)
-	sensorPtr, err := worrywort.FindSensor(map[string]interface{}{"id": tempSensorId, "user_id": userId}, db)
+	sensorPtr, err := worrywort.FindSensor(map[string]interface{}{"id": tempSensorId, "user_id": u.Id}, db)
 	if err != nil || sensorPtr == nil {
 		// TODO: Probably need a friendlier error here or for our payload to have a shopify style userErrors
 		// and then not ever return nil from this either way...maybe
@@ -311,7 +309,7 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 	// TODO: Is this correct?  Maybe I really want to associate a sensor with 2 batches, such as for
 	// ambient air temperature. Maybe this should only ensure it's not associated with the same batch twice.
 	existing, err := worrywort.FindBatchSensorAssociation(
-		map[string]interface{}{"sensor_id": tempSensorId, "disassociated_at": nil, "user_id": userId}, db)
+		map[string]interface{}{"sensor_id": tempSensorId, "disassociated_at": nil, "user_id": u.Id}, db)
 
 	if existing != nil {
 		return nil, errors.New("Sensor already associated to Batch.")
@@ -345,8 +343,6 @@ func (r *Resolver) UpdatebatchSensorAssociation(ctx context.Context, args *struc
 	Input *updateBatchSensorAssociationInput
 }) (*updateBatchSensorAssociationPayload, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
-	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
-
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
 		log.Printf("No database in context")
@@ -374,7 +370,7 @@ func (r *Resolver) UpdatebatchSensorAssociation(ctx context.Context, args *struc
 	}
 
 	association, err := worrywort.FindBatchSensorAssociation(
-		map[string]interface{}{"id": string(input.ID), "user_id": userId}, db)
+		map[string]interface{}{"id": string(input.ID), "user_id": u.Id}, db)
 
 	if err == sql.ErrNoRows {
 		return nil, errors.New("BatchSensorAssociation does not exist.")

@@ -1,7 +1,6 @@
 package worrywort
 
 import (
-	"database/sql"
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	"strings"
@@ -20,11 +19,11 @@ type TemperatureMeasurement struct {
 	// but I think forcing use of Batch() enforces consistency
 	batch       *Batch
 	Sensor      *Sensor             `db:"sensor,prefix=ts"`
-	SensorId    sql.NullInt64       `db:"sensor_id"`
+	SensorId    *int32       `db:"sensor_id"`
 
 	// not sure createdBy is a useful name in this case vs just `user` but its consistent
 	CreatedBy *User         `db:"created_by,prefix=u"`
-	UserId    sql.NullInt64 `db:"user_id"`
+	UserId    *int32 `db:"user_id"`
 
 	// when the record was created
 	CreatedAt time.Time `db:"created_at"`

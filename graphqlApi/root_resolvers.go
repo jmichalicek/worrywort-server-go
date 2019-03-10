@@ -113,8 +113,7 @@ func (r *Resolver) Batches(ctx context.Context, args struct {
 		return nil, SERVER_ERROR
 	}
 
-	userIdNullInt := sql.NullInt64{Int64: int64(u.Id), Valid: true}
-	batches, err := worrywort.FindBatches(map[string]interface{}{"user_id": userIdNullInt}, db)
+	batches, err := worrywort.FindBatches(map[string]interface{}{"user_id": u.Id}, db)
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("%v", err)
 		return nil, err
@@ -156,9 +155,7 @@ func (r *Resolver) Sensor(ctx context.Context, args struct{ ID graphql.ID }) (*s
 		return nil, err
 	}
 
-	userId := sql.NullInt64{Valid: true, Int64: int64(authUser.Id)}
-
-	sensor, err := worrywort.FindSensor(map[string]interface{}{"id": sensorId, "user_id": userId}, db)
+	sensor, err := worrywort.FindSensor(map[string]interface{}{"id": sensorId, "user_id": user.Id}, db)
 	if err != nil {
 		log.Printf("%v", err)
 	} else if sensor != nil {
@@ -178,9 +175,9 @@ func (r *Resolver) Sensors(ctx context.Context, args struct {
 		log.Printf("No database in context")
 		return nil, SERVER_ERROR
 	}
-	userId := sql.NullInt64{Valid: true, Int64: int64(authUser.Id)}
+
 	// Now get the temperature sensors, build out the info
-	sensors, err := worrywort.FindSensors(map[string]interface{}{"user_id": userId}, db)
+	sensors, err := worrywort.FindSensors(map[string]interface{}{"user_id": authUser.Id}, db)
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("%v", err)
 		return nil, err
@@ -209,10 +206,9 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 		return nil, SERVER_ERROR
 	}
 	var resolved *temperatureMeasurementResolver
-	userId := sql.NullInt64{Valid: true, Int64: int64(authUser.Id)}
 	measurementId := string(args.ID)
 	measurement, err := worrywort.FindTemperatureMeasurement(
-		map[string]interface{}{"id": measurementId, "user_id": userId}, db)
+		map[string]interface{}{"id": measurementId, "user_id": authUser.Id}, db)
 	if err != nil {
 		log.Printf("%v", err)
 	} else if measurement != nil {
@@ -235,10 +231,9 @@ func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
 		log.Printf("No database in context")
 		return nil, SERVER_ERROR
 	}
-	userId := sql.NullInt64{Valid: true, Int64: int64(authUser.Id)}
 
 	// TODO: pagination, the rest of the optional filter params
-	measurements, err := worrywort.FindTemperatureMeasurements(map[string]interface{}{"user_id": userId}, db)
+	measurements, err := worrywort.FindTemperatureMeasurements(map[string]interface{}{"user_id": authUser.Id}, db)
 
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("%v", err)
@@ -284,7 +279,6 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 	Input *createTemperatureMeasurementInput
 }) (*createTemperatureMeasurementPayload, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
-	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 
 	var inputPtr *createTemperatureMeasurementInput = args.Input
 	// TODO: make sure input was not nil. Technically the schema does this for us
@@ -299,9 +293,8 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 		unitType = worrywort.CELSIUS
 	}
 
-	sensorId := ToNullInt64(string(input.SensorId))
-	tempSensorId, err := strconv.ParseInt(string(input.SensorId), 10, 0)
-	sensorPtr, err := worrywort.FindSensor(map[string]interface{}{"id": tempSensorId, "user_id": u.Id}, r.db)
+	sensorId, err := strconv.ParseInt(string(input.SensorId), 10, 32)
+	sensorPtr, err := worrywort.FindSensor(map[string]interface{}{"id": sensorId, "user_id": u.Id}, r.db)
 	if err != nil {
 		// TODO: Probably need a friendlier error here or for our payload to have a shopify style userErrors
 		// and then not ever return nil from this either way...maybe
@@ -321,8 +314,8 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 		return nil, err
 	}
 
-	t := worrywort.TemperatureMeasurement{Sensor: sensorPtr, SensorId: sensorId,
-		Temperature: input.Temperature, Units: unitType, RecordedAt: recordedAt, CreatedBy: &u, UserId: userId}
+	t := worrywort.TemperatureMeasurement{Sensor: sensorPtr, SensorId: &sensorId,
+		Temperature: input.Temperature, Units: unitType, RecordedAt: recordedAt, CreatedBy: &u, UserId: u.Id}
 	t, err = worrywort.SaveTemperatureMeasurement(r.db, t)
 	if err != nil {
 		log.Printf("Failed to save TemperatureMeasurement: %v\n", err)
