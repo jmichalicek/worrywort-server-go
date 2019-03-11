@@ -4,6 +4,7 @@ import (
 	"context"
 	// "fmt"
 	graphql "github.com/graph-gophers/graphql-go"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
@@ -139,7 +140,7 @@ func (r *Resolver) Fermentor(ctx context.Context, args struct{ ID graphql.ID }) 
 }
 
 func (r *Resolver) Sensor(ctx context.Context, args struct{ ID graphql.ID }) (*sensorResolver, error) {
-	authUser, _ := authMiddleware.UserFromContext(ctx)
+	user, _ := authMiddleware.UserFromContext(ctx)
 	var resolved *sensorResolver
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
@@ -148,16 +149,18 @@ func (r *Resolver) Sensor(ctx context.Context, args struct{ ID graphql.ID }) (*s
 		return nil, SERVER_ERROR
 	}
 
-	sensorId, err := strconv.Atoi(string(args.ID))
+	_sensorId, err := strconv.Atoi(string(args.ID))
 	if err != nil {
 		// not sure what could go wrong here - maybe a generic error and log the real error.
-		log.Printf("%v", err)
+		log.Printf("%v for input: %v", err, spew.Sdump(args))
 		return nil, err
 	}
+	sensorId := int32(_sensorId) // does this need to happen or is passing an int64 in ok here?
 
-	sensor, err := worrywort.FindSensor(map[string]interface{}{"id": sensorId, "user_id": user.Id}, db)
+	sensor, err := worrywort.FindSensor(map[string]interface{}{"id": sensorId, "user_id": *user.Id}, db)
 	if err != nil {
 		log.Printf("%v", err)
+		return nil, nil // maybe error should be returned
 	} else if sensor != nil {
 		resolved = &sensorResolver{s: sensor}
 	}
@@ -314,7 +317,7 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 		return nil, err
 	}
 
-	t := worrywort.TemperatureMeasurement{Sensor: sensorPtr, SensorId: &sensorId,
+	t := worrywort.TemperatureMeasurement{Sensor: sensorPtr, SensorId: sensorPtr.Id,
 		Temperature: input.Temperature, Units: unitType, RecordedAt: recordedAt, CreatedBy: &u, UserId: u.Id}
 	t, err = worrywort.SaveTemperatureMeasurement(r.db, t)
 	if err != nil {

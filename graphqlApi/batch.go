@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/davecgh/go-spew/spew"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
@@ -19,7 +20,13 @@ type batchResolver struct {
 }
 
 func (r *batchResolver) ID() graphql.ID {
-	return graphql.ID(strconv.Itoa(r.b.Id))
+	if r.b != nil && r.b.Id != nil {
+			return graphql.ID(strconv.Itoa(int(*r.b.Id)))
+	} else {
+		log.Printf("Resolved batch with no id: %v", spew.Sdump(r))
+		return graphql.ID("")
+	}
+
 }
 func (r *batchResolver) Name() string         { return r.b.Name }
 func (r *batchResolver) BrewNotes() string    { return r.b.BrewNotes }
@@ -78,8 +85,7 @@ func (r *batchResolver) UpdatedAt() string { return dateString(r.b.UpdatedAt) }
 func (r *batchResolver) CreatedBy(ctx context.Context) (*userResolver, error) {
 	// IMPLEMENT DATALOADER
 	// TODO: yeah, maybe make Batch.CreatedBy and others a pointer... or a function with a private pointer to cache
-	if r.b.CreatedBy != nil && r.b.CreatedBy.Id != 0 {
-		// TODO: this will probably go to taking a pointer to the User
+	if r.b.CreatedBy != nil && *r.b.CreatedBy.Id != 0 {
 		return &userResolver{u: r.b.CreatedBy}, nil
 	}
 
@@ -93,7 +99,7 @@ func (r *batchResolver) CreatedBy(ctx context.Context) (*userResolver, error) {
 		log.Printf("No database in context")
 		return nil, SERVER_ERROR
 	}
-	user, err := worrywort.LookupUser(int(r.b.UserId), db)
+	user, err := worrywort.LookupUser(*r.b.UserId, db)
 	return &userResolver{u: user}, err
 }
 
@@ -259,8 +265,6 @@ func (c *updateBatchSensorAssociationPayload) BatchSensorAssociation() *batchSen
 	return c.assoc
 }
 
-
-
 // func (c *associateSensorToBatchPayload) UserErrors() *userErrorResolver {
 // 	return c.err
 // }
@@ -281,9 +285,13 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 	var inputPtr *associateSensorToBatchInput = args.Input
 	var input associateSensorToBatchInput = *inputPtr
 
-	var batchId sql.NullInt64
-	batchId = int32(input.BatchId)
-	batchPtr, err := worrywort.FindBatch(map[string]interface{}{"user_id": u.Id, "id": batchId}, db)
+	batchId64, err := strconv.ParseInt(input.BatchId, 10, 32)
+	if err != nil {
+		log.Printf("%v: %v", err, spew.Sdump(input))
+		return nil, SERVER_ERROR
+	}
+	batchId := int32(batchId64)
+	batchPtr, err := worrywort.FindBatch(map[string]interface{}{"user_id": *u.Id, "id": batchId}, db)
 	if err != nil || batchPtr == nil {
 		if err != sql.ErrNoRows {
 			log.Printf("%v", err)

@@ -3,6 +3,7 @@ package graphqlApi
 import (
 	"context"
 	graphql "github.com/graph-gophers/graphql-go"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
 	"log"
@@ -14,7 +15,13 @@ type sensorResolver struct {
 	s *worrywort.Sensor
 }
 
-func (r *sensorResolver) ID() graphql.ID    { return graphql.ID(strconv.Itoa(r.s.Id)) }
+func (r *sensorResolver) ID() graphql.ID    {
+	if r.s == nil && r.s.Id == nil  {
+		log.Printf("sensor resolver with nil id: %s", spew.Sdump(r))
+		return graphql.ID("")
+	}
+	return graphql.ID(strconv.Itoa(int(*r.s.Id)))
+}
 func (r *sensorResolver) CreatedAt() string { return dateString(r.s.CreatedAt) }
 func (r *sensorResolver) UpdatedAt() string { return dateString(r.s.UpdatedAt) }
 
@@ -26,13 +33,13 @@ func (r *sensorResolver) CreatedBy(ctx context.Context) *userResolver {
 	// because it seems to think I am referring to this function
 	if (sensor.CreatedBy) != nil {
 		resolved = &userResolver{u: r.s.CreatedBy}
-	} else if sensor.UserId.Valid {
+	} else if sensor.UserId != nil {
 		db, ok := ctx.Value("db").(*sqlx.DB)
 		if !ok {
 			log.Printf("No database in context")
 			return nil
 		}
-		user, err := worrywort.LookupUser(int(r.s.UserId.Int64), db)
+		user, err := worrywort.LookupUser(*r.s.UserId, db)
 		if err != nil {
 			log.Printf("%v", err)
 			return nil
