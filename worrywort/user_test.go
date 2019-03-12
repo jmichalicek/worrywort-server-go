@@ -2,11 +2,11 @@ package worrywort
 
 import (
 	"database/sql"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/google/go-cmp/cmp"
 	"golang.org/x/crypto/bcrypt"
 	"testing"
 	"time"
-	"github.com/google/go-cmp/cmp"
-	"github.com/davecgh/go-spew/spew"
 )
 
 func TestNewUser(t *testing.T) {

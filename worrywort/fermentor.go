@@ -1,4 +1,5 @@
 package worrywort
+
 // TODO: Currently not using this at all. Need to remove it or put it back into use.
 import (
 	"fmt"
@@ -18,7 +19,7 @@ const (
 type Fermentor struct {
 	// I could use name + user composite key for pk on these in the db, but I'm probably going to be lazy
 	// and take the standard ORM-ish route and use an int or uuid  Int for now.
-	Id            *int32                `db:"id"`
+	Id            *int32             `db:"id"`
 	Name          string             `db:"name"`
 	Description   string             `db:"description"`
 	Volume        float64            `db:"volume"`
@@ -27,7 +28,7 @@ type Fermentor struct {
 	IsActive      bool               `db:"is_active"`
 	IsAvailable   bool               `db:"is_available"`
 	CreatedBy     *User              `db:"created_by,prefix=u"`
-	UserId        *int32      `db:"user_id"`
+	UserId        *int32             `db:"user_id"`
 	Batch         *Batch
 	BatchId       *int32 `db:"batch_id"`
 

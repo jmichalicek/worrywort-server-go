@@ -2,8 +2,8 @@ package graphqlApi
 
 import (
 	"context"
-	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/davecgh/go-spew/spew"
+	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
 	"log"
@@ -15,8 +15,8 @@ type sensorResolver struct {
 	s *worrywort.Sensor
 }
 
-func (r *sensorResolver) ID() graphql.ID    {
-	if r.s == nil && r.s.Id == nil  {
+func (r *sensorResolver) ID() graphql.ID {
+	if r.s == nil && r.s.Id == nil {
 		log.Printf("sensor resolver with nil id: %s", spew.Sdump(r))
 		return graphql.ID("")
 	}

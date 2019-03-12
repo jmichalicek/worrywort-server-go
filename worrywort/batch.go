@@ -32,9 +32,9 @@ const (
 var TypeError error = errors.New("Invalid type specified")
 
 type Batch struct {
-	Id                *int32            `db:"id"`
+	Id                *int32         `db:"id"`
 	CreatedBy         *User          `db:"created_by,prefix=u"` // TODO: think I will change this to User
-	UserId            *int32  `db:"user_id"`
+	UserId            *int32         `db:"user_id"`
 	Name              string         `db:"name"`
 	BrewNotes         string         `db:"brew_notes"`
 	TastingNotes      string         `db:"tasting_notes"`
@@ -201,9 +201,9 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 // Not sure if this should live here - it works equally well in sensor.go
 // or maybe it should get its own .go file
 type BatchSensor struct {
-	Id string `db:"id"` // use a uuid
-	BatchId         *int32        `db:"batch_id"`
-	SensorId        *int32        `db:"sensor_id"`
+	Id              string     `db:"id"` // use a uuid. TODO: Make this null/pointer as well
+	BatchId         *int32     `db:"batch_id"`
+	SensorId        *int32     `db:"sensor_id"`
 	Description     string     `db:"description"`
 	AssociatedAt    time.Time  `db:"associated_at"`
 	DisassociatedAt *time.Time `db:"disassociated_at"`
@@ -211,7 +211,7 @@ type BatchSensor struct {
 	// TODO: Do I really want or need these here or the similar functionality on other structs?
 	// what if BatchId and Batch get out of sync? Perhaps make these private and use Sensor() and Batch()
 	Sensor *Sensor `db:"s,prefix=s"`
-	Batch  *Batch `db:"b,prefix=b"`
+	Batch  *Batch  `db:"b,prefix=b"`
 	// May make these all pointers - allow unset to be actually null/unset. or pq's sql.NullTime
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
@@ -301,7 +301,7 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 		selectCols += fmt.Sprintf("b.%s AS \"b.%s\", ", k, k)
 	}
 
-	sensorQueryCols :=[]string{"id", "name", "created_at", "updated_at", "user_id"}
+	sensorQueryCols := []string{"id", "name", "created_at", "updated_at", "user_id"}
 	for _, k := range sensorQueryCols {
 		selectCols += fmt.Sprintf("s.%s AS \"s.%s\", ", k, k)
 	}
@@ -309,14 +309,14 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 	userId, ok := params["user_id"]
 	joins := ` INNER JOIN sensors s ON ba.sensor_id = s.id `
 	if ok && userId != nil {
-			joins = joins + ` AND s.user_id = ? `
-			values = append(values, userId)
+		joins = joins + ` AND s.user_id = ? `
+		values = append(values, userId)
 	}
 	// this seems dumb and repetitive. It works for now, though.
 	joins = joins + ` INNER JOIN batches b on ba.batch_id = b.id`
 	if ok && userId != nil {
-			joins = joins + ` AND b.user_id = ? `
-			values = append(values, userId)
+		joins = joins + ` AND b.user_id = ? `
+		values = append(values, userId)
 	}
 
 	for _, k := range []string{"batch_id", "sensor_id", "id", "disassociated_at"} {

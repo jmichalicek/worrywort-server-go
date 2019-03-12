@@ -21,7 +21,7 @@ type batchResolver struct {
 
 func (r *batchResolver) ID() graphql.ID {
 	if r.b != nil && r.b.Id != nil {
-			return graphql.ID(strconv.Itoa(int(*r.b.Id)))
+		return graphql.ID(strconv.Itoa(int(*r.b.Id)))
 	} else {
 		log.Printf("Resolved batch with no id: %v", spew.Sdump(r))
 		return graphql.ID("")
@@ -205,9 +205,9 @@ type associateSensorToBatchInput struct {
 }
 
 type updateBatchSensorAssociationInput struct {
-	ID     string
-	Description *string
-	AssociatedAt string
+	ID              string
+	Description     *string
+	AssociatedAt    string
 	DisassociatedAt *string
 }
 
@@ -323,7 +323,7 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 		return nil, errors.New("Sensor already associated to Batch.")
 	}
 
-	if err != nil && err != sql.ErrNoRows{
+	if err != nil && err != sql.ErrNoRows {
 		log.Printf("%v", err)
 		return nil, SERVER_ERROR
 	}

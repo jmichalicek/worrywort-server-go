@@ -3,8 +3,8 @@ package graphqlApi
 import (
 	"context"
 	// "fmt"
-	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/davecgh/go-spew/spew"
+	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"

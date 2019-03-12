@@ -89,7 +89,7 @@ func TestFindSensor(t *testing.T) {
 	}
 	// Have to be careful with this. if we do want all pointer to match up, then there is an issue here
 	// because cmp dereferences nested pointers nicely.
-	if foundSensor == nil || ! cmp.Equal(*foundSensor, sensor) {
+	if foundSensor == nil || !cmp.Equal(*foundSensor, sensor) {
 		t.Fatalf(cmp.Diff(*foundSensor, sensor))
 	}
 }
@@ -248,66 +248,66 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 }
 
 func TestTemperatureMeasurementModel(t *testing.T) {
-		// Set up the db using sql.Open() and sqlx.NewDb() rather than sqlx.Open() so that the custom
-		// `txdb` db type may be used with Open() but can still be registered as postgres with sqlx
-		// so that sqlx' Rebind() functions.
+	// Set up the db using sql.Open() and sqlx.NewDb() rather than sqlx.Open() so that the custom
+	// `txdb` db type may be used with Open() but can still be registered as postgres with sqlx
+	// so that sqlx' Rebind() functions.
 
-		db, err := setUpTestDb()
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u, err = SaveUser(db, u)
+
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	createdAt := time.Now().Round(time.Microsecond)
+	updatedAt := time.Now().Round(time.Microsecond)
+	// THe values when returned by postgres will be microsecond accuracy, but golang default
+	// is nanosecond, so we round these for easy comparison. This can probably now be
+	// dealt with by go-cmp
+	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
+	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
+	batch := Batch{UserId: u.Id, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
+		VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
+		CreatedAt: createdAt, UpdatedAt: updatedAt, BrewNotes: "Brew Notes", TastingNotes: "Taste Notes",
+		RecipeURL: "http://example.org/beer"}
+	batch, err = SaveBatch(db, batch)
+	if err != nil {
+		t.Fatalf("Unexpected error saving batch: %s", err)
+	}
+	sensor, err := SaveSensor(db, Sensor{Name: "Test Sensor", CreatedBy: &u})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	// to ensure it is in the past
+	mTime := time.Now().Add(time.Duration(-5) * time.Minute).Round(time.Microsecond)
+	_, err = AssociateBatchToSensor(batch, sensor, "", &mTime, db)
+	measurement, err := SaveTemperatureMeasurement(db,
+		TemperatureMeasurement{CreatedBy: &u, UserId: u.Id, SensorId: sensor.Id,
+			Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	t.Run("Batch()", func(t *testing.T) {
+		// TODO: Add test to ensure that if the association is outside of the measurement time
+		// that does not result in returning the batch and ensure that batches for different
+		// sensor are not returned
+		b, err := measurement.Batch(db)
 		if err != nil {
-			t.Fatalf("Got error setting up database: %s", err)
-		}
-		defer db.Close()
-
-		u := NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-		u, err = SaveUser(db, u)
-
-		if err != nil {
-			t.Fatalf("failed to insert user: %s", err)
+			t.Errorf("%v", err)
 		}
 
-		createdAt := time.Now().Round(time.Microsecond)
-		updatedAt := time.Now().Round(time.Microsecond)
-		// THe values when returned by postgres will be microsecond accuracy, but golang default
-		// is nanosecond, so we round these for easy comparison. This can probably now be
-		// dealt with by go-cmp
-		brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
-		bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
-		batch := Batch{UserId: u.Id, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
-			VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
-			CreatedAt: createdAt, UpdatedAt: updatedAt, BrewNotes: "Brew Notes", TastingNotes: "Taste Notes",
-			RecipeURL: "http://example.org/beer"}
-		batch, err = SaveBatch(db, batch)
-		if err != nil {
-			t.Fatalf("Unexpected error saving batch: %s", err)
+		if !cmp.Equal(&batch, b) {
+			t.Errorf("Expected: - | Got: +\n", cmp.Diff(batch, b))
 		}
-		sensor, err := SaveSensor(db, Sensor{Name: "Test Sensor", CreatedBy: &u})
-		if err != nil {
-			t.Fatalf("%v", err)
-		}
-
-		// to ensure it is in the past
-		mTime := time.Now().Add(time.Duration(-5) * time.Minute).Round(time.Microsecond)
-		_, err = AssociateBatchToSensor(batch, sensor, "", &mTime, db)
-		measurement, err := SaveTemperatureMeasurement(db,
-			TemperatureMeasurement{CreatedBy: &u, UserId: u.Id, SensorId: sensor.Id,
-				Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()})
-		if err != nil {
-			t.Fatalf("%v", err)
-		}
-
-		t.Run("Batch()", func(t *testing.T) {
-			// TODO: Add test to ensure that if the association is outside of the measurement time
-			// that does not result in returning the batch and ensure that batches for different
-			// sensor are not returned
-			b, err := measurement.Batch(db)
-			if err != nil {
-				t.Errorf("%v", err)
-			}
-
-			if !cmp.Equal(&batch, b) {
-				t.Errorf("Expected: - | Got: +\n", cmp.Diff(batch, b))
-			}
-		})
+	})
 }
 
 func TestFindBatch(t *testing.T) {

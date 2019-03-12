@@ -57,10 +57,10 @@ func setUpTestDb() (*sqlx.DB, error) {
 // Make a standard, generic batch for testing
 // optionally attach the user
 func makeTestBatch(u worrywort.User, attachUser bool) worrywort.Batch {
-	b := worrywort.Batch{Name: "Testing", BrewedDate: addMinutes(time.Now(), 1), BottledDate: addMinutes(time.Now(), 10), VolumeBoiled: 5,
-		VolumeInFermentor: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
-		UserId: sql.NullInt64{Int64: int64(u.Id), Valid: true}, BrewNotes: "Brew notes",
-		TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer"}
+	b := worrywort.Batch{Name: "Testing", BrewedDate: addMinutes(time.Now(), 1),
+		BottledDate: addMinutes(time.Now(), 10), VolumeBoiled: 5, VolumeInFermentor: 4.5, VolumeUnits: worrywort.GALLON,
+		OriginalGravity: 1.060, FinalGravity: 1.020, UserId: u.Id, BrewNotes: "Brew notes", TastingNotes: "Taste notes",
+		RecipeURL: "http://example.org/beer"}
 	if attachUser {
 		b.CreatedBy = &u
 	}
@@ -81,7 +81,7 @@ func TestLoginMutation(t *testing.T) {
 	defer db.Close()
 
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
-	user := worrywort.NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	user := worrywort.NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	// This is the hash for the password `password`
 	// var hashedPassword string = "$2a$13$pPg7mwPA.VFf3W9AUZyMGO0Q2nhoh/979F/TZ8ED.iqVubLe.TDmi"
 	user, err = worrywort.SetUserPassword(user, "password", bcrypt.MinCost)
@@ -154,14 +154,14 @@ func TestBatchQuery(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u := worrywort.NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	u, err = worrywort.SaveUser(db, u)
 
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	u2 := worrywort.NewUser(0, "user2@example.com", "Justin", "M", time.Now(), time.Now())
+	u2 := worrywort.NewUser(nil, "user2@example.com", "Justin", "M", time.Now(), time.Now())
 	u2, err = worrywort.SaveUser(db, u2)
 
 	if err != nil {
@@ -197,7 +197,7 @@ func TestBatchQuery(t *testing.T) {
 
 	t.Run("Test query for batch(id: ID!) which exists returns the batch", func(t *testing.T) {
 		variables := map[string]interface{}{
-			"id": strconv.Itoa(b.Id),
+			"id": strconv.Itoa(int(*b.Id)),
 		}
 		query := `
 			query getBatch($id: ID!) {
@@ -337,23 +337,19 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u := worrywort.NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	u, err = worrywort.SaveUser(db, u)
-	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
-
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: userId, Name: "Test Sensor", CreatedBy: &u})
+	sensor, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: u.Id, Name: "Test Sensor", CreatedBy: &u})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	sensorId := sql.NullInt64{Valid: true, Int64: int64(sensor.Id)}
 
-	u2 := worrywort.NewUser(0, "user2@example.com", "Justin", "M", time.Now(), time.Now())
+	u2 := worrywort.NewUser(nil, "user2@example.com", "Justin", "M", time.Now(), time.Now())
 	u2, err = worrywort.SaveUser(db, u2)
-
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
@@ -363,7 +359,7 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 	t.Run("Test measurement is created with valid data", func(t *testing.T) {
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"sensorId":    strconv.Itoa(int(sensorId.Int64)),
+				"sensorId":    strconv.Itoa(int(*sensor.Id)),
 				"units":       "FAHRENHEIT",
 				"temperature": 70.0,
 				"recordedAt":  "2018-10-14T15:26:00+00:00",
@@ -425,7 +421,7 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 		selectCols := fmt.Sprintf("tm.user_id, tm.sensor_id")
 		q := `SELECT tm.temperature, tm.units,  ` + strings.Trim(selectCols, ", ") + ` from temperature_measurements tm WHERE tm.id = ? AND tm.user_id = ? AND tm.sensor_id = ?`
 		query = db.Rebind(q)
-		err = db.Get(measurement, query, measurementId, userId, sensorId)
+		err = db.Get(measurement, query, measurementId, u.Id, sensor.Id)
 
 		if err == sql.ErrNoRows {
 			t.Error("Measurement was not saved to the database. Query returned no results.")
@@ -443,9 +439,8 @@ func TestSensorQuery(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u := worrywort.NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	u, err = worrywort.SaveUser(db, u)
-
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
@@ -454,26 +449,25 @@ func TestSensorQuery(t *testing.T) {
 	ctx = context.WithValue(ctx, "db", db)
 	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
 
-	u2 := worrywort.NewUser(0, "user2@example.com", "Justin", "M", time.Now(), time.Now())
+	u2 := worrywort.NewUser(nil, "user2@example.com", "Justin", "M", time.Now(), time.Now())
 	u2, err = worrywort.SaveUser(db, u2)
-
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
 	// TODO: Can this become global to these tests?
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
-	sensor1, err := worrywort.SaveSensor(db, worrywort.Sensor{Name: "Sensor 1", UserId: sql.NullInt64{Valid: true, Int64: int64(u.Id)}})
-	sensor2, err := worrywort.SaveSensor(db, worrywort.Sensor{Name: "Sensor 2", UserId: sql.NullInt64{Valid: true, Int64: int64(u.Id)}})
+	sensor1, err := worrywort.SaveSensor(db, worrywort.Sensor{Name: "Sensor 1", UserId: u.Id})
+	sensor2, err := worrywort.SaveSensor(db, worrywort.Sensor{Name: "Sensor 2", UserId: u.Id})
 	// Need one owned by another user to ensure it does not show up
-	_, err = worrywort.SaveSensor(db, worrywort.Sensor{Name: "Sensor 2", UserId: sql.NullInt64{Valid: true, Int64: int64(u2.Id)}})
+	_, err = worrywort.SaveSensor(db, worrywort.Sensor{Name: "Sensor 2", UserId: u.Id})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	t.Run("Test query for sensor(id: ID!) which exists returns the sensor", func(t *testing.T) {
 		variables := map[string]interface{}{
-			"id": strconv.Itoa(sensor1.Id),
+			"id": strconv.Itoa(int(*sensor1.Id)),
 		}
 		query := `
 			query getSensor($id: ID!) {
@@ -569,10 +563,8 @@ func TestCreateBatchMutation(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u := worrywort.NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	u, err = worrywort.SaveUser(db, u)
-	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
-
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
@@ -635,16 +627,14 @@ func TestCreateBatchMutation(t *testing.T) {
 
 		// Look up the object in the db to be sure it was created
 		var batchId string = result.CreateBatch.Batch.Id
-		batch, err := worrywort.FindBatch(map[string]interface{}{"user_id": userId, "id": batchId}, db)
+		batch, err := worrywort.FindBatch(map[string]interface{}{"user_id": *u.Id, "id": batchId}, db)
 
 		if err == sql.ErrNoRows {
 			t.Error("Batch was not saved to the database. Query returned no results.")
 		} else if err != nil {
 			t.Errorf("Error: %v and Batch: %v", err, batch)
 		}
-
 		// TODO: Really should maybe make sure all properties were inserted
-
 	})
 }
 
@@ -661,20 +651,20 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 			}
 		}`
 
-		// Structs for marshalling json to so that actual values can easily be checked and used
-		type payloadAssoc struct {
-			Typename string `json:"__typename"`
-			Id       string `json:"id"`
-		}
+	// Structs for marshalling json to so that actual values can easily be checked and used
+	type payloadAssoc struct {
+		Typename string `json:"__typename"`
+		Id       string `json:"id"`
+	}
 
-		type payload struct {
-			Typename string       `json:"__typename"`
-			Assoc    *payloadAssoc `json:"BatchSensorAssociation"`
-		}
+	type payload struct {
+		Typename string        `json:"__typename"`
+		Assoc    *payloadAssoc `json:"BatchSensorAssociation"`
+	}
 
-		type createAssoc struct {
-			Pl payload `json:"associateSensorToBatch"`
-		}
+	type createAssoc struct {
+		Pl payload `json:"associateSensorToBatch"`
+	}
 
 	db, err := setUpTestDb()
 	if err != nil {
@@ -682,49 +672,43 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u := worrywort.NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	u, err = worrywort.SaveUser(db, u)
-	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
-
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: userId, Name: "Test Sensor", CreatedBy: &u})
+	sensor, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: u.Id, Name: "Test Sensor", CreatedBy: &u})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	sensorId := sql.NullInt64{Valid: true, Int64: int64(sensor.Id)}
 
 	batch, err := worrywort.SaveBatch(
-		db, worrywort.Batch{UserId: userId, CreatedBy: &u, Name: "Test batch"})
+		db, worrywort.Batch{UserId: u.Id, CreatedBy: &u, Name: "Test batch"})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	batchId := sql.NullInt64{Valid: true, Int64: int64(batch.Id)}
 
-	u2 := worrywort.NewUser(0, "user2@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u2 := worrywort.NewUser(nil, "user2@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	u2, err = worrywort.SaveUser(db, u2)
-	userId2 := sql.NullInt64{Valid: true, Int64: int64(u2.Id)}
 
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
 	sensor2, err := worrywort.SaveSensor(
-		db, worrywort.Sensor{UserId: userId2, Name: "Test Sensor 2", CreatedBy: &u2})
+		db, worrywort.Sensor{UserId: u2.Id, Name: "Test Sensor 2", CreatedBy: &u2})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	batch2, err := worrywort.SaveBatch(
-		db, worrywort.Batch{UserId: userId2, CreatedBy: &u2, Name: "Test batch 2"})
+		db, worrywort.Batch{UserId: u2.Id, CreatedBy: &u2, Name: "Test batch 2"})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
-
 	operationName := ""
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
@@ -743,8 +727,8 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId": strconv.Itoa(batch.Id),
-				"sensorId": strconv.Itoa(sensor.Id),
+				"batchId":     strconv.Itoa(int(*batch.Id)),
+				"sensorId":    strconv.Itoa(int(*sensor.Id)),
 				"description": "It is associated",
 			},
 		}
@@ -767,7 +751,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 
 		// Make sure it was really created in the db
 		newAssoc, err := worrywort.FindBatchSensorAssociation(
-			map[string]interface{}{"id": result.Pl.Assoc.Id, "batch_id": batchId, "sensor_id": sensorId}, db)
+			map[string]interface{}{"id": result.Pl.Assoc.Id, "batch_id": *batch.Id, "sensor_id": *sensor.Id}, db)
 
 		if err == sql.ErrNoRows {
 			t.Error("BatchSensor was not saved to the database. Query returned no results.")
@@ -791,8 +775,8 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		}
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId": strconv.Itoa(batch.Id),
-				"sensorId": strconv.Itoa(sensor.Id),
+				"batchId":     strconv.Itoa(int(*batch.Id)),
+				"sensorId":    strconv.Itoa(int(*sensor.Id)),
 				"description": "It is associated",
 			},
 		}
@@ -827,8 +811,8 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId": strconv.Itoa(batch.Id),
-				"sensorId": strconv.Itoa(sensor.Id),
+				"batchId":     strconv.Itoa(int(*batch.Id)),
+				"sensorId":    strconv.Itoa(int(*sensor.Id)),
 				"description": "It is associated",
 			},
 		}
@@ -852,8 +836,8 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId": strconv.Itoa(batch2.Id),
-				"sensorId": strconv.Itoa(sensor.Id),
+				"batchId":     strconv.Itoa(int(*batch2.Id)),
+				"sensorId":    strconv.Itoa(int(*sensor.Id)),
 				"description": "It is associated",
 			},
 		}
@@ -877,8 +861,8 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId": strconv.Itoa(batch.Id),
-				"sensorId": strconv.Itoa(sensor2.Id),
+				"batchId":     strconv.Itoa(int(*batch.Id)),
+				"sensorId":    strconv.Itoa(int(*sensor2.Id)),
 				"description": "It is associated",
 			},
 		}
@@ -912,21 +896,20 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 			}
 		}`
 
-		// Structs for marshalling json to so that actual values can easily be checked and used
-		type payloadAssoc struct {
-			Typename string `json:"__typename"`
-			Id       string `json:"id"`
-		}
+	// Structs for marshalling json to so that actual values can easily be checked and used
+	type payloadAssoc struct {
+		Typename string `json:"__typename"`
+		Id       string `json:"id"`
+	}
 
-		type payload struct {
-			Typename string       `json:"__typename"`
-			Assoc    *payloadAssoc `json:"BatchSensorAssociation"`
-		}
+	type payload struct {
+		Typename string        `json:"__typename"`
+		Assoc    *payloadAssoc `json:"BatchSensorAssociation"`
+	}
 
-		type createAssoc struct {
-			Pl payload `json:"updateBatchSensorAssociation"`
-		}
-
+	type createAssoc struct {
+		Pl payload `json:"updateBatchSensorAssociation"`
+	}
 
 	db, err := setUpTestDb()
 	if err != nil {
@@ -934,46 +917,42 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.NewUser(0, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u := worrywort.NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	u, err = worrywort.SaveUser(db, u)
-	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
-
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: userId, Name: "Test Sensor", CreatedBy: &u})
+	sensor, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: u.Id, Name: "Test Sensor", CreatedBy: &u})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	batch, err := worrywort.SaveBatch(
-		db, worrywort.Batch{UserId: userId, CreatedBy: &u, Name: "Test batch"})
+		db, worrywort.Batch{UserId: u.Id, CreatedBy: &u, Name: "Test batch"})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	u2 := worrywort.NewUser(0, "user2@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u2 := worrywort.NewUser(nil, "user2@example.com", "Justin", "Michalicek", time.Now(), time.Now())
 	u2, err = worrywort.SaveUser(db, u2)
-	userId2 := sql.NullInt64{Valid: true, Int64: int64(u2.Id)}
-
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
 	batch2, err := worrywort.SaveBatch(
-		db, worrywort.Batch{UserId: userId2, CreatedBy: &u, Name: "Test batch 2"})
+		db, worrywort.Batch{UserId: u2.Id, CreatedBy: &u, Name: "Test batch 2"})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	sensor2, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: userId2, Name: "Test Sensor 2", CreatedBy: &u2})
+	sensor2, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: u2.Id, Name: "Test Sensor 2", CreatedBy: &u2})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	batch2, err = worrywort.SaveBatch(
-		db, worrywort.Batch{UserId: userId2, CreatedBy: &u2, Name: "Test batch 2"})
+		db, worrywort.Batch{UserId: u2.Id, CreatedBy: &u2, Name: "Test batch 2"})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -1002,9 +981,9 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	t.Run("Update with description and disassociatedAt", func(t *testing.T) {
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"id": assoc1.Id,
-				"description": "Updated description",
-				"associatedAt": "2019-01-01T12:01:01Z",
+				"id":              assoc1.Id,
+				"description":     "Updated description",
+				"associatedAt":    "2019-01-01T12:01:01Z",
 				"disassociatedAt": "2019-01-01T12:02:01Z",
 			},
 		}
@@ -1048,9 +1027,9 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	t.Run("Update with blank description and null disassociatedAt", func(t *testing.T) {
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"id": assoc1.Id,
-				"description": nil,
-				"associatedAt": "2019-01-01T12:01:01Z",
+				"id":              assoc1.Id,
+				"description":     nil,
+				"associatedAt":    "2019-01-01T12:01:01Z",
 				"disassociatedAt": nil,
 			},
 		}
@@ -1094,9 +1073,9 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	t.Run("Batch not owned by user", func(t *testing.T) {
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"id": assoc2.Id,
-				"description": "It is associated",
-				"associatedAt": "2019-01-01T12:01:01Z",
+				"id":              assoc2.Id,
+				"description":     "It is associated",
+				"associatedAt":    "2019-01-01T12:01:01Z",
 				"disassociatedAt": "2019-01-01T12:02:01Z",
 			},
 		}
@@ -1119,9 +1098,9 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	t.Run("Sensor not owned by user", func(t *testing.T) {
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"id": assoc3.Id,
-				"description": "It is associated",
-				"associatedAt": "2019-01-01T12:01:01Z",
+				"id":              assoc3.Id,
+				"description":     "It is associated",
+				"associatedAt":    "2019-01-01T12:01:01Z",
 				"disassociatedAt": "2019-01-01T12:02:01Z",
 			},
 		}

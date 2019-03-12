@@ -22,7 +22,7 @@ var UserNotFoundError error = errors.New("User not found")
 type User struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
 	// TODO: Considering having a separate username from the email
-	Id        *int32    `db:"id"`
+	Id        *int32 `db:"id"`
 	FirstName string `db:"first_name"`
 	LastName  string `db:"last_name"`
 	Email     string `db:"email"`
@@ -134,7 +134,8 @@ func LookupUser(id int32, db *sqlx.DB) (*User, error) {
 
 // Looks up the username (or email, as the case is for now) and verifies that the password
 // matches that of the user.
-// TODO: Just return a pointer to the user, potentialy nil
+// TODO: Just return a pointer to the user, nil if no user found or do a django-like AnonymousUser
+// and make an interface for User and AnonymousUser
 func AuthenticateLogin(username, password string, db *sqlx.DB) (User, error) {
 	u := new(User)
 	u.Id = nil

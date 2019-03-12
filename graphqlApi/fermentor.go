@@ -2,8 +2,8 @@ package graphqlApi
 
 import (
 	"context"
-	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/davecgh/go-spew/spew"
+	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
 	"log"
@@ -15,7 +15,7 @@ type fermentorResolver struct {
 	f *worrywort.Fermentor
 }
 
-func (r *fermentorResolver) ID() graphql.ID    {
+func (r *fermentorResolver) ID() graphql.ID {
 	if r.f != nil && r.f.Id != nil {
 		return graphql.ID(strconv.Itoa(int(*r.f.Id)))
 	} else {

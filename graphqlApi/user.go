@@ -1,8 +1,8 @@
 package graphqlApi
 
 import (
-	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/davecgh/go-spew/spew"
+	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"log"
 	"strconv"
@@ -12,7 +12,7 @@ type userResolver struct {
 	u *worrywort.User
 }
 
-func (r *userResolver) ID() graphql.ID    {
+func (r *userResolver) ID() graphql.ID {
 	if r.u == nil || r.u.Id == nil {
 		log.Printf("user resolver with nil id: %s", spew.Sdump(r))
 		return graphql.ID("")
