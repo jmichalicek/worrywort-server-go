@@ -141,8 +141,9 @@ func TestLoginMutation(t *testing.T) {
 			t.Errorf("Expected auth token with id %s to be saved to database", tokenId)
 		}
 
-		if newToken.User.Id != user.Id {
-			t.Errorf("Expected auth token to be associated with user %v but it is associated with %v", user, newToken.User)
+		if !cmp.Equal(newToken.User, user) {
+			t.Errorf("Expected: - | Got +\n%s", cmp.Diff(newToken, user))
+			// t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
 		}
 	})
 }
@@ -211,19 +212,20 @@ func TestBatchQuery(t *testing.T) {
 		result := worrywortSchema.Exec(ctx, query, operationName, variables)
 
 		var expected interface{}
-		err := json.Unmarshal([]byte(fmt.Sprintf(`{"batch": {"__typename": "Batch", "id": "%d"}}`, b.Id)), &expected)
+		err := json.Unmarshal([]byte(fmt.Sprintf(`{"batch": {"__typename": "Batch", "id": "%d"}}`, *b.Id)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
 
-		var f interface{}
-		err = json.Unmarshal(result.Data, &f)
+		var actual interface{}
+		err = json.Unmarshal(result.Data, &actual)
 		if err != nil {
-			t.Fatalf("%v", f)
+			t.Fatalf("%v", err)
 		}
 
-		if !reflect.DeepEqual(expected, f) {
-			t.Errorf("\nExpected: %v\nGot: %v", expected, f)
+		if !cmp.Equal(expected, actual) {
+			t.Errorf("Expected: - | Got +\n%s", cmp.Diff(expected, actual))
+			// t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
 		}
 	})
 
@@ -272,7 +274,11 @@ func TestBatchQuery(t *testing.T) {
 		err := json.Unmarshal(
 			[]byte(
 				fmt.Sprintf(
-					`{"batches": {"__typename":"BatchConnection","edges": [{"__typename": "BatchEdge","node": {"__typename":"Batch","id":"%d"}},{"__typename": "BatchEdge","node": {"__typename":"Batch","id":"%d"}}]}}`, b.Id, b2.Id)), &expected)
+					`{"batches": {
+						"__typename":"BatchConnection",
+						"edges": [{"__typename": "BatchEdge","node": {"__typename":"Batch","id":"%d"}},
+								  {"__typename": "BatchEdge","node": {"__typename":"Batch","id":"%d"}}]}}`,
+					*b.Id, *b2.Id)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -283,8 +289,9 @@ func TestBatchQuery(t *testing.T) {
 			t.Fatalf("%v", err)
 		}
 
-		if !reflect.DeepEqual(expected, actual) {
-			t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
+		if !cmp.Equal(expected, actual) {
+			t.Errorf("Expected: - | Got +\n%s", cmp.Diff(expected, actual))
+			// t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
 		}
 	})
 
@@ -460,7 +467,7 @@ func TestSensorQuery(t *testing.T) {
 	sensor1, err := worrywort.SaveSensor(db, worrywort.Sensor{Name: "Sensor 1", UserId: u.Id})
 	sensor2, err := worrywort.SaveSensor(db, worrywort.Sensor{Name: "Sensor 2", UserId: u.Id})
 	// Need one owned by another user to ensure it does not show up
-	_, err = worrywort.SaveSensor(db, worrywort.Sensor{Name: "Sensor 2", UserId: u.Id})
+	_, err = worrywort.SaveSensor(db, worrywort.Sensor{Name: "Sensor 2", UserId: u2.Id})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -481,7 +488,7 @@ func TestSensorQuery(t *testing.T) {
 		result := worrywortSchema.Exec(ctx, query, operationName, variables)
 
 		var expected interface{}
-		err := json.Unmarshal([]byte(fmt.Sprintf(`{"sensor": {"__typename": "Sensor", "id": "%d"}}`, sensor1.Id)), &expected)
+		err := json.Unmarshal([]byte(fmt.Sprintf(`{"sensor": {"__typename": "Sensor", "id": "%d"}}`, *sensor1.Id)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -492,8 +499,9 @@ func TestSensorQuery(t *testing.T) {
 			t.Fatalf("%v", resultData)
 		}
 
-		if !reflect.DeepEqual(expected, resultData) {
-			t.Errorf("\nExpected: %v\nGot: %v", expected, resultData)
+		if !cmp.Equal(expected, resultData) {
+			t.Errorf("Expected: - | Got +\n%s", cmp.Diff(expected, resultData))
+			// t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
 		}
 	})
 
@@ -539,7 +547,8 @@ func TestSensorQuery(t *testing.T) {
 		err := json.Unmarshal(
 			[]byte(
 				fmt.Sprintf(
-					`{"sensors": {"__typename":"SensorConnection","edges": [{"__typename": "SensorEdge","node": {"__typename":"Sensor","id":"%d"}},{"__typename": "SensorEdge","node": {"__typename":"Sensor","id":"%d"}}]}}`, sensor1.Id, sensor2.Id)), &expected)
+					`{"sensors": {"__typename":"SensorConnection","edges": [{"__typename": "SensorEdge","node": {"__typename":"Sensor","id":"%d"}},{"__typename": "SensorEdge","node": {"__typename":"Sensor","id":"%d"}}]}}`,
+					*sensor1.Id, *sensor2.Id)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -550,8 +559,9 @@ func TestSensorQuery(t *testing.T) {
 			t.Fatalf("%v", err)
 		}
 
-		if !reflect.DeepEqual(expected, actual) {
-			t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
+		if !cmp.Equal(expected, actual) {
+			t.Errorf("Expected: - | Got +\n%s", cmp.Diff(expected, actual))
+			// t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
 		}
 	})
 }
