@@ -2,7 +2,6 @@ package worrywort
 
 import (
 	"database/sql"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/crypto/bcrypt"
 	"testing"
@@ -91,7 +90,6 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 		})
 	})
 
-	//func TestLookupUserByToken(t *testing.T) {
 	t.Run("TestLookupUserByToken", func(t *testing.T) {
 		tokenId := "tokenid"
 		tokenKey := "secret"
@@ -103,12 +101,12 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 			actual, err := LookupUserByToken(tokenStr, db)
 
 			if err != nil {
-				t.Errorf("TestLookupUserByToken() returned error %v", err)
+				t.Errorf("LookupUserByToken() returned error %v", err)
 			}
 
 			if !cmp.Equal(user, actual) {
 				// this or cmp.Diff()?  This is easier to tell which was expected
-				t.Errorf("Expected: %v, got: %v", spew.Sdump(user), spew.Sdump(actual))
+				t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(user, actual))
 			}
 		})
 
@@ -141,7 +139,6 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 		})
 	})
 
-	//func TestAuthenticateLogin(t *testing.T) {
 	t.Run("TestAuthenticateLogin", func(t *testing.T) {
 		t.Run("Test valid username and password returns User", func(t *testing.T) {
 			u, err := AuthenticateLogin(user.Email, password, db)
@@ -149,8 +146,8 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 				t.Errorf("Got unexpected error: %v", err)
 			}
 
-			if !cmp.Equal(u, user) {
-				t.Errorf("User did not match: %v", cmp.Diff(u, user))
+			if !cmp.Equal(u, &user) {
+				t.Errorf("User did not match: %v", cmp.Diff(u, &user))
 			}
 		})
 
@@ -160,8 +157,8 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 				t.Errorf("Expected error: %v\nGot: %v", bcrypt.ErrMismatchedHashAndPassword, err)
 			}
 
-			if u != (User{}) {
-				t.Errorf("Expected: %v\ngot: %v", User{}, u)
+			if u != nil {
+				t.Errorf("Expected: %v\ngot: %v", nil, u)
 			}
 		})
 
@@ -172,8 +169,8 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 				t.Errorf("Expected: %v\nGot: %v", UserNotFoundError, err)
 			}
 
-			if u != (User{}) {
-				t.Errorf("Expected: %v\ngot: %v", user, u)
+			if u != nil {
+				t.Errorf("Expected: %v\ngot: %v", nil, u)
 			}
 		})
 	})

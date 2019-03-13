@@ -120,11 +120,8 @@ func LookupUser(id int32, db *sqlx.DB) (*User, error) {
 	// TODO: make this return nil if user is not found
 	// or keep that separate?
 	u := User{}
-	// if I have understood correctly, different DBs use a different parameterization token (the ? below).
-	// By default sqlx just passes whatever you type and you need to manually use the correct token...
-	// ? for mysql, $1..$N for postgres, etc.
-	// db.Rebind() will update the string to use the correct bind.
-	query := db.Rebind("SELECT id, first_name, last_name, email, password, created_at, updated_at, password FROM users WHERE id=?")
+	query := db.Rebind(
+		`SELECT id, first_name, last_name, email, password, created_at, updated_at, password FROM users WHERE id=?`)
 	err := db.Get(&u, query, id)
 	if err != nil {
 		return nil, err
@@ -136,7 +133,7 @@ func LookupUser(id int32, db *sqlx.DB) (*User, error) {
 // matches that of the user.
 // TODO: Just return a pointer to the user, nil if no user found or do a django-like AnonymousUser
 // and make an interface for User and AnonymousUser
-func AuthenticateLogin(username, password string, db *sqlx.DB) (User, error) {
+func AuthenticateLogin(username, password string, db *sqlx.DB) (*User, error) {
 	u := new(User)
 	u.Id = nil
 
@@ -145,21 +142,20 @@ func AuthenticateLogin(username, password string, db *sqlx.DB) (User, error) {
 	err := db.Get(u, query, username)
 	// I believe due to postgres having user_id be not null, our id is always a pointer to 0 after this
 	// if the user was not found, which throws things off.
-
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return User{}, UserNotFoundError
+			return nil, UserNotFoundError
 		} else {
-			return User{}, err
+			return nil, err
 		}
 	}
 
 	pwdErr := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
 	if pwdErr != nil {
-		return User{}, pwdErr
+		return nil, pwdErr
 	}
 
-	return *u, nil
+	return u, nil
 }
 
 // Uses a token as passed in authentication headers by a user to look them up

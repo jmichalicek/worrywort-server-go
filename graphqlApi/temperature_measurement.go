@@ -46,7 +46,6 @@ func (r *temperatureMeasurementResolver) Batch(ctx context.Context) *batchResolv
 }
 
 func (r *temperatureMeasurementResolver) Sensor(ctx context.Context) *sensorResolver {
-	// TODO: lookup sensor if not already populated
 	var resolved *sensorResolver
 	if r.m.Sensor != nil {
 		resolved = &sensorResolver{s: r.m.Sensor}
@@ -67,12 +66,9 @@ func (r *temperatureMeasurementResolver) Sensor(ctx context.Context) *sensorReso
 	return resolved
 }
 
-// TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
 func (r *temperatureMeasurementResolver) CreatedBy(ctx context.Context) *userResolver {
-	// TODO: lookup user if not already populated
-	var resolved *userResolver
+	resolved := new(userResolver)
 	if r.m.CreatedBy != nil {
-		// TODO: this will probably go to taking a pointer to the User
 		resolved = &userResolver{u: r.m.CreatedBy}
 	} else if r.m.UserId != nil {
 		db, ok := ctx.Value("db").(*sqlx.DB)

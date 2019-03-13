@@ -25,13 +25,14 @@ func (r *sensorResolver) ID() graphql.ID {
 func (r *sensorResolver) CreatedAt() string { return dateString(r.s.CreatedAt) }
 func (r *sensorResolver) UpdatedAt() string { return dateString(r.s.UpdatedAt) }
 
-// TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
 func (r *sensorResolver) CreatedBy(ctx context.Context) *userResolver {
-	var resolved *userResolver
+	resolved := new(userResolver)
+	resolved = nil
 	sensor := r.s
-	// Not sure these parens are necessary, but vs code complains without them
-	// because it seems to think I am referring to this function
-	if (sensor.CreatedBy) != nil {
+	if sensor == nil {
+		return nil
+	}
+	if sensor.CreatedBy != nil {
 		resolved = &userResolver{u: r.s.CreatedBy}
 	} else if sensor.UserId != nil {
 		db, ok := ctx.Value("db").(*sqlx.DB)

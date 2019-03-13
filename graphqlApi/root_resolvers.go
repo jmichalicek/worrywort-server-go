@@ -340,7 +340,7 @@ func (r *Resolver) Login(args *struct {
 		return nil, err
 	}
 
-	token, err := worrywort.GenerateTokenForUser(user, worrywort.TOKEN_SCOPE_ALL)
+	token, err := worrywort.GenerateTokenForUser(*user, worrywort.TOKEN_SCOPE_ALL)
 	if err != nil {
 		return nil, err
 	}
@@ -351,13 +351,4 @@ func (r *Resolver) Login(args *struct {
 	}
 	atr := authTokenResolver{t: token}
 	return &atr, nil
-}
-
-// HELPERS - move to a different file for organization?
-// ToNullInt64 validates a sql.NullInt64 if incoming string evaluates to an integer, invalidates if it does not
-// Very useful for taking-y string graphql.ID values and getting a Nullint64
-func ToNullInt64(s string) sql.NullInt64 {
-	// Should ToNullInt64 just take a graphql.ID ?
-	i, err := strconv.Atoi(s)
-	return sql.NullInt64{Int64: int64(i), Valid: err == nil}
 }

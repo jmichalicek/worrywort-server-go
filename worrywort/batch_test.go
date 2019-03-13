@@ -305,7 +305,7 @@ func TestTemperatureMeasurementModel(t *testing.T) {
 		}
 
 		if !cmp.Equal(&batch, b) {
-			t.Errorf("Expected: - | Got: +\n", cmp.Diff(batch, b))
+			t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(batch, b))
 		}
 	})
 }
