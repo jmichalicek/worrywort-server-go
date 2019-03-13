@@ -1,7 +1,6 @@
 package worrywort
 
 import (
-	"database/sql"
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	"strings"
@@ -13,10 +12,10 @@ import (
 // TODO: This may also want extra metadata such as model or type?  That is probably
 // going too far for now, so keep it simple.
 type Sensor struct {
-	Id        int           `db:"id"`
-	Name      string        `db:"name"`
-	CreatedBy *User         `db:"created_by,prefix=u"`
-	UserId    sql.NullInt64 `db:"user_id"`
+	Id        *int32 `db:"id"`
+	Name      string `db:"name"`
+	CreatedBy *User  `db:"created_by,prefix=u"`
+	UserId    *int32 `db:"user_id"`
 
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
@@ -110,21 +109,21 @@ func FindSensors(params map[string]interface{}, db *sqlx.DB) ([]*Sensor, error) 
 // Save the User to the database.  If User.Id() is 0
 // then an insert is performed, otherwise an update on the User matching that id.
 func SaveSensor(db *sqlx.DB, tm Sensor) (Sensor, error) {
-	if tm.Id != 0 {
-		return UpdateSensor(db, tm)
-	} else {
+	if tm.Id == nil || *tm.Id == 0 {
 		return InsertSensor(db, tm)
+	} else {
+		return UpdateSensor(db, tm)
 	}
 }
 
 func InsertSensor(db *sqlx.DB, t Sensor) (Sensor, error) {
 	var updatedAt time.Time
 	var createdAt time.Time
-	var sensorId int
+	sensorId := new(int32)
 
 	query := db.Rebind(`INSERT INTO sensors (user_id, name, updated_at)
 		VALUES (?, ?, NOW()) RETURNING id, created_at, updated_at`)
-	err := db.QueryRow(query, t.UserId, t.Name).Scan(&sensorId, &createdAt, &updatedAt)
+	err := db.QueryRow(query, t.UserId, t.Name).Scan(sensorId, &createdAt, &updatedAt)
 	if err != nil {
 		return t, err
 	}

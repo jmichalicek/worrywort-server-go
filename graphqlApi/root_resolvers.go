@@ -3,6 +3,7 @@ package graphqlApi
 import (
 	"context"
 	// "fmt"
+	"github.com/davecgh/go-spew/spew"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
@@ -113,8 +114,7 @@ func (r *Resolver) Batches(ctx context.Context, args struct {
 		return nil, SERVER_ERROR
 	}
 
-	userIdNullInt := sql.NullInt64{Int64: int64(u.Id), Valid: true}
-	batches, err := worrywort.FindBatches(map[string]interface{}{"user_id": userIdNullInt}, db)
+	batches, err := worrywort.FindBatches(map[string]interface{}{"user_id": u.Id}, db)
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("%v", err)
 		return nil, err
@@ -140,7 +140,7 @@ func (r *Resolver) Fermentor(ctx context.Context, args struct{ ID graphql.ID }) 
 }
 
 func (r *Resolver) Sensor(ctx context.Context, args struct{ ID graphql.ID }) (*sensorResolver, error) {
-	authUser, _ := authMiddleware.UserFromContext(ctx)
+	user, _ := authMiddleware.UserFromContext(ctx)
 	var resolved *sensorResolver
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
@@ -149,18 +149,18 @@ func (r *Resolver) Sensor(ctx context.Context, args struct{ ID graphql.ID }) (*s
 		return nil, SERVER_ERROR
 	}
 
-	sensorId, err := strconv.Atoi(string(args.ID))
+	_sensorId, err := strconv.Atoi(string(args.ID))
 	if err != nil {
 		// not sure what could go wrong here - maybe a generic error and log the real error.
-		log.Printf("%v", err)
+		log.Printf("%v for input: %v", err, spew.Sdump(args))
 		return nil, err
 	}
+	sensorId := int32(_sensorId) // does this need to happen or is passing an int64 in ok here?
 
-	userId := sql.NullInt64{Valid: true, Int64: int64(authUser.Id)}
-
-	sensor, err := worrywort.FindSensor(map[string]interface{}{"id": sensorId, "user_id": userId}, db)
+	sensor, err := worrywort.FindSensor(map[string]interface{}{"id": sensorId, "user_id": *user.Id}, db)
 	if err != nil {
 		log.Printf("%v", err)
+		return nil, nil // maybe error should be returned
 	} else if sensor != nil {
 		resolved = &sensorResolver{s: sensor}
 	}
@@ -178,9 +178,9 @@ func (r *Resolver) Sensors(ctx context.Context, args struct {
 		log.Printf("No database in context")
 		return nil, SERVER_ERROR
 	}
-	userId := sql.NullInt64{Valid: true, Int64: int64(authUser.Id)}
+
 	// Now get the temperature sensors, build out the info
-	sensors, err := worrywort.FindSensors(map[string]interface{}{"user_id": userId}, db)
+	sensors, err := worrywort.FindSensors(map[string]interface{}{"user_id": authUser.Id}, db)
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("%v", err)
 		return nil, err
@@ -209,10 +209,9 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 		return nil, SERVER_ERROR
 	}
 	var resolved *temperatureMeasurementResolver
-	userId := sql.NullInt64{Valid: true, Int64: int64(authUser.Id)}
 	measurementId := string(args.ID)
 	measurement, err := worrywort.FindTemperatureMeasurement(
-		map[string]interface{}{"id": measurementId, "user_id": userId}, db)
+		map[string]interface{}{"id": measurementId, "user_id": authUser.Id}, db)
 	if err != nil {
 		log.Printf("%v", err)
 	} else if measurement != nil {
@@ -235,10 +234,9 @@ func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
 		log.Printf("No database in context")
 		return nil, SERVER_ERROR
 	}
-	userId := sql.NullInt64{Valid: true, Int64: int64(authUser.Id)}
 
 	// TODO: pagination, the rest of the optional filter params
-	measurements, err := worrywort.FindTemperatureMeasurements(map[string]interface{}{"user_id": userId}, db)
+	measurements, err := worrywort.FindTemperatureMeasurements(map[string]interface{}{"user_id": authUser.Id}, db)
 
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("%v", err)
@@ -284,7 +282,6 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 	Input *createTemperatureMeasurementInput
 }) (*createTemperatureMeasurementPayload, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
-	userId := sql.NullInt64{Valid: true, Int64: int64(u.Id)}
 
 	var inputPtr *createTemperatureMeasurementInput = args.Input
 	// TODO: make sure input was not nil. Technically the schema does this for us
@@ -299,9 +296,8 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 		unitType = worrywort.CELSIUS
 	}
 
-	sensorId := ToNullInt64(string(input.SensorId))
-	tempSensorId, err := strconv.ParseInt(string(input.SensorId), 10, 0)
-	sensorPtr, err := worrywort.FindSensor(map[string]interface{}{"id": tempSensorId, "user_id": u.Id}, r.db)
+	sensorId, err := strconv.ParseInt(string(input.SensorId), 10, 32)
+	sensorPtr, err := worrywort.FindSensor(map[string]interface{}{"id": sensorId, "user_id": u.Id}, r.db)
 	if err != nil {
 		// TODO: Probably need a friendlier error here or for our payload to have a shopify style userErrors
 		// and then not ever return nil from this either way...maybe
@@ -321,8 +317,8 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 		return nil, err
 	}
 
-	t := worrywort.TemperatureMeasurement{Sensor: sensorPtr, SensorId: sensorId,
-		Temperature: input.Temperature, Units: unitType, RecordedAt: recordedAt, CreatedBy: &u, UserId: userId}
+	t := worrywort.TemperatureMeasurement{Sensor: sensorPtr, SensorId: sensorPtr.Id,
+		Temperature: input.Temperature, Units: unitType, RecordedAt: recordedAt, CreatedBy: &u, UserId: u.Id}
 	t, err = worrywort.SaveTemperatureMeasurement(r.db, t)
 	if err != nil {
 		log.Printf("Failed to save TemperatureMeasurement: %v\n", err)
@@ -344,7 +340,7 @@ func (r *Resolver) Login(args *struct {
 		return nil, err
 	}
 
-	token, err := worrywort.GenerateTokenForUser(user, worrywort.TOKEN_SCOPE_ALL)
+	token, err := worrywort.GenerateTokenForUser(*user, worrywort.TOKEN_SCOPE_ALL)
 	if err != nil {
 		return nil, err
 	}
@@ -355,13 +351,4 @@ func (r *Resolver) Login(args *struct {
 	}
 	atr := authTokenResolver{t: token}
 	return &atr, nil
-}
-
-// HELPERS - move to a different file for organization?
-// ToNullInt64 validates a sql.NullInt64 if incoming string evaluates to an integer, invalidates if it does not
-// Very useful for taking-y string graphql.ID values and getting a Nullint64
-func ToNullInt64(s string) sql.NullInt64 {
-	// Should ToNullInt64 just take a graphql.ID ?
-	i, err := strconv.Atoi(s)
-	return sql.NullInt64{Int64: int64(i), Valid: err == nil}
 }

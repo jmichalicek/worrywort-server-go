@@ -3,8 +3,6 @@ package worrywort
 // Models and functions for brew batch management
 
 import (
-	"database/sql"
-	// "net/url"
 	"errors"
 	"fmt"
 	"github.com/jmoiron/sqlx"
@@ -34,9 +32,9 @@ const (
 var TypeError error = errors.New("Invalid type specified")
 
 type Batch struct {
-	Id                int            `db:"id"`
+	Id                *int32         `db:"id"`
 	CreatedBy         *User          `db:"created_by,prefix=u"` // TODO: think I will change this to User
-	UserId            sql.NullInt64  `db:"user_id"`
+	UserId            *int32         `db:"user_id"`
 	Name              string         `db:"name"`
 	BrewNotes         string         `db:"brew_notes"`
 	TastingNotes      string         `db:"tasting_notes"`
@@ -139,10 +137,10 @@ func FindBatches(params map[string]interface{}, db *sqlx.DB) ([]*Batch, error) {
 // then an insert is performed, otherwise an update on the User matching that id.
 func SaveBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	// TODO: TEST CASE
-	if b.Id != 0 {
-		return UpdateBatch(db, b)
-	} else {
+	if b.Id == nil || *b.Id == 0 {
 		return InsertBatch(db, b)
+	} else {
+		return UpdateBatch(db, b)
 	}
 }
 
@@ -153,7 +151,7 @@ func InsertBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	// TODO: TEST CASE
 	var updatedAt time.Time
 	var createdAt time.Time
-	var batchId int
+	batchId := new(int32)
 
 	query := db.Rebind(`INSERT INTO batches (user_id, name, brew_notes, tasting_notes, brewed_date, bottled_date,
 		volume_boiled, volume_in_fermentor, volume_units, original_gravity, final_gravity, recipe_url, max_temperature,
@@ -163,7 +161,7 @@ func InsertBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	err := db.QueryRow(
 		query, b.UserId, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
 		b.VolumeBoiled, b.VolumeInFermentor, b.VolumeUnits, b.OriginalGravity, b.FinalGravity, b.RecipeURL,
-		b.MaxTemperature, b.MinTemperature, b.AverageTemperature).Scan(&batchId, &createdAt, &updatedAt)
+		b.MaxTemperature, b.MinTemperature, b.AverageTemperature).Scan(batchId, &createdAt, &updatedAt)
 	if err != nil {
 		return b, err
 	}
@@ -203,9 +201,9 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 // Not sure if this should live here - it works equally well in sensor.go
 // or maybe it should get its own .go file
 type BatchSensor struct {
-	Id string `db:"id"` // use a uuid
-	BatchId         sql.NullInt64        `db:"batch_id"`
-	SensorId        sql.NullInt64        `db:"sensor_id"`
+	Id              string     `db:"id"` // use a uuid. TODO: Make this null/pointer as well
+	BatchId         *int32     `db:"batch_id"`
+	SensorId        *int32     `db:"sensor_id"`
 	Description     string     `db:"description"`
 	AssociatedAt    time.Time  `db:"associated_at"`
 	DisassociatedAt *time.Time `db:"disassociated_at"`
@@ -213,7 +211,7 @@ type BatchSensor struct {
 	// TODO: Do I really want or need these here or the similar functionality on other structs?
 	// what if BatchId and Batch get out of sync? Perhaps make these private and use Sensor() and Batch()
 	Sensor *Sensor `db:"s,prefix=s"`
-	Batch  *Batch `db:"b,prefix=b"`
+	Batch  *Batch  `db:"b,prefix=b"`
 	// May make these all pointers - allow unset to be actually null/unset. or pq's sql.NullTime
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
@@ -247,21 +245,20 @@ func AssociateBatchToSensor(batch Batch, sensor Sensor, description string, asso
 	// err := db.QueryRow(
 	// 	query, batch.Id, sensor.Id, description, associatedAt).StructScan(bs)
 
-	batchId := sql.NullInt64{Int64: int64(batch.Id), Valid: true}
-	sensorId := sql.NullInt64{Int64: int64(sensor.Id), Valid: true}
 	query := db.Rebind(`INSERT INTO batch_sensor_association (batch_id, sensor_id, description, associated_at,
 		updated_at) VALUES (?, ?, ?, ?, NOW()) RETURNING id, created_at, updated_at, associated_at`)
 
 	// This overwrites associatedAt with the db's value because otherwise we run into precision differences on input
 	// and output which gets weird when comparing
 	err := db.QueryRow(
-		query, batchId, sensorId, description, assocTime).Scan(&assocId, &createdAt, &updatedAt, &assocTime)
+		query, batch.Id, sensor.Id, description, assocTime).Scan(&assocId, &createdAt, &updatedAt, &assocTime)
 
 	if err != nil {
 		return nil, err
 	}
 
-	bs := BatchSensor{Id: assocId, BatchId: batchId, SensorId: sensorId, Description: description,
+	// TODO: attach the batch and sensor which were passed in
+	bs := BatchSensor{Id: assocId, BatchId: batch.Id, SensorId: sensor.Id, Description: description,
 		AssociatedAt: assocTime, UpdatedAt: updatedAt, CreatedAt: createdAt}
 	return &bs, nil
 }
@@ -304,7 +301,7 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 		selectCols += fmt.Sprintf("b.%s AS \"b.%s\", ", k, k)
 	}
 
-	sensorQueryCols :=[]string{"id", "name", "created_at", "updated_at", "user_id"}
+	sensorQueryCols := []string{"id", "name", "created_at", "updated_at", "user_id"}
 	for _, k := range sensorQueryCols {
 		selectCols += fmt.Sprintf("s.%s AS \"s.%s\", ", k, k)
 	}
@@ -312,14 +309,14 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 	userId, ok := params["user_id"]
 	joins := ` INNER JOIN sensors s ON ba.sensor_id = s.id `
 	if ok && userId != nil {
-			joins = joins + ` AND s.user_id = ? `
-			values = append(values, userId)
+		joins = joins + ` AND s.user_id = ? `
+		values = append(values, userId)
 	}
 	// this seems dumb and repetitive. It works for now, though.
 	joins = joins + ` INNER JOIN batches b on ba.batch_id = b.id`
 	if ok && userId != nil {
-			joins = joins + ` AND b.user_id = ? `
-			values = append(values, userId)
+		joins = joins + ` AND b.user_id = ? `
+		values = append(values, userId)
 	}
 
 	for _, k := range []string{"batch_id", "sensor_id", "id", "disassociated_at"} {

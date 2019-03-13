@@ -8,6 +8,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"strings"
 	"time"
+	// "github.com/davecgh/go-spew/spew"
 )
 
 // Models and functions for user management
@@ -21,7 +22,7 @@ var UserNotFoundError error = errors.New("User not found")
 type User struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
 	// TODO: Considering having a separate username from the email
-	Id        int    `db:"id"` // TODO: make this a sql.NullInt64.. not that it should be nullable... hmm.
+	Id        *int32 `db:"id"`
 	FirstName string `db:"first_name"`
 	LastName  string `db:"last_name"`
 	Email     string `db:"email"`
@@ -36,8 +37,9 @@ func (u User) queryColumns() []string {
 	return []string{"id", "first_name", "last_name", "email", "password", "created_at", "updated_at"}
 }
 
+// TODO: Remove NewUser()
 // Returns a new user
-func NewUser(id int, email, firstName, lastName string, createdAt, updatedAt time.Time) User {
+func NewUser(id *int32, email, firstName, lastName string, createdAt, updatedAt time.Time) User {
 	return User{Id: id, Email: email, FirstName: firstName, LastName: lastName, CreatedAt: createdAt,
 		UpdatedAt: updatedAt}
 }
@@ -62,10 +64,10 @@ func SetUserPassword(u User, password string, hashCost int) (User, error) {
 // then an insert is performed, otherwise an update on the User matching that id.
 func SaveUser(db *sqlx.DB, u User) (User, error) {
 	// TODO: TEST CASE
-	if u.Id != 0 {
-		return UpdateUser(db, u)
-	} else {
+	if u.Id == nil || *u.Id == 0 {
 		return InsertUser(db, u)
+	} else {
+		return UpdateUser(db, u)
 	}
 }
 
@@ -76,12 +78,14 @@ func InsertUser(db *sqlx.DB, u User) (User, error) {
 	// TODO: TEST CASE
 	var updatedAt time.Time
 	var createdAt time.Time
-	var userId int
+	// var userId *int32 = nil
+	userId := new(int32)
 
 	query := db.Rebind(`INSERT INTO users (email, first_name, last_name, password, created_at, updated_at)
 		VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at`)
+	// TODO: just use StructScan?  Or at least scan right into user.Id?
 	err := db.QueryRow(
-		query, u.Email, u.FirstName, u.LastName, u.Password).Scan(&userId, &createdAt, &updatedAt)
+		query, u.Email, u.FirstName, u.LastName, u.Password).Scan(userId, &createdAt, &updatedAt)
 	if err != nil {
 		return u, err
 	}
@@ -109,17 +113,15 @@ func UpdateUser(db *sqlx.DB, u User) (User, error) {
 	return u, nil
 }
 
+// TODO: get all these lookup/find/etc named consistently
 // Looks up the user by id in the database and returns a new User
-func LookupUser(id int, db *sqlx.DB) (*User, error) {
+func LookupUser(id int32, db *sqlx.DB) (*User, error) {
 	// TODO: rename this FindUser() and implement other query stuff?
 	// TODO: make this return nil if user is not found
 	// or keep that separate?
 	u := User{}
-	// if I have understood correctly, different DBs use a different parameterization token (the ? below).
-	// By default sqlx just passes whatever you type and you need to manually use the correct token...
-	// ? for mysql, $1..$N for postgres, etc.
-	// db.Rebind() will update the string to use the correct bind.
-	query := db.Rebind("SELECT id, first_name, last_name, email, password, created_at, updated_at, password FROM users WHERE id=?")
+	query := db.Rebind(
+		`SELECT id, first_name, last_name, email, password, created_at, updated_at, password FROM users WHERE id=?`)
 	err := db.Get(&u, query, id)
 	if err != nil {
 		return nil, err
@@ -129,24 +131,28 @@ func LookupUser(id int, db *sqlx.DB) (*User, error) {
 
 // Looks up the username (or email, as the case is for now) and verifies that the password
 // matches that of the user.
-func AuthenticateLogin(username, password string, db *sqlx.DB) (User, error) {
-	u := User{}
+// TODO: Just return a pointer to the user, nil if no user found or do a django-like AnonymousUser
+// and make an interface for User and AnonymousUser
+func AuthenticateLogin(username, password string, db *sqlx.DB) (*User, error) {
+	u := new(User)
+	u.Id = nil
 
 	query := db.Rebind(
 		"SELECT id, email, first_name, last_name, created_at, updated_at, password FROM users WHERE email = ?")
-	err := db.Get(&u, query, username)
-
-	if u == (User{}) {
-		return u, UserNotFoundError //errors.New(UserNotFoundError)
-	}
-
+	err := db.Get(u, query, username)
+	// I believe due to postgres having user_id be not null, our id is always a pointer to 0 after this
+	// if the user was not found, which throws things off.
 	if err != nil {
-		return User{}, err
+		if err == sql.ErrNoRows {
+			return nil, UserNotFoundError
+		} else {
+			return nil, err
+		}
 	}
 
 	pwdErr := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
 	if pwdErr != nil {
-		return User{}, pwdErr
+		return nil, pwdErr
 	}
 
 	return u, nil

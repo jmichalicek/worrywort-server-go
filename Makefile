@@ -39,3 +39,6 @@ codeship-test: setup-test-db
 
 codecov-upload:
 	curl -s https://codecov.io/bash | bash
+
+gofmt:
+	gofmt -w ./

@@ -1,7 +1,6 @@
 package worrywort
 
 import (
-	"database/sql"
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	"strings"
@@ -18,13 +17,13 @@ type TemperatureMeasurement struct {
 	RecordedAt  time.Time           `db:"recorded_at"` // when the measurement was recorded
 	// I could leave batch public and set it... it doesn't have to exist on the table.
 	// but I think forcing use of Batch() enforces consistency
-	batch       *Batch
-	Sensor      *Sensor             `db:"sensor,prefix=ts"`
-	SensorId    sql.NullInt64       `db:"sensor_id"`
+	batch    *Batch
+	Sensor   *Sensor `db:"sensor,prefix=ts"`
+	SensorId *int32  `db:"sensor_id"`
 
 	// not sure createdBy is a useful name in this case vs just `user` but its consistent
-	CreatedBy *User         `db:"created_by,prefix=u"`
-	UserId    sql.NullInt64 `db:"user_id"`
+	CreatedBy *User  `db:"created_by,prefix=u"`
+	UserId    *int32 `db:"user_id"`
 
 	// when the record was created
 	CreatedAt time.Time `db:"created_at"`

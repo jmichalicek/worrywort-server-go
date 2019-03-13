@@ -1,7 +1,7 @@
 package worrywort
 
+// TODO: Currently not using this at all. Need to remove it or put it back into use.
 import (
-	"database/sql"
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	"strings"
@@ -19,7 +19,7 @@ const (
 type Fermentor struct {
 	// I could use name + user composite key for pk on these in the db, but I'm probably going to be lazy
 	// and take the standard ORM-ish route and use an int or uuid  Int for now.
-	Id            int                `db:"id"`
+	Id            *int32             `db:"id"`
 	Name          string             `db:"name"`
 	Description   string             `db:"description"`
 	Volume        float64            `db:"volume"`
@@ -28,20 +28,12 @@ type Fermentor struct {
 	IsActive      bool               `db:"is_active"`
 	IsAvailable   bool               `db:"is_available"`
 	CreatedBy     *User              `db:"created_by,prefix=u"`
-	UserId        sql.NullInt64      `db:"user_id"`
+	UserId        *int32             `db:"user_id"`
 	Batch         *Batch
-	BatchId       sql.NullInt64 `db:"batch_id"`
+	BatchId       *int32 `db:"batch_id"`
 
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
-}
-
-// TODO: REMOVE NewFermentor
-func NewFermentor(id int, name, description string, volume float64, volumeUnits VolumeUnitType,
-	fermentorType FermentorStyleType, isActive, isAvailable bool, createdBy User, createdAt, updatedAt time.Time) Fermentor {
-	return Fermentor{Id: id, Name: name, Description: description, Volume: volume, VolumeUnits: volumeUnits,
-		FermentorType: fermentorType, IsActive: isActive, IsAvailable: isAvailable, CreatedBy: &createdBy,
-		CreatedAt: createdAt, UpdatedAt: updatedAt}
 }
 
 func FindFermentor(params map[string]interface{}, db *sqlx.DB) (*Fermentor, error) {
@@ -71,7 +63,7 @@ func FindFermentor(params map[string]interface{}, db *sqlx.DB) (*Fermentor, erro
 
 // Save a Fermentor - yes, inconsistent spelling.  Will be switchin to OR instead of ER globally.
 func SaveFermentor(db *sqlx.DB, f Fermentor) (Fermentor, error) {
-	if f.Id != 0 {
+	if f.Id != nil && *f.Id != 0 {
 		return UpdateFermentor(db, f)
 	} else {
 		return InsertFermentor(db, f)
@@ -81,12 +73,12 @@ func SaveFermentor(db *sqlx.DB, f Fermentor) (Fermentor, error) {
 func InsertFermentor(db *sqlx.DB, f Fermentor) (Fermentor, error) {
 	var updatedAt time.Time
 	var createdAt time.Time
-	var fermentorId int
+	fermentorId := new(int32)
 
 	query := db.Rebind(`INSERT INTO fermentors (user_id, name, description, volume, volume_units, fermentor_type,
 		is_active, is_available, batch_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW()) RETURNING id, created_at, updated_at`)
 	err := db.QueryRow(query, f.UserId, f.Name, f.Description, f.Volume, f.VolumeUnits, f.FermentorType,
-		f.IsActive, f.IsAvailable, f.BatchId).Scan(&fermentorId, &createdAt, &updatedAt)
+		f.IsActive, f.IsAvailable, f.BatchId).Scan(fermentorId, &createdAt, &updatedAt)
 	if err != nil {
 		return f, err
 	}

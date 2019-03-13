@@ -97,6 +97,5 @@ func GenerateTokenForUser(user User, scope AuthTokenScopeType) (AuthToken, error
 
 	// not sure there's much point to this, but it makes it nicer looking
 	tokenb64 := base64.URLEncoding.EncodeToString([]byte(token.String()))
-
 	return NewToken(tokenId.String(), tokenb64, user, scope), nil
 }

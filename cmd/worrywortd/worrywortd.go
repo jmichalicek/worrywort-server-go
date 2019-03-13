@@ -17,22 +17,10 @@ import (
 
 var schema *graphql.Schema
 
-// func init() {
-// 	schema = graphql.MustParseSchema(graphqlApi.Schema, NewResolver(nil))
-// }
-
-// TODO: Make this REALLY look up user in db after db layer is added
-// Looks up the user based on a token
-// func tokenAuthUserLookup(token string) (worrywort.User, error) {
-// 	return worrywort.NewUser(1, "jmichalicek@gmail.com", "Justin", "Michalicek", time.Now(), time.Now()), nil
-// }
-
 // Returns a function for looking up a user by token for authMiddleware.NewTokenAuthHandler()
 // which closes over the db needed to look up the user
 func newTokenAuthLookup(db *sqlx.DB) func(token string) (worrywort.User, error) {
 	return func(token string) (worrywort.User, error) {
-		// use token to get the user.
-		// return worrywort.NewUser(1, "jmichalicek@gmail.com", "Justin", "Michalicek", time.Now(), time.Now())
 		return worrywort.LookupUserByToken(token, db)
 	}
 }
@@ -47,6 +35,7 @@ func main() {
 
 	// For now, force postgres
 	// TODO: write something to parse db uri?
+	// I suspect this already would and I just didn't read the docs correctly.
 	// Using LookupEnv because I will probably add some sane defaults... such as localhost for
 	dbName, _ := os.LookupEnv("DATABASE_NAME")
 	dbUser, _ := os.LookupEnv("DATABASE_USER")
