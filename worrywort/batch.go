@@ -33,6 +33,7 @@ var TypeError error = errors.New("Invalid type specified")
 
 type Batch struct {
 	Id                *int64         `db:"id"`
+	Uuid              string         `db:"uuid"`
 	CreatedBy         *User          `db:"created_by,prefix=u"` // TODO: think I will change this to User
 	UserId            *int64         `db:"user_id"`
 	Name              string         `db:"name"`
@@ -152,16 +153,17 @@ func InsertBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	var updatedAt time.Time
 	var createdAt time.Time
 	batchId := new(int64)
+	batchUuid := new(string)
 
 	query := db.Rebind(`INSERT INTO batches (user_id, name, brew_notes, tasting_notes, brewed_date, bottled_date,
 		volume_boiled, volume_in_fermentor, volume_units, original_gravity, final_gravity, recipe_url, max_temperature,
 		min_temperature, average_temperature, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at`)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at, uuid`)
 
 	err := db.QueryRow(
 		query, b.UserId, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
 		b.VolumeBoiled, b.VolumeInFermentor, b.VolumeUnits, b.OriginalGravity, b.FinalGravity, b.RecipeURL,
-		b.MaxTemperature, b.MinTemperature, b.AverageTemperature).Scan(batchId, &createdAt, &updatedAt)
+		b.MaxTemperature, b.MinTemperature, b.AverageTemperature).Scan(batchId, &createdAt, &updatedAt, batchUuid)
 	if err != nil {
 		return b, err
 	}
@@ -170,6 +172,7 @@ func InsertBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	b.Id = batchId
 	b.CreatedAt = createdAt
 	b.UpdatedAt = updatedAt
+	b.Uuid = *batchUuid
 	return b, nil
 }
 
@@ -289,19 +292,19 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 
 	selectCols := ""
 	queryCols := []string{"id", "batch_id", "sensor_id", "description", "associated_at", "disassociated_at",
-		"updated_at", "created_at"}
+		"updated_at", "created_at", "uuid"}
 	for _, k := range queryCols {
 		selectCols += fmt.Sprintf("ba.%s, ", k)
 	}
 
 	batchQueryCols := []string{"id", "name", "brew_notes", "tasting_notes", "brewed_date", "bottled_date",
 		"volume_boiled", "volume_in_fermentor", "volume_units", "original_gravity", "final_gravity", "recipe_url",
-		"max_temperature", "min_temperature", "average_temperature", "created_at", "updated_at", "user_id"}
+		"max_temperature", "min_temperature", "average_temperature", "created_at", "updated_at", "user_id", "uuid"}
 	for _, k := range batchQueryCols {
 		selectCols += fmt.Sprintf("b.%s AS \"b.%s\", ", k, k)
 	}
 
-	sensorQueryCols := []string{"id", "name", "created_at", "updated_at", "user_id"}
+	sensorQueryCols := []string{"id", "name", "created_at", "updated_at", "user_id", "uuid"}
 	for _, k := range sensorQueryCols {
 		selectCols += fmt.Sprintf("s.%s AS \"s.%s\", ", k, k)
 	}

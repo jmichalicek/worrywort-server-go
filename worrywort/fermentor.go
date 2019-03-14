@@ -20,6 +20,7 @@ type Fermentor struct {
 	// I could use name + user composite key for pk on these in the db, but I'm probably going to be lazy
 	// and take the standard ORM-ish route and use an int or uuid  Int for now.
 	Id            *int64             `db:"id"`
+	Uuid              string         `db:"uuid"`
 	Name          string             `db:"name"`
 	Description   string             `db:"description"`
 	Volume        float64            `db:"volume"`

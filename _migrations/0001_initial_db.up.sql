@@ -15,6 +15,7 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS users(
   id BIGSERIAL PRIMARY KEY,
+  uuid uuid DEFAULT gen_random_uuid(),
   first_name text DEFAULT '',
   last_name text DEFAULT '',
   email text DEFAULT '',
@@ -26,6 +27,7 @@ CREATE TABLE IF NOT EXISTS users(
   updated_at timestamp with time zone
 );
 CREATE INDEX IF NOT EXISTS users_email_lower_idx ON users ((lower(email)));
+CREATE INDEX IF NOT EXISTS users_uuid_idx ON users (uuid);
 
 CREATE TABLE IF NOT EXISTS user_authtokens(
   -- token_id text PRIMARY KEY,
@@ -46,6 +48,7 @@ CREATE TABLE IF NOT EXISTS user_authtokens(
  */
 CREATE TABLE IF NOT EXISTS batches(
   id BIGSERIAL PRIMARY KEY,
+  uuid uuid DEFAULT gen_random_uuid(),
   user_id integer REFERENCES users (id) ON DELETE SET NULL,
   name text NOT NULL DEFAULT '',
   brew_notes text NOT NULL DEFAULT '',
@@ -65,10 +68,12 @@ CREATE TABLE IF NOT EXISTS batches(
   created_at timestamp with time zone  DEFAULT current_timestamp,
   updated_at timestamp with time zone
 );
+CREATE INDEX IF NOT EXISTS batches_uuid_idx ON batches (uuid);
 
 -- May remove Fermentors for now - they have no real use case
 CREATE TABLE IF NOT EXISTS fermentors(
   id BIGSERIAL PRIMARY KEY,
+  uuid uuid DEFAULT gen_random_uuid(),
   user_id integer REFERENCES users (id) ON DELETE SET NULL,
   batch_id integer REFERENCES batches (id) ON DELETE SET NULL,
   name text NOT NULL DEFAULT '',
@@ -82,9 +87,11 @@ CREATE TABLE IF NOT EXISTS fermentors(
   created_at timestamp with time zone DEFAULT current_timestamp,
   updated_at timestamp with time zone
 );
+CREATE INDEX IF NOT EXISTS fermentors_uuid_idx ON fermentors (uuid);
 
 CREATE TABLE IF NOT EXISTS sensors(
   id BIGSERIAL PRIMARY KEY,
+  uuid uuid DEFAULT gen_random_uuid(),
   user_id integer REFERENCES users (id) ON DELETE SET NULL,
   name text NOT NULL DEFAULT '',
   description text NOT NULL DEFAULT '',
@@ -92,11 +99,13 @@ CREATE TABLE IF NOT EXISTS sensors(
   created_at timestamp with time zone DEFAULT current_timestamp,
   updated_at timestamp with time zone
 );
+CREATE INDEX IF NOT EXISTS sensors_uuid_idx ON sensors (uuid);
 
 -- store the association between a batch and a sensor permanently rather than making it ephemeral
 -- and using the temperature measurements to track that long term
 CREATE TABLE IF NOT EXISTS batch_sensor_association(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- uuid uuid DEFAULT gen_random_uuid(),  DO THIS and make id be a bigserial
   -- used to be PK of (batch_id, sensor_id).. but maybe you disassociate then re-associate. meh.
   batch_id integer REFERENCES batches (id) ON DELETE CASCADE NOT NULL,
   sensor_id integer REFERENCES sensors (id) ON DELETE CASCADE NOT NULL,

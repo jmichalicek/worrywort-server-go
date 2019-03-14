@@ -28,8 +28,8 @@ const (
 
 // Simplified auth tokens.  May eventually be replaced with proper OAuth 2.
 type AuthToken struct {
-	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
-	Id         string             `db:"id"`  // Can this just be a uuid type?
+	// Can this just be a uuid type? Tried and it did not play nicely, but should be possible
+	Id         string             `db:"id"`
 	Token      string             `db:"token"`
 	User       User               `db:"user,prefix=u."`
 	ExpiresAt  pq.NullTime        `db:"expires_at"`
