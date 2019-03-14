@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS users(
 CREATE INDEX IF NOT EXISTS users_email_lower_idx ON users ((lower(email)));
 
 CREATE TABLE IF NOT EXISTS user_authtokens(
-  token_id text PRIMARY KEY,
+  -- token_id text PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   token text DEFAULT '',
   is_active boolean DEFAULT TRUE,
   user_id integer REFERENCES users (id) ON DELETE CASCADE,

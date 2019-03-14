@@ -3,6 +3,7 @@ package worrywort
 import (
 	"database/sql"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"testing"
 	"time"
@@ -91,10 +92,10 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 	})
 
 	t.Run("TestLookupUserByToken", func(t *testing.T) {
-		tokenId := "tokenid"
 		tokenKey := "secret"
-		token := NewToken(tokenId, tokenKey, user, TOKEN_SCOPE_ALL)
+		token := NewToken(tokenKey, user, TOKEN_SCOPE_ALL)
 		token.Save(db)
+		tokenId := token.Id
 
 		t.Run("Test valid token returns user", func(t *testing.T) {
 			tokenStr := tokenId + ":" + tokenKey
@@ -111,7 +112,7 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 		})
 
 		t.Run("Test invalid token with valid token id", func(t *testing.T) {
-			tokenStr := "tokenid:tokenstr"
+			tokenStr := token.Id + ":tokenstr"
 			actual, err := LookupUserByToken(tokenStr, db)
 			expected := User{}
 
@@ -125,7 +126,8 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 		})
 
 		t.Run("Test invalid token id", func(t *testing.T) {
-			tokenStr := "nope:tokenstr"
+			badTokenId, err := uuid.NewRandom()
+			tokenStr := badTokenId.String() + ":tokenstr"
 			actual, err := LookupUserByToken(tokenStr, db)
 			expected := User{}
 

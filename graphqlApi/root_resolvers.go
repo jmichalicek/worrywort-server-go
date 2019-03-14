@@ -342,13 +342,16 @@ func (r *Resolver) Login(args *struct {
 
 	token, err := worrywort.GenerateTokenForUser(*user, worrywort.TOKEN_SCOPE_ALL)
 	if err != nil {
+		log.Printf("*****ERRR*****\n%v\n", err)
 		return nil, err
 	}
+	tokenPtr := &token
 
-	err = token.Save(r.db)
+	err = tokenPtr.Save(r.db)
 	if err != nil {
+		log.Printf("%s", err)
 		return nil, err
 	}
 	atr := authTokenResolver{t: token}
-	return &atr, nil
+	return &atr, err
 }

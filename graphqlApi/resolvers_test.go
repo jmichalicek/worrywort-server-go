@@ -534,7 +534,8 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 func TestAuthTokenResolver(t *testing.T) {
 	uId := int64(1)
 	u := worrywort.NewUser(&uId, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	token := worrywort.NewToken("tokenid", "token", u, worrywort.TOKEN_SCOPE_ALL)
+	token := worrywort.NewToken("token", u, worrywort.TOKEN_SCOPE_ALL)
+	token.Id = "tokenid"
 	r := authTokenResolver{t: token}
 
 	t.Run("ID()", func(t *testing.T) {
