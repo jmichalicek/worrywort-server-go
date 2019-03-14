@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-type FermentorStyleType int32
+type FermentorStyleType int64
 
 const (
 	BUCKET FermentorStyleType = iota
@@ -19,7 +19,7 @@ const (
 type Fermentor struct {
 	// I could use name + user composite key for pk on these in the db, but I'm probably going to be lazy
 	// and take the standard ORM-ish route and use an int or uuid  Int for now.
-	Id            *int32             `db:"id"`
+	Id            *int64             `db:"id"`
 	Name          string             `db:"name"`
 	Description   string             `db:"description"`
 	Volume        float64            `db:"volume"`
@@ -28,9 +28,9 @@ type Fermentor struct {
 	IsActive      bool               `db:"is_active"`
 	IsAvailable   bool               `db:"is_available"`
 	CreatedBy     *User              `db:"created_by,prefix=u"`
-	UserId        *int32             `db:"user_id"`
+	UserId        *int64             `db:"user_id"`
 	Batch         *Batch
-	BatchId       *int32 `db:"batch_id"`
+	BatchId       *int64 `db:"batch_id"`
 
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
@@ -73,7 +73,7 @@ func SaveFermentor(db *sqlx.DB, f Fermentor) (Fermentor, error) {
 func InsertFermentor(db *sqlx.DB, f Fermentor) (Fermentor, error) {
 	var updatedAt time.Time
 	var createdAt time.Time
-	fermentorId := new(int32)
+	fermentorId := new(int64)
 
 	query := db.Rebind(`INSERT INTO fermentors (user_id, name, description, volume, volume_units, fermentor_type,
 		is_active, is_available, batch_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW()) RETURNING id, created_at, updated_at`)

@@ -22,7 +22,7 @@ var UserNotFoundError error = errors.New("User not found")
 type User struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
 	// TODO: Considering having a separate username from the email
-	Id        *int32 `db:"id"`
+	Id        *int64 `db:"id"`
 	FirstName string `db:"first_name"`
 	LastName  string `db:"last_name"`
 	Email     string `db:"email"`
@@ -39,7 +39,7 @@ func (u User) queryColumns() []string {
 
 // TODO: Remove NewUser()
 // Returns a new user
-func NewUser(id *int32, email, firstName, lastName string, createdAt, updatedAt time.Time) User {
+func NewUser(id *int64, email, firstName, lastName string, createdAt, updatedAt time.Time) User {
 	return User{Id: id, Email: email, FirstName: firstName, LastName: lastName, CreatedAt: createdAt,
 		UpdatedAt: updatedAt}
 }
@@ -78,8 +78,8 @@ func InsertUser(db *sqlx.DB, u User) (User, error) {
 	// TODO: TEST CASE
 	var updatedAt time.Time
 	var createdAt time.Time
-	// var userId *int32 = nil
-	userId := new(int32)
+	// var userId *int64 = nil
+	userId := new(int64)
 
 	query := db.Rebind(`INSERT INTO users (email, first_name, last_name, password, created_at, updated_at)
 		VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at`)
@@ -115,7 +115,7 @@ func UpdateUser(db *sqlx.DB, u User) (User, error) {
 
 // TODO: get all these lookup/find/etc named consistently
 // Looks up the user by id in the database and returns a new User
-func LookupUser(id int32, db *sqlx.DB) (*User, error) {
+func LookupUser(id int64, db *sqlx.DB) (*User, error) {
 	// TODO: rename this FindUser() and implement other query stuff?
 	// TODO: make this return nil if user is not found
 	// or keep that separate?

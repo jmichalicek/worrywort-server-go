@@ -16,7 +16,7 @@ var TokenFormatError = errors.New("Token should be formatted as `tokenId:secret`
 
 // TODO: Possibly move authToken stuff to its own package so that scope stuff will be
 // authToken.READ_ALL, etc.
-type AuthTokenScopeType int32
+type AuthTokenScopeType int64
 
 const (
 	TOKEN_SCOPE_ALL AuthTokenScopeType = iota
