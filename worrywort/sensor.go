@@ -44,7 +44,7 @@ func FindSensors(params map[string]interface{}, db *sqlx.DB) ([]*Sensor, error) 
 	sensors := []*Sensor{}
 	var values []interface{}
 	var where []string
-	for _, k := range []string{"id", "user_id"} {
+	for _, k := range []string{"id", "user_id", "uuid"} {
 		if v, ok := params[k]; ok {
 			values = append(values, v)
 			// TODO: Deal with values from sensor OR user table
@@ -56,7 +56,7 @@ func FindSensors(params map[string]interface{}, db *sqlx.DB) ([]*Sensor, error) 
 	// as in BatchesForUser, this now seems dumb
 	// queryCols := []string{"id", "name", "created_at", "updated_at", "user_id"}
 	// If I need this many places, maybe make a const
-	for _, k := range []string{"id", "name", "created_at", "updated_at", "user_id"} {
+	for _, k := range []string{"id", "uuid", "name", "created_at", "updated_at", "user_id"} {
 		selectCols += fmt.Sprintf("t.%s, ", k)
 	}
 
@@ -121,16 +121,18 @@ func InsertSensor(db *sqlx.DB, t Sensor) (Sensor, error) {
 	var updatedAt time.Time
 	var createdAt time.Time
 	sensorId := new(int64)
+	_uuid := new(string)
 
 	query := db.Rebind(`INSERT INTO sensors (user_id, name, updated_at)
-		VALUES (?, ?, NOW()) RETURNING id, created_at, updated_at`)
-	err := db.QueryRow(query, t.UserId, t.Name).Scan(sensorId, &createdAt, &updatedAt)
+		VALUES (?, ?, NOW()) RETURNING id, uuid, created_at, updated_at`)
+	err := db.QueryRow(query, t.UserId, t.Name).Scan(sensorId, _uuid, &createdAt, &updatedAt)
 	if err != nil {
 		return t, err
 	}
 
 	// TODO: Can I just assign these directly now in Scan()?
 	t.Id = sensorId
+	t.Uuid = *_uuid
 	t.CreatedAt = createdAt
 	t.UpdatedAt = updatedAt
 	return t, nil

@@ -312,12 +312,13 @@ func TestFermentorResolver(t *testing.T) {
 	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
 	fId := int64(1)
 	f := worrywort.Fermentor{Id: &fId, CreatedAt: time.Now(), UpdatedAt: time.Now(), Name: "Ferm", Description: "A Fermentor", Volume: 5.0, VolumeUnits: worrywort.GALLON,
-		FermentorType: worrywort.BUCKET, IsActive: true, IsAvailable: true, CreatedBy: &u, UserId: u.Id}
+		FermentorType: worrywort.BUCKET, IsActive: true, IsAvailable: true, CreatedBy: &u, UserId: u.Id,
+		Uuid: uuid.New().String()}
 	r := fermentorResolver{f: &f}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = r.ID()
-		expected := graphql.ID("1")
+		expected := graphql.ID(f.Uuid)
 		if ID != expected {
 			t.Errorf("Expected: %v, got: %v", expected, ID)
 		}

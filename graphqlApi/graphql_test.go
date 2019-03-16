@@ -482,7 +482,7 @@ func TestSensorQuery(t *testing.T) {
 
 	t.Run("Test query for sensor(id: ID!) which exists returns the sensor", func(t *testing.T) {
 		variables := map[string]interface{}{
-			"id": strconv.Itoa(int(*sensor1.Id)),
+			"id": sensor1.Uuid,
 		}
 		query := `
 			query getSensor($id: ID!) {

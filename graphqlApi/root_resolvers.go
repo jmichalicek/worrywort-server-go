@@ -3,7 +3,6 @@ package graphqlApi
 import (
 	"context"
 	// "fmt"
-	"github.com/davecgh/go-spew/spew"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
@@ -150,20 +149,16 @@ func (r *Resolver) Sensor(ctx context.Context, args struct{ ID graphql.ID }) (*s
 		return nil, SERVER_ERROR
 	}
 
-	_sensorId, err := strconv.Atoi(string(args.ID))
-	if err != nil {
-		// not sure what could go wrong here - maybe a generic error and log the real error.
-		log.Printf("%v for input: %v", err, spew.Sdump(args))
-		return nil, err
-	}
-	sensorId := int64(_sensorId) // does this need to happen or is passing an int64 in ok here?
-
-	sensor, err := worrywort.FindSensor(map[string]interface{}{"id": sensorId, "user_id": *user.Id}, db)
+	sensor, err := worrywort.FindSensor(map[string]interface{}{"uuid": string(args.ID), "user_id": *user.Id}, db)
 	if err != nil {
 		log.Printf("%v", err)
 		return nil, nil // maybe error should be returned
-	} else if sensor != nil {
+	} else if sensor != nil && sensor.Uuid != "" {
+		// TODO: check for Uuid is a hack because I need to rework FindSensor to return nil
+		// if it did not find a sensor
 		resolved = &sensorResolver{s: sensor}
+	} else {
+		resolved = nil
 	}
 	return resolved, err
 }

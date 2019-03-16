@@ -7,7 +7,6 @@ import (
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
 	"log"
-	"strconv"
 )
 
 // Resolve a worrywort.Fermentor
@@ -16,8 +15,8 @@ type fermentorResolver struct {
 }
 
 func (r *fermentorResolver) ID() graphql.ID {
-	if r.f != nil && r.f.Id != nil {
-		return graphql.ID(strconv.Itoa(int(*r.f.Id)))
+	if r.f != nil {
+		return graphql.ID(r.f.Uuid)
 	} else {
 		log.Printf("Nil Id on fermentor: %v", spew.Sdump(r))
 		return graphql.ID("")
