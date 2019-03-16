@@ -496,7 +496,7 @@ func TestSensorQuery(t *testing.T) {
 		result := worrywortSchema.Exec(ctx, query, operationName, variables)
 
 		var expected interface{}
-		err := json.Unmarshal([]byte(fmt.Sprintf(`{"sensor": {"__typename": "Sensor", "id": "%d"}}`, *sensor1.Id)), &expected)
+		err := json.Unmarshal([]byte(fmt.Sprintf(`{"sensor": {"__typename": "Sensor", "id": "%s"}}`, sensor1.Uuid)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -515,7 +515,7 @@ func TestSensorQuery(t *testing.T) {
 
 	t.Run("Test query for sensor(id: ID!) which does not exist returns null", func(t *testing.T) {
 		variables := map[string]interface{}{
-			"id": "-1",
+			"id": uuid.New().String(),
 		}
 		query := `
 			query getSensor($id: ID!) {
@@ -555,8 +555,8 @@ func TestSensorQuery(t *testing.T) {
 		err := json.Unmarshal(
 			[]byte(
 				fmt.Sprintf(
-					`{"sensors": {"__typename":"SensorConnection","edges": [{"__typename": "SensorEdge","node": {"__typename":"Sensor","id":"%d"}},{"__typename": "SensorEdge","node": {"__typename":"Sensor","id":"%d"}}]}}`,
-					*sensor1.Id, *sensor2.Id)), &expected)
+					`{"sensors": {"__typename":"SensorConnection","edges": [{"__typename": "SensorEdge","node": {"__typename":"Sensor","id":"%s"}},{"__typename": "SensorEdge","node": {"__typename":"Sensor","id":"%s"}}]}}`,
+					sensor1.Uuid, sensor2.Uuid)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}

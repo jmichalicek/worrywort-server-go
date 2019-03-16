@@ -373,12 +373,12 @@ func TestSensorResolver(t *testing.T) {
 	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
 	sId := int64(1)
 	sensor := worrywort.Sensor{Id: &sId, Name: "Therm1", UserId: u.Id, CreatedBy: &u, CreatedAt: time.Now(),
-		UpdatedAt: time.Now()}
+		UpdatedAt: time.Now(), Uuid: uuid.New().String()}
 	r := sensorResolver{s: &sensor}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = r.ID()
-		expected := graphql.ID("1")
+		expected := graphql.ID(sensor.Uuid)
 		if ID != expected {
 			t.Errorf("Expected: %v, got: %v", expected, ID)
 		}
