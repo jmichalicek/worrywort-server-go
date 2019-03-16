@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/google/uuid"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
@@ -39,7 +40,8 @@ func addMinutes(d time.Time, increment int) time.Time {
 func makeTestBatch(u worrywort.User, attachUser bool) worrywort.Batch {
 	b := worrywort.Batch{Name: "Testing", BrewedDate: addMinutes(time.Now(), 1), BottledDate: addMinutes(time.Now(), 10),
 		VolumeBoiled: 5, VolumeInFermentor: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
-		UserId: u.Id, BrewNotes: "Brew notes", TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer"}
+		UserId: u.Id, BrewNotes: "Brew notes", TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer",
+		Uuid: uuid.New().String()}
 	if attachUser {
 		b.CreatedBy = &u
 	}
@@ -128,7 +130,7 @@ func TestBatchResolver(t *testing.T) {
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = br.ID()
-		expected := graphql.ID("1")
+		expected := graphql.ID(brewed.Uuid)
 		if ID != expected {
 			t.Errorf("Expected: %v, got: %v", expected, ID)
 		}

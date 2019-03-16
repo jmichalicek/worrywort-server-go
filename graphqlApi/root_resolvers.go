@@ -81,7 +81,8 @@ func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*ba
 	batchArgs := make(map[string]interface{})
 	// TODO: Or if batch is publicly readable by anyone?
 	batchArgs["user_id"] = u.Id
-	batchArgs["id"], err = strconv.ParseInt(string(args.ID), 10, 0)
+	batchArgs["uuid"] = args.ID
+	// batchArgs["id"], err = strconv.ParseInt(string(args.ID), 10, 0)
 
 	if err != nil {
 		log.Printf("%v", err)

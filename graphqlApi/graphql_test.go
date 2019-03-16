@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	txdb "github.com/DATA-DOG/go-txdb"
+	"github.com/google/uuid"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
 	"github.com/graph-gophers/graphql-go"
@@ -204,7 +205,7 @@ func TestBatchQuery(t *testing.T) {
 
 	t.Run("Test query for batch(id: ID!) which exists returns the batch", func(t *testing.T) {
 		variables := map[string]interface{}{
-			"id": strconv.Itoa(int(*b.Id)),
+			"id": b.Uuid,
 		}
 		query := `
 			query getBatch($id: ID!) {
@@ -218,7 +219,7 @@ func TestBatchQuery(t *testing.T) {
 		result := worrywortSchema.Exec(ctx, query, operationName, variables)
 
 		var expected interface{}
-		err := json.Unmarshal([]byte(fmt.Sprintf(`{"batch": {"__typename": "Batch", "id": "%d"}}`, *b.Id)), &expected)
+		err := json.Unmarshal([]byte(fmt.Sprintf(`{"batch": {"__typename": "Batch", "id": "%s"}}`, b.Uuid)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -236,8 +237,9 @@ func TestBatchQuery(t *testing.T) {
 	})
 
 	t.Run("Test query for batch(id: ID!) which does not exist returns null", func(t *testing.T) {
+		badUuid := uuid.New().String()
 		variables := map[string]interface{}{
-			"id": "-1",
+			"id": badUuid,
 		}
 		query := `
 			query getBatch($id: ID!) {
@@ -282,9 +284,9 @@ func TestBatchQuery(t *testing.T) {
 				fmt.Sprintf(
 					`{"batches": {
 						"__typename":"BatchConnection",
-						"edges": [{"__typename": "BatchEdge","node": {"__typename":"Batch","id":"%d"}},
-								  {"__typename": "BatchEdge","node": {"__typename":"Batch","id":"%d"}}]}}`,
-					*b.Id, *b2.Id)), &expected)
+						"edges": [{"__typename": "BatchEdge","node": {"__typename":"Batch","id":"%s"}},
+								  {"__typename": "BatchEdge","node": {"__typename":"Batch","id":"%s"}}]}}`,
+					b.Uuid, b2.Uuid)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -643,7 +645,7 @@ func TestCreateBatchMutation(t *testing.T) {
 
 		// Look up the object in the db to be sure it was created
 		var batchId string = result.CreateBatch.Batch.Id
-		batch, err := worrywort.FindBatch(map[string]interface{}{"user_id": *u.Id, "id": batchId}, db)
+		batch, err := worrywort.FindBatch(map[string]interface{}{"user_id": *u.Id, "uuid": batchId}, db)
 
 		if err == sql.ErrNoRows {
 			t.Error("Batch was not saved to the database. Query returned no results.")
@@ -743,7 +745,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":     strconv.Itoa(int(*batch.Id)),
+				"batchId":     batch.Uuid,
 				"sensorId":    strconv.Itoa(int(*sensor.Id)),
 				"description": "It is associated",
 			},
@@ -791,7 +793,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		}
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":     strconv.Itoa(int(*batch.Id)),
+				"batchId":     batch.Uuid,
 				"sensorId":    strconv.Itoa(int(*sensor.Id)),
 				"description": "It is associated",
 			},
@@ -827,7 +829,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":     strconv.Itoa(int(*batch.Id)),
+				"batchId":     batch.Uuid,
 				"sensorId":    strconv.Itoa(int(*sensor.Id)),
 				"description": "It is associated",
 			},
@@ -852,7 +854,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":     strconv.Itoa(int(*batch2.Id)),
+				"batchId":     batch2.Uuid,
 				"sensorId":    strconv.Itoa(int(*sensor.Id)),
 				"description": "It is associated",
 			},
@@ -877,7 +879,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":     strconv.Itoa(int(*batch.Id)),
+				"batchId":     batch.Uuid,
 				"sensorId":    strconv.Itoa(int(*sensor2.Id)),
 				"description": "It is associated",
 			},
