@@ -117,7 +117,7 @@ func FindBatches(params map[string]interface{}, db *sqlx.DB) ([]*Batch, error) {
 	selectCols := ""
 	queryCols := []string{"id", "name", "brew_notes", "tasting_notes", "brewed_date", "bottled_date",
 		"volume_boiled", "volume_in_fermentor", "volume_units", "original_gravity", "final_gravity", "recipe_url",
-		"max_temperature", "min_temperature", "average_temperature", "created_at", "updated_at", "user_id"}
+		"max_temperature", "min_temperature", "average_temperature", "created_at", "updated_at", "user_id", "uuid"}
 	for _, k := range queryCols {
 		selectCols += fmt.Sprintf("b.%s, ", k)
 	}
@@ -204,7 +204,7 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 // Not sure if this should live here - it works equally well in sensor.go
 // or maybe it should get its own .go file
 type BatchSensor struct {
-	Id              string     `db:"id"` // use a uuid. TODO: Make this null/pointer as well
+	Id              string     `db:"id"` // use a uuid?. TODO: Make this null/pointer as well
 	BatchId         *int64     `db:"batch_id"`
 	SensorId        *int64     `db:"sensor_id"`
 	Description     string     `db:"description"`
@@ -292,7 +292,7 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 
 	selectCols := ""
 	queryCols := []string{"id", "batch_id", "sensor_id", "description", "associated_at", "disassociated_at",
-		"updated_at", "created_at", "uuid"}
+		"updated_at", "created_at"}
 	for _, k := range queryCols {
 		selectCols += fmt.Sprintf("ba.%s, ", k)
 	}
