@@ -16,7 +16,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"os"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -107,32 +106,39 @@ func TestLoginMutation(t *testing.T) {
 		`
 		operationName := ""
 		context := context.Background()
-		result := worrywortSchema.Exec(context, query, operationName, variables)
+		resultData := worrywortSchema.Exec(context, query, operationName, variables)
 
 		// example:
 		// {"login":{"token":"c9d103e1-8320-45fd-8ac6-245d59c01b3d:HRXG69cqTv1kyG6zmsJo0tJNsEKmeCqWH5WeH3H-_IyTHZ46ivz0KyTTfUgun1CNCV3n1HLwizvAET1I2DwJiA=="}}
 		// the hash, the part of the token after the colon, is a base64 encoded sha512 sum
-		// Testing this pattern this far may be a bit overtesting.  Could just test for any string as the token.
-		expected := `\{"login":\{"token":"(.+):([-A-Za-z0-9/+_]+=*)"\}\}`
-		matcher := regexp.MustCompile(expected)
-		// TODO: capture the token and make sure there's an entry in the db for it.
-		matched := matcher.Match(result.Data)
+		type loginPayload struct {
+			Token               string `json:"token"`
+		}
 
-		if !matched {
-			t.Errorf("\nExpected response to match pattern: %s\nGot: %s", expected, result.Data)
+		type loginResponse struct {
+			Login loginPayload `json:"login"`
+		}
+
+		var result loginResponse
+		err = json.Unmarshal(resultData.Data, &result)
+		// t.Fatalf("\n\n\n*****************\n%v\n\n\n", spew.Sdump(result))
+		if err != nil {
+			t.Fatalf("%v", result)
 		}
 
 		// Make sure that the token really was inserted into the db
-		subMatches := matcher.FindStringSubmatch(string(result.Data))
-		tokenId := subMatches[1]
-		// tokenSecret := subMatches[2]
+		parts := strings.Split(result.Login.Token, ":")
+		tokenId := parts[0]
 		newToken := worrywort.AuthToken{}
 		query = db.Rebind(
-			`SELECT t.token_id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, u.id "user.id", u.first_name "user.first_name", u.last_name "user.last_name", ` +
-				`u.email "user.email", u.created_at "user.created_at", u.updated_at "user.updated_at", u.password "user.password" FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id ` +
-				`WHERE t.token_id = ?`)
-		err := db.Get(&newToken, query, tokenId)
+			`SELECT t.id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, u.id "user.id",
+				u.first_name "user.first_name", u.last_name "user.last_name", u.email "user.email",
+				u.created_at "user.created_at", u.updated_at "user.updated_at", u.password "user.password"
+			 FROM user_authtokens t
+			 INNER JOIN users u ON t.user_id = u.id
+			 WHERE t.id = ?`)
 
+		err := db.Get(&newToken, query, tokenId)
 		if err != nil {
 			t.Errorf("Error looking up newly created token: %v", err)
 		}

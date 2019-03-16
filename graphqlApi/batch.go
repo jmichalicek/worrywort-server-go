@@ -290,7 +290,7 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 		log.Printf("%v: %v", err, spew.Sdump(input))
 		return nil, SERVER_ERROR
 	}
-	batchId := int32(batchId64)
+	batchId := int64(batchId64)
 	batchPtr, err := worrywort.FindBatch(map[string]interface{}{"user_id": *u.Id, "id": batchId}, db)
 	if err != nil || batchPtr == nil {
 		if err != sql.ErrNoRows {

@@ -11,7 +11,7 @@ import (
 
 func TestTokenMiddleware(t *testing.T) {
 	// Handler
-	uid := int32(1)
+	uid := int64(1)
 	expectedUser := worrywort.User{Id: &uid, Email: "jmichalicek@gmail.com", FirstName: "Justin", LastName: "Michalicek",
 		CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	getUser := func(token string) (worrywort.User, error) { return expectedUser, nil }
@@ -48,7 +48,7 @@ func TestTokenMiddleware(t *testing.T) {
 	t.Run("Valid token header with already set user should leave existing user in context", func(t *testing.T) {
 		// If a user is already set, such as by a different auth middleware such as http basic or jwt
 		// then this middleware should not change that.
-		uid := int32(2)
+		uid := int64(2)
 		u := worrywort.NewUser(&uid, "jmichalicek@gmail.com", "Justin", "Michalicek", time.Now(), time.Now())
 		req, _ := http.NewRequest("GET", "/", nil)
 		req.Header.Set("Authorization", "token 12345")

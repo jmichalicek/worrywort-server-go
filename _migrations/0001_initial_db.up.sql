@@ -6,14 +6,15 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 BEGIN;
 -- id for PK because I'm lazy and so used to standard ORM rules
--- SERIAL and not BIGSERIAL because graphql only does 32 bit signed int anyway
+-- BIGSERIAL for slim chance of running out of PKs while providing higher performance and lower
+-- memory usage than uuid for PK.  Everything will get a uuid, though.
 -- Use of text rather than varchar(n) based on info at https://www.postgresql.org/docs/current/static/datatype-character.html
 
 -- Using is_admin boolean for simplicity.  Only need 2 "groups" right now, admins and users.  No point in complicating
 -- user lookups and permission checks by checking the group
 
 CREATE TABLE IF NOT EXISTS users(
-  id SERIAL PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   first_name text DEFAULT '',
   last_name text DEFAULT '',
   email text DEFAULT '',
@@ -27,7 +28,8 @@ CREATE TABLE IF NOT EXISTS users(
 CREATE INDEX IF NOT EXISTS users_email_lower_idx ON users ((lower(email)));
 
 CREATE TABLE IF NOT EXISTS user_authtokens(
-  token_id text PRIMARY KEY,
+  -- token_id text PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   token text DEFAULT '',
   is_active boolean DEFAULT TRUE,
   user_id integer REFERENCES users (id) ON DELETE CASCADE,
@@ -43,7 +45,7 @@ CREATE TABLE IF NOT EXISTS user_authtokens(
  * intended to go out a graphql interface which specifies using doubles
  */
 CREATE TABLE IF NOT EXISTS batches(
-  id SERIAL PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   user_id integer REFERENCES users (id) ON DELETE SET NULL,
   name text NOT NULL DEFAULT '',
   brew_notes text NOT NULL DEFAULT '',
@@ -66,7 +68,7 @@ CREATE TABLE IF NOT EXISTS batches(
 
 -- May remove Fermentors for now - they have no real use case
 CREATE TABLE IF NOT EXISTS fermentors(
-  id SERIAL PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   user_id integer REFERENCES users (id) ON DELETE SET NULL,
   batch_id integer REFERENCES batches (id) ON DELETE SET NULL,
   name text NOT NULL DEFAULT '',
@@ -82,7 +84,7 @@ CREATE TABLE IF NOT EXISTS fermentors(
 );
 
 CREATE TABLE IF NOT EXISTS sensors(
-  id SERIAL PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   user_id integer REFERENCES users (id) ON DELETE SET NULL,
   name text NOT NULL DEFAULT '',
   description text NOT NULL DEFAULT '',

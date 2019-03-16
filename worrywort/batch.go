@@ -11,14 +11,14 @@ import (
 )
 
 // Seems like these types should go in a different file for clarity, but not sure where
-type VolumeUnitType int32
+type VolumeUnitType int64
 
 const (
 	GALLON VolumeUnitType = iota
 	QUART
 )
 
-type TemperatureUnitType int32
+type TemperatureUnitType int64
 
 const (
 	FAHRENHEIT TemperatureUnitType = iota
@@ -32,9 +32,9 @@ const (
 var TypeError error = errors.New("Invalid type specified")
 
 type Batch struct {
-	Id                *int32         `db:"id"`
+	Id                *int64         `db:"id"`
 	CreatedBy         *User          `db:"created_by,prefix=u"` // TODO: think I will change this to User
-	UserId            *int32         `db:"user_id"`
+	UserId            *int64         `db:"user_id"`
 	Name              string         `db:"name"`
 	BrewNotes         string         `db:"brew_notes"`
 	TastingNotes      string         `db:"tasting_notes"`
@@ -151,7 +151,7 @@ func InsertBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	// TODO: TEST CASE
 	var updatedAt time.Time
 	var createdAt time.Time
-	batchId := new(int32)
+	batchId := new(int64)
 
 	query := db.Rebind(`INSERT INTO batches (user_id, name, brew_notes, tasting_notes, brewed_date, bottled_date,
 		volume_boiled, volume_in_fermentor, volume_units, original_gravity, final_gravity, recipe_url, max_temperature,
@@ -202,8 +202,8 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 // or maybe it should get its own .go file
 type BatchSensor struct {
 	Id              string     `db:"id"` // use a uuid. TODO: Make this null/pointer as well
-	BatchId         *int32     `db:"batch_id"`
-	SensorId        *int32     `db:"sensor_id"`
+	BatchId         *int64     `db:"batch_id"`
+	SensorId        *int64     `db:"sensor_id"`
 	Description     string     `db:"description"`
 	AssociatedAt    time.Time  `db:"associated_at"`
 	DisassociatedAt *time.Time `db:"disassociated_at"`

@@ -155,7 +155,7 @@ func (r *Resolver) Sensor(ctx context.Context, args struct{ ID graphql.ID }) (*s
 		log.Printf("%v for input: %v", err, spew.Sdump(args))
 		return nil, err
 	}
-	sensorId := int32(_sensorId) // does this need to happen or is passing an int64 in ok here?
+	sensorId := int64(_sensorId) // does this need to happen or is passing an int64 in ok here?
 
 	sensor, err := worrywort.FindSensor(map[string]interface{}{"id": sensorId, "user_id": *user.Id}, db)
 	if err != nil {
@@ -342,13 +342,16 @@ func (r *Resolver) Login(args *struct {
 
 	token, err := worrywort.GenerateTokenForUser(*user, worrywort.TOKEN_SCOPE_ALL)
 	if err != nil {
+		log.Printf("*****ERRR*****\n%v\n", err)
 		return nil, err
 	}
+	tokenPtr := &token
 
-	err = token.Save(r.db)
+	err = tokenPtr.Save(r.db)
 	if err != nil {
+		log.Printf("%s", err)
 		return nil, err
 	}
 	atr := authTokenResolver{t: token}
-	return &atr, nil
+	return &atr, err
 }

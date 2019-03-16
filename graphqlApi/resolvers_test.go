@@ -55,7 +55,7 @@ func TestUserResolver(t *testing.T) {
 
 	createdAt := time.Now()
 	updatedAt := time.Now()
-	uid := int32(1)
+	uid := int64(1)
 	u := worrywort.NewUser(&uid, "user@example.com", "Justin", "Michalicek", createdAt, updatedAt)
 	r := userResolver{u: &u}
 
@@ -117,7 +117,7 @@ func TestBatchResolver(t *testing.T) {
 
 	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
 	brewed := makeTestBatch(u, true)
-	bId := int32(1)
+	bId := int64(1)
 	brewed.Id = &bId
 	unbrewed := makeTestBatch(u, true)
 	unbrewed.BrewedDate = time.Time{}
@@ -308,7 +308,7 @@ func TestFermentorResolver(t *testing.T) {
 	ctx = context.WithValue(ctx, "db", db)
 
 	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
-	fId := int32(1)
+	fId := int64(1)
 	f := worrywort.Fermentor{Id: &fId, CreatedAt: time.Now(), UpdatedAt: time.Now(), Name: "Ferm", Description: "A Fermentor", Volume: 5.0, VolumeUnits: worrywort.GALLON,
 		FermentorType: worrywort.BUCKET, IsActive: true, IsAvailable: true, CreatedBy: &u, UserId: u.Id}
 	r := fermentorResolver{f: &f}
@@ -369,7 +369,7 @@ func TestSensorResolver(t *testing.T) {
 	ctx = context.WithValue(ctx, "db", db)
 
 	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
-	sId := int32(1)
+	sId := int64(1)
 	sensor := worrywort.Sensor{Id: &sId, Name: "Therm1", UserId: u.Id, CreatedBy: &u, CreatedAt: time.Now(),
 		UpdatedAt: time.Now()}
 	r := sensorResolver{s: &sensor}
@@ -532,9 +532,10 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 }
 
 func TestAuthTokenResolver(t *testing.T) {
-	uId := int32(1)
+	uId := int64(1)
 	u := worrywort.NewUser(&uId, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	token := worrywort.NewToken("tokenid", "token", u, worrywort.TOKEN_SCOPE_ALL)
+	token := worrywort.NewToken("token", u, worrywort.TOKEN_SCOPE_ALL)
+	token.Id = "tokenid"
 	r := authTokenResolver{t: token}
 
 	t.Run("ID()", func(t *testing.T) {
