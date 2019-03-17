@@ -13,7 +13,7 @@ import (
 // going too far for now, so keep it simple.
 type Sensor struct {
 	Id        *int64 `db:"id"`
-	Uuid              string         `db:"uuid"`
+	Uuid      string `db:"uuid"`
 	Name      string `db:"name"`
 	CreatedBy *User  `db:"created_by,prefix=u"`
 	UserId    *int64 `db:"user_id"`

@@ -89,7 +89,6 @@ func (b Batch) StrictEqual(other Batch) bool {
 		b.CreatedAt.Equal(other.CreatedAt) //&& b.UpdatedAt().Equal(other.UpdatedAt())
 }
 
-
 // I wonder if this can be further meged in with buildTemperatureMeasuremensQuery
 // and does it need to return the []interface{} for values?
 func buildBatchesQuery(params map[string]interface{}, db *sqlx.DB) (string, []interface{}) {

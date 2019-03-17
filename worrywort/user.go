@@ -23,7 +23,7 @@ type User struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
 	// TODO: Considering having a separate username from the email
 	Id        *int64 `db:"id"`
-	Uuid              string         `db:"uuid"`
+	Uuid      string `db:"uuid"`
 	FirstName string `db:"first_name"`
 	LastName  string `db:"last_name"`
 	Email     string `db:"email"`

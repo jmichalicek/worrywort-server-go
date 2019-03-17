@@ -6,9 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	txdb "github.com/DATA-DOG/go-txdb"
-	"github.com/google/uuid"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/graphqlApi"
@@ -113,7 +113,7 @@ func TestLoginMutation(t *testing.T) {
 		// {"login":{"token":"c9d103e1-8320-45fd-8ac6-245d59c01b3d:HRXG69cqTv1kyG6zmsJo0tJNsEKmeCqWH5WeH3H-_IyTHZ46ivz0KyTTfUgun1CNCV3n1HLwizvAET1I2DwJiA=="}}
 		// the hash, the part of the token after the colon, is a base64 encoded sha512 sum
 		type loginPayload struct {
-			Token               string `json:"token"`
+			Token string `json:"token"`
 		}
 
 		type loginResponse struct {

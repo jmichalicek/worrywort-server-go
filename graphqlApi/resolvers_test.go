@@ -59,7 +59,7 @@ func TestUserResolver(t *testing.T) {
 	updatedAt := time.Now()
 	uid := int64(1)
 	u := worrywort.User{Id: &uid, Uuid: uuid.New().String(), Email: "user@example.com", FirstName: "Justin",
-	 	LastName: "Michalicek", CreatedAt: createdAt, UpdatedAt: updatedAt}
+		LastName: "Michalicek", CreatedAt: createdAt, UpdatedAt: updatedAt}
 	r := userResolver{u: &u}
 
 	t.Run("ID()", func(t *testing.T) {
