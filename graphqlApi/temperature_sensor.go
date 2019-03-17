@@ -7,7 +7,6 @@ import (
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
 	"log"
-	"strconv"
 )
 
 // Resolve a worrywort.Sensor
@@ -16,11 +15,11 @@ type sensorResolver struct {
 }
 
 func (r *sensorResolver) ID() graphql.ID {
-	if r.s == nil && r.s.Id == nil {
+	if r.s == nil {
 		log.Printf("sensor resolver with nil id: %s", spew.Sdump(r))
 		return graphql.ID("")
 	}
-	return graphql.ID(strconv.Itoa(int(*r.s.Id)))
+	return graphql.ID(r.s.Uuid)
 }
 func (r *sensorResolver) CreatedAt() string { return dateString(r.s.CreatedAt) }
 func (r *sensorResolver) UpdatedAt() string { return dateString(r.s.UpdatedAt) }

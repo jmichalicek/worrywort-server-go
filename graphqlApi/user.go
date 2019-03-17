@@ -5,7 +5,6 @@ import (
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"log"
-	"strconv"
 )
 
 type userResolver struct {
@@ -13,11 +12,11 @@ type userResolver struct {
 }
 
 func (r *userResolver) ID() graphql.ID {
-	if r.u == nil || r.u.Id == nil {
-		log.Printf("user resolver with nil id: %s", spew.Sdump(r))
+	if r.u == nil {
+		log.Printf("user resolver with nil user: %s", spew.Sdump(r))
 		return graphql.ID("")
 	} else {
-		return graphql.ID(strconv.Itoa(int(*r.u.Id)))
+		return graphql.ID(r.u.Uuid)
 	}
 }
 func (r *userResolver) FirstName() string { return r.u.FirstName }

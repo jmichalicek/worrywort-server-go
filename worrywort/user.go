@@ -23,6 +23,7 @@ type User struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
 	// TODO: Considering having a separate username from the email
 	Id        *int64 `db:"id"`
+	Uuid      string `db:"uuid"`
 	FirstName string `db:"first_name"`
 	LastName  string `db:"last_name"`
 	Email     string `db:"email"`
@@ -80,17 +81,19 @@ func InsertUser(db *sqlx.DB, u User) (User, error) {
 	var createdAt time.Time
 	// var userId *int64 = nil
 	userId := new(int64)
+	guid := new(string)
 
 	query := db.Rebind(`INSERT INTO users (email, first_name, last_name, password, created_at, updated_at)
-		VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at`)
+		VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING id, uuid, created_at, updated_at`)
 	// TODO: just use StructScan?  Or at least scan right into user.Id?
 	err := db.QueryRow(
-		query, u.Email, u.FirstName, u.LastName, u.Password).Scan(userId, &createdAt, &updatedAt)
+		query, u.Email, u.FirstName, u.LastName, u.Password).Scan(userId, guid, &createdAt, &updatedAt)
 	if err != nil {
 		return u, err
 	}
 
 	u.Id = userId
+	u.Uuid = *guid
 	u.CreatedAt = createdAt
 	u.UpdatedAt = updatedAt
 	return u, nil
@@ -121,7 +124,7 @@ func LookupUser(id int64, db *sqlx.DB) (*User, error) {
 	// or keep that separate?
 	u := User{}
 	query := db.Rebind(
-		`SELECT id, first_name, last_name, email, password, created_at, updated_at, password FROM users WHERE id=?`)
+		`SELECT id, uuid, first_name, last_name, email, password, created_at, updated_at, password FROM users WHERE id=?`)
 	err := db.Get(&u, query, id)
 	if err != nil {
 		return nil, err
@@ -133,12 +136,14 @@ func LookupUser(id int64, db *sqlx.DB) (*User, error) {
 // matches that of the user.
 // TODO: Just return a pointer to the user, nil if no user found or do a django-like AnonymousUser
 // and make an interface for User and AnonymousUser
+// TODO: de-duplicate as much of this as possible from LookupUser() - make that take args like the rest of the Find*
+// functions and look up that way.
 func AuthenticateLogin(username, password string, db *sqlx.DB) (*User, error) {
 	u := new(User)
 	u.Id = nil
 
 	query := db.Rebind(
-		"SELECT id, email, first_name, last_name, created_at, updated_at, password FROM users WHERE email = ?")
+		"SELECT id, uuid, email, first_name, last_name, created_at, updated_at, password FROM users WHERE email = ?")
 	err := db.Get(u, query, username)
 	// I believe due to postgres having user_id be not null, our id is always a pointer to 0 after this
 	// if the user was not found, which throws things off.
@@ -175,9 +180,11 @@ func LookupUserByToken(tokenStr string, db *sqlx.DB) (User, error) {
 	tokenSecret := tokenParts[1]
 	token := AuthToken{}
 	query := db.Rebind(
-		`SELECT t.id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, u.id "user.id", u.first_name "user.first_name", u.last_name "user.last_name", ` +
-			`u.email "user.email", u.created_at "user.created_at", u.updated_at "user.updated_at", u.password "user.password" FROM user_authtokens t LEFT JOIN users u ON t.user_id = u.id ` +
-			`WHERE t.id = ? AND (t.expires_at IS NULL OR t.expires_at > ?)`)
+		`SELECT t.id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, u.id "user.id", u.uuid "user.uuid",
+			u.first_name "user.first_name", u.last_name "user.last_name", u.email "user.email", u.created_at "user.created_at",
+			u.updated_at "user.updated_at", u.password "user.password" FROM user_authtokens t
+			LEFT JOIN users u ON t.user_id = u.id
+			WHERE t.id = ? AND (t.expires_at IS NULL OR t.expires_at > ?)`)
 	err := db.Get(&token, query, tokenId, time.Now())
 
 	if err != nil {

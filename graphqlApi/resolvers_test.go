@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/google/uuid"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
@@ -39,7 +40,8 @@ func addMinutes(d time.Time, increment int) time.Time {
 func makeTestBatch(u worrywort.User, attachUser bool) worrywort.Batch {
 	b := worrywort.Batch{Name: "Testing", BrewedDate: addMinutes(time.Now(), 1), BottledDate: addMinutes(time.Now(), 10),
 		VolumeBoiled: 5, VolumeInFermentor: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
-		UserId: u.Id, BrewNotes: "Brew notes", TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer"}
+		UserId: u.Id, BrewNotes: "Brew notes", TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer",
+		Uuid: uuid.New().String()}
 	if attachUser {
 		b.CreatedBy = &u
 	}
@@ -56,12 +58,13 @@ func TestUserResolver(t *testing.T) {
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	uid := int64(1)
-	u := worrywort.NewUser(&uid, "user@example.com", "Justin", "Michalicek", createdAt, updatedAt)
+	u := worrywort.User{Id: &uid, Uuid: uuid.New().String(), Email: "user@example.com", FirstName: "Justin",
+		LastName: "Michalicek", CreatedAt: createdAt, UpdatedAt: updatedAt}
 	r := userResolver{u: &u}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = r.ID()
-		expected := graphql.ID("1")
+		expected := graphql.ID(u.Uuid)
 		if ID != expected {
 			t.Errorf("Expected: %v, got: %v", expected, ID)
 		}
@@ -128,7 +131,7 @@ func TestBatchResolver(t *testing.T) {
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = br.ID()
-		expected := graphql.ID("1")
+		expected := graphql.ID(brewed.Uuid)
 		if ID != expected {
 			t.Errorf("Expected: %v, got: %v", expected, ID)
 		}
@@ -310,12 +313,13 @@ func TestFermentorResolver(t *testing.T) {
 	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
 	fId := int64(1)
 	f := worrywort.Fermentor{Id: &fId, CreatedAt: time.Now(), UpdatedAt: time.Now(), Name: "Ferm", Description: "A Fermentor", Volume: 5.0, VolumeUnits: worrywort.GALLON,
-		FermentorType: worrywort.BUCKET, IsActive: true, IsAvailable: true, CreatedBy: &u, UserId: u.Id}
+		FermentorType: worrywort.BUCKET, IsActive: true, IsAvailable: true, CreatedBy: &u, UserId: u.Id,
+		Uuid: uuid.New().String()}
 	r := fermentorResolver{f: &f}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = r.ID()
-		expected := graphql.ID("1")
+		expected := graphql.ID(f.Uuid)
 		if ID != expected {
 			t.Errorf("Expected: %v, got: %v", expected, ID)
 		}
@@ -371,12 +375,12 @@ func TestSensorResolver(t *testing.T) {
 	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
 	sId := int64(1)
 	sensor := worrywort.Sensor{Id: &sId, Name: "Therm1", UserId: u.Id, CreatedBy: &u, CreatedAt: time.Now(),
-		UpdatedAt: time.Now()}
+		UpdatedAt: time.Now(), Uuid: uuid.New().String()}
 	r := sensorResolver{s: &sensor}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = r.ID()
-		expected := graphql.ID("1")
+		expected := graphql.ID(sensor.Uuid)
 		if ID != expected {
 			t.Errorf("Expected: %v, got: %v", expected, ID)
 		}

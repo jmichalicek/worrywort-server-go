@@ -381,11 +381,17 @@ func TestFindBatches(t *testing.T) {
 		VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedAt: createdAt,
 		UpdatedAt: updatedAt, BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
 	b, err = SaveBatch(db, b)
+	if err != nil {
+		t.Fatalf("Unexpected error saving batch: %s", err)
+	}
 
 	b2 := Batch{Name: "Testing 2", UserId: u.Id, BrewedDate: time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond), VolumeBoiled: 5, VolumeInFermentor: 4.5,
 		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedAt: createdAt, UpdatedAt: updatedAt,
 		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer", BottledDate: time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond)}
 	b2, err = SaveBatch(db, b2)
+	if err != nil {
+		t.Fatalf("Unexpected error saving batch: %s", err)
+	}
 
 	u2batch := Batch{Name: "Testing 2", UserId: u2.Id, BrewedDate: time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond),
 		VolumeBoiled: 5, VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
@@ -406,9 +412,7 @@ func TestFindBatches(t *testing.T) {
 
 	expected := []*Batch{&b, &b2}
 	if !cmp.Equal(expected, batches) {
-		// Not sure what format I prefer here.
-		// t.Errorf("Expected: -  Got: +\n%s", cmp.Diff(expected, batches))
-		t.Errorf("Expected: %s\nGot: %s", spew.Sdump(expected[0]), spew.Sdump(batches[0]))
+		t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(expected, batches))
 	}
 }
 

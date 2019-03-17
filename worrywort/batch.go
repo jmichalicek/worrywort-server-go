@@ -33,6 +33,7 @@ var TypeError error = errors.New("Invalid type specified")
 
 type Batch struct {
 	Id                *int64         `db:"id"`
+	Uuid              string         `db:"uuid"`
 	CreatedBy         *User          `db:"created_by,prefix=u"` // TODO: think I will change this to User
 	UserId            *int64         `db:"user_id"`
 	Name              string         `db:"name"`
@@ -88,24 +89,13 @@ func (b Batch) StrictEqual(other Batch) bool {
 		b.CreatedAt.Equal(other.CreatedAt) //&& b.UpdatedAt().Equal(other.UpdatedAt())
 }
 
-// Find a batch by exact match of attributes
-// Currently allows lookup by `id` and `user_id`
-// TODO: Use fields() to iterate over the fields and use the `db`
-// tag to map field name to db field.
-func FindBatch(params map[string]interface{}, db *sqlx.DB) (*Batch, error) {
-	// TODO: This is a dumb way to do it and I should do it like in temperature_measurement.go
-	batches, err := FindBatches(params, db)
-	if err == nil && len(batches) >= 1 {
-		return batches[0], err
-	}
-	return nil, err
-}
-
-func FindBatches(params map[string]interface{}, db *sqlx.DB) ([]*Batch, error) {
-	batches := []*Batch{}
+// I wonder if this can be further meged in with buildTemperatureMeasuremensQuery
+// and does it need to return the []interface{} for values?
+func buildBatchesQuery(params map[string]interface{}, db *sqlx.DB) (string, []interface{}) {
 	var values []interface{}
 	var where []string
-	for _, k := range []string{"id", "user_id"} {
+	for _, k := range []string{"id", "user_id", "uuid"} {
+		// TODO: return error if not ok?
 		if v, ok := params[k]; ok {
 			values = append(values, v)
 			// TODO: Deal with values from batch OR user table
@@ -116,7 +106,7 @@ func FindBatches(params map[string]interface{}, db *sqlx.DB) ([]*Batch, error) {
 	selectCols := ""
 	queryCols := []string{"id", "name", "brew_notes", "tasting_notes", "brewed_date", "bottled_date",
 		"volume_boiled", "volume_in_fermentor", "volume_units", "original_gravity", "final_gravity", "recipe_url",
-		"max_temperature", "min_temperature", "average_temperature", "created_at", "updated_at", "user_id"}
+		"max_temperature", "min_temperature", "average_temperature", "created_at", "updated_at", "user_id", "uuid"}
 	for _, k := range queryCols {
 		selectCols += fmt.Sprintf("b.%s, ", k)
 	}
@@ -124,13 +114,33 @@ func FindBatches(params map[string]interface{}, db *sqlx.DB) ([]*Batch, error) {
 	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batches b WHERE ` +
 		strings.Join(where, " AND ")
 
-	query := db.Rebind(q)
+	return db.Rebind(q), values
+}
+
+// Find a batch by exact match of attributes
+// Currently allows lookup by `id` and `user_id`
+// TODO: Use fields() to iterate over the fields and use the `db`
+// tag to map field name to db field.
+func FindBatch(params map[string]interface{}, db *sqlx.DB) (*Batch, error) {
+	// TODO: This is a dumb way to do it and I should do it like in temperature_measurement.go
+	batch := new(Batch)
+	query, values := buildBatchesQuery(params, db)
+	err := db.Get(batch, query, values...)
+	if err != nil {
+		return nil, err
+	}
+	return batch, err
+}
+
+func FindBatches(params map[string]interface{}, db *sqlx.DB) ([]*Batch, error) {
+	batches := []*Batch{}
+	query, values := buildBatchesQuery(params, db)
 	err := db.Select(&batches, query, values...)
 
 	if err != nil {
 		return nil, err
 	}
-	return batches, nil
+	return batches, err
 }
 
 // Save the User to the database.  If User.Id() is 0
@@ -152,16 +162,17 @@ func InsertBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	var updatedAt time.Time
 	var createdAt time.Time
 	batchId := new(int64)
+	batchUuid := new(string)
 
 	query := db.Rebind(`INSERT INTO batches (user_id, name, brew_notes, tasting_notes, brewed_date, bottled_date,
 		volume_boiled, volume_in_fermentor, volume_units, original_gravity, final_gravity, recipe_url, max_temperature,
 		min_temperature, average_temperature, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at`)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at, uuid`)
 
 	err := db.QueryRow(
 		query, b.UserId, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
 		b.VolumeBoiled, b.VolumeInFermentor, b.VolumeUnits, b.OriginalGravity, b.FinalGravity, b.RecipeURL,
-		b.MaxTemperature, b.MinTemperature, b.AverageTemperature).Scan(batchId, &createdAt, &updatedAt)
+		b.MaxTemperature, b.MinTemperature, b.AverageTemperature).Scan(batchId, &createdAt, &updatedAt, batchUuid)
 	if err != nil {
 		return b, err
 	}
@@ -170,6 +181,7 @@ func InsertBatch(db *sqlx.DB, b Batch) (Batch, error) {
 	b.Id = batchId
 	b.CreatedAt = createdAt
 	b.UpdatedAt = updatedAt
+	b.Uuid = *batchUuid
 	return b, nil
 }
 
@@ -201,7 +213,7 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 // Not sure if this should live here - it works equally well in sensor.go
 // or maybe it should get its own .go file
 type BatchSensor struct {
-	Id              string     `db:"id"` // use a uuid. TODO: Make this null/pointer as well
+	Id              string     `db:"id"` // use a uuid?. TODO: Make this null/pointer as well
 	BatchId         *int64     `db:"batch_id"`
 	SensorId        *int64     `db:"sensor_id"`
 	Description     string     `db:"description"`
@@ -296,12 +308,12 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 
 	batchQueryCols := []string{"id", "name", "brew_notes", "tasting_notes", "brewed_date", "bottled_date",
 		"volume_boiled", "volume_in_fermentor", "volume_units", "original_gravity", "final_gravity", "recipe_url",
-		"max_temperature", "min_temperature", "average_temperature", "created_at", "updated_at", "user_id"}
+		"max_temperature", "min_temperature", "average_temperature", "created_at", "updated_at", "user_id", "uuid"}
 	for _, k := range batchQueryCols {
 		selectCols += fmt.Sprintf("b.%s AS \"b.%s\", ", k, k)
 	}
 
-	sensorQueryCols := []string{"id", "name", "created_at", "updated_at", "user_id"}
+	sensorQueryCols := []string{"id", "name", "created_at", "updated_at", "user_id", "uuid"}
 	for _, k := range sensorQueryCols {
 		selectCols += fmt.Sprintf("s.%s AS \"s.%s\", ", k, k)
 	}

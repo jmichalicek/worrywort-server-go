@@ -8,6 +8,7 @@ import (
 	txdb "github.com/DATA-DOG/go-txdb"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/graphqlApi"
@@ -112,7 +113,7 @@ func TestLoginMutation(t *testing.T) {
 		// {"login":{"token":"c9d103e1-8320-45fd-8ac6-245d59c01b3d:HRXG69cqTv1kyG6zmsJo0tJNsEKmeCqWH5WeH3H-_IyTHZ46ivz0KyTTfUgun1CNCV3n1HLwizvAET1I2DwJiA=="}}
 		// the hash, the part of the token after the colon, is a base64 encoded sha512 sum
 		type loginPayload struct {
-			Token               string `json:"token"`
+			Token string `json:"token"`
 		}
 
 		type loginResponse struct {
@@ -131,7 +132,7 @@ func TestLoginMutation(t *testing.T) {
 		tokenId := parts[0]
 		newToken := worrywort.AuthToken{}
 		query = db.Rebind(
-			`SELECT t.id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, u.id "user.id",
+			`SELECT t.id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, u.id "user.id", u.uuid "user.uuid",
 				u.first_name "user.first_name", u.last_name "user.last_name", u.email "user.email",
 				u.created_at "user.created_at", u.updated_at "user.updated_at", u.password "user.password"
 			 FROM user_authtokens t
@@ -148,10 +149,57 @@ func TestLoginMutation(t *testing.T) {
 		}
 
 		if !cmp.Equal(newToken.User, user) {
-			t.Errorf("Expected: - | Got +\n%s", cmp.Diff(newToken, user))
+			t.Errorf("Expected: - | Got +\n%s", cmp.Diff(newToken.User, user))
 			// t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
 		}
 	})
+}
+
+func TestCurrentUserQuery(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u, err = worrywort.SaveUser(db, u)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "db", db)
+	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+
+	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	query := `
+		query currentUser {
+			currentUser {
+				__typename
+				id
+			}
+		}
+	`
+	operationName := ""
+	result := worrywortSchema.Exec(ctx, query, operationName, nil)
+
+	var expected interface{}
+	err = json.Unmarshal([]byte(fmt.Sprintf(`{"currentUser": {"__typename": "User", "id": "%s"}}`, u.Uuid)), &expected)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	var actual interface{}
+	err = json.Unmarshal(result.Data, &actual)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	if !cmp.Equal(expected, actual) {
+		t.Errorf("Expected: - | Got +\n%s", cmp.Diff(expected, actual))
+	}
+
 }
 
 func TestBatchQuery(t *testing.T) {
@@ -204,7 +252,7 @@ func TestBatchQuery(t *testing.T) {
 
 	t.Run("Test query for batch(id: ID!) which exists returns the batch", func(t *testing.T) {
 		variables := map[string]interface{}{
-			"id": strconv.Itoa(int(*b.Id)),
+			"id": b.Uuid,
 		}
 		query := `
 			query getBatch($id: ID!) {
@@ -218,7 +266,7 @@ func TestBatchQuery(t *testing.T) {
 		result := worrywortSchema.Exec(ctx, query, operationName, variables)
 
 		var expected interface{}
-		err := json.Unmarshal([]byte(fmt.Sprintf(`{"batch": {"__typename": "Batch", "id": "%d"}}`, *b.Id)), &expected)
+		err := json.Unmarshal([]byte(fmt.Sprintf(`{"batch": {"__typename": "Batch", "id": "%s"}}`, b.Uuid)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -236,8 +284,9 @@ func TestBatchQuery(t *testing.T) {
 	})
 
 	t.Run("Test query for batch(id: ID!) which does not exist returns null", func(t *testing.T) {
+		badUuid := uuid.New().String()
 		variables := map[string]interface{}{
-			"id": "-1",
+			"id": badUuid,
 		}
 		query := `
 			query getBatch($id: ID!) {
@@ -282,9 +331,9 @@ func TestBatchQuery(t *testing.T) {
 				fmt.Sprintf(
 					`{"batches": {
 						"__typename":"BatchConnection",
-						"edges": [{"__typename": "BatchEdge","node": {"__typename":"Batch","id":"%d"}},
-								  {"__typename": "BatchEdge","node": {"__typename":"Batch","id":"%d"}}]}}`,
-					*b.Id, *b2.Id)), &expected)
+						"edges": [{"__typename": "BatchEdge","node": {"__typename":"Batch","id":"%s"}},
+								  {"__typename": "BatchEdge","node": {"__typename":"Batch","id":"%s"}}]}}`,
+					b.Uuid, b2.Uuid)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -480,7 +529,7 @@ func TestSensorQuery(t *testing.T) {
 
 	t.Run("Test query for sensor(id: ID!) which exists returns the sensor", func(t *testing.T) {
 		variables := map[string]interface{}{
-			"id": strconv.Itoa(int(*sensor1.Id)),
+			"id": sensor1.Uuid,
 		}
 		query := `
 			query getSensor($id: ID!) {
@@ -494,7 +543,7 @@ func TestSensorQuery(t *testing.T) {
 		result := worrywortSchema.Exec(ctx, query, operationName, variables)
 
 		var expected interface{}
-		err := json.Unmarshal([]byte(fmt.Sprintf(`{"sensor": {"__typename": "Sensor", "id": "%d"}}`, *sensor1.Id)), &expected)
+		err := json.Unmarshal([]byte(fmt.Sprintf(`{"sensor": {"__typename": "Sensor", "id": "%s"}}`, sensor1.Uuid)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -513,7 +562,7 @@ func TestSensorQuery(t *testing.T) {
 
 	t.Run("Test query for sensor(id: ID!) which does not exist returns null", func(t *testing.T) {
 		variables := map[string]interface{}{
-			"id": "-1",
+			"id": uuid.New().String(),
 		}
 		query := `
 			query getSensor($id: ID!) {
@@ -553,8 +602,8 @@ func TestSensorQuery(t *testing.T) {
 		err := json.Unmarshal(
 			[]byte(
 				fmt.Sprintf(
-					`{"sensors": {"__typename":"SensorConnection","edges": [{"__typename": "SensorEdge","node": {"__typename":"Sensor","id":"%d"}},{"__typename": "SensorEdge","node": {"__typename":"Sensor","id":"%d"}}]}}`,
-					*sensor1.Id, *sensor2.Id)), &expected)
+					`{"sensors": {"__typename":"SensorConnection","edges": [{"__typename": "SensorEdge","node": {"__typename":"Sensor","id":"%s"}},{"__typename": "SensorEdge","node": {"__typename":"Sensor","id":"%s"}}]}}`,
+					sensor1.Uuid, sensor2.Uuid)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -643,7 +692,7 @@ func TestCreateBatchMutation(t *testing.T) {
 
 		// Look up the object in the db to be sure it was created
 		var batchId string = result.CreateBatch.Batch.Id
-		batch, err := worrywort.FindBatch(map[string]interface{}{"user_id": *u.Id, "id": batchId}, db)
+		batch, err := worrywort.FindBatch(map[string]interface{}{"user_id": *u.Id, "uuid": batchId}, db)
 
 		if err == sql.ErrNoRows {
 			t.Error("Batch was not saved to the database. Query returned no results.")
@@ -743,7 +792,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":     strconv.Itoa(int(*batch.Id)),
+				"batchId":     batch.Uuid,
 				"sensorId":    strconv.Itoa(int(*sensor.Id)),
 				"description": "It is associated",
 			},
@@ -791,7 +840,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		}
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":     strconv.Itoa(int(*batch.Id)),
+				"batchId":     batch.Uuid,
 				"sensorId":    strconv.Itoa(int(*sensor.Id)),
 				"description": "It is associated",
 			},
@@ -827,7 +876,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":     strconv.Itoa(int(*batch.Id)),
+				"batchId":     batch.Uuid,
 				"sensorId":    strconv.Itoa(int(*sensor.Id)),
 				"description": "It is associated",
 			},
@@ -852,7 +901,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":     strconv.Itoa(int(*batch2.Id)),
+				"batchId":     batch2.Uuid,
 				"sensorId":    strconv.Itoa(int(*sensor.Id)),
 				"description": "It is associated",
 			},
@@ -877,7 +926,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":     strconv.Itoa(int(*batch.Id)),
+				"batchId":     batch.Uuid,
 				"sensorId":    strconv.Itoa(int(*sensor2.Id)),
 				"description": "It is associated",
 			},

@@ -20,8 +20,8 @@ type batchResolver struct {
 }
 
 func (r *batchResolver) ID() graphql.ID {
-	if r.b != nil && r.b.Id != nil {
-		return graphql.ID(strconv.Itoa(int(*r.b.Id)))
+	if r.b != nil {
+		return graphql.ID(r.b.Uuid)
 	} else {
 		log.Printf("Resolved batch with no id: %v", spew.Sdump(r))
 		return graphql.ID("")
@@ -285,13 +285,7 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 	var inputPtr *associateSensorToBatchInput = args.Input
 	var input associateSensorToBatchInput = *inputPtr
 
-	batchId64, err := strconv.ParseInt(input.BatchId, 10, 32)
-	if err != nil {
-		log.Printf("%v: %v", err, spew.Sdump(input))
-		return nil, SERVER_ERROR
-	}
-	batchId := int64(batchId64)
-	batchPtr, err := worrywort.FindBatch(map[string]interface{}{"user_id": *u.Id, "id": batchId}, db)
+	batchPtr, err := worrywort.FindBatch(map[string]interface{}{"user_id": *u.Id, "uuid": input.BatchId}, db)
 	if err != nil || batchPtr == nil {
 		if err != sql.ErrNoRows {
 			log.Printf("%v", err)
