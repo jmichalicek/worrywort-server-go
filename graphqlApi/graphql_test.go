@@ -132,7 +132,7 @@ func TestLoginMutation(t *testing.T) {
 		tokenId := parts[0]
 		newToken := worrywort.AuthToken{}
 		query = db.Rebind(
-			`SELECT t.id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, u.id "user.id",
+			`SELECT t.id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, u.id "user.id", u.uuid "user.uuid",
 				u.first_name "user.first_name", u.last_name "user.last_name", u.email "user.email",
 				u.created_at "user.created_at", u.updated_at "user.updated_at", u.password "user.password"
 			 FROM user_authtokens t
@@ -149,10 +149,57 @@ func TestLoginMutation(t *testing.T) {
 		}
 
 		if !cmp.Equal(newToken.User, user) {
-			t.Errorf("Expected: - | Got +\n%s", cmp.Diff(newToken, user))
+			t.Errorf("Expected: - | Got +\n%s", cmp.Diff(newToken.User, user))
 			// t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
 		}
 	})
+}
+
+func TestCurrentUserQuery(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u, err = worrywort.SaveUser(db, u)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "db", db)
+	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+
+	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	query := `
+		query currentUser {
+			currentUser {
+				__typename
+				id
+			}
+		}
+	`
+	operationName := ""
+	result := worrywortSchema.Exec(ctx, query, operationName, nil)
+
+	var expected interface{}
+	err = json.Unmarshal([]byte(fmt.Sprintf(`{"currentUser": {"__typename": "User", "id": "%s"}}`, u.Uuid)), &expected)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	var actual interface{}
+	err = json.Unmarshal(result.Data, &actual)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	if !cmp.Equal(expected, actual) {
+		t.Errorf("Expected: - | Got +\n%s", cmp.Diff(expected, actual))
+	}
+
 }
 
 func TestBatchQuery(t *testing.T) {

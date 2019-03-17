@@ -58,12 +58,13 @@ func TestUserResolver(t *testing.T) {
 	createdAt := time.Now()
 	updatedAt := time.Now()
 	uid := int64(1)
-	u := worrywort.NewUser(&uid, "user@example.com", "Justin", "Michalicek", createdAt, updatedAt)
+	u := worrywort.User{Id: &uid, Uuid: uuid.New().String(), Email: "user@example.com", FirstName: "Justin",
+	 	LastName: "Michalicek", CreatedAt: createdAt, UpdatedAt: updatedAt}
 	r := userResolver{u: &u}
 
 	t.Run("ID()", func(t *testing.T) {
 		var ID graphql.ID = r.ID()
-		expected := graphql.ID("1")
+		expected := graphql.ID(u.Uuid)
 		if ID != expected {
 			t.Errorf("Expected: %v, got: %v", expected, ID)
 		}
