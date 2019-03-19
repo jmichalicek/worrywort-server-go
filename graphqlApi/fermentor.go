@@ -36,7 +36,8 @@ func (r *fermentorResolver) CreatedBy(ctx context.Context) *userResolver {
 			log.Printf("No database in context")
 			return nil
 		}
-		user, err := worrywort.LookupUser(*r.f.UserId, db)
+		user, err := worrywort.FindUser(map[string]interface{}{"id": *r.f.UserId}, db)
+
 		if err != nil {
 			log.Printf("%v", err)
 			return nil

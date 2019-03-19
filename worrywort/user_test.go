@@ -65,12 +65,12 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 	}
 
 	//func TestLookupUser(t *testing.T) {
-	t.Run("TestLookupUser", func(t *testing.T) {
+	t.Run("TestFindUser", func(t *testing.T) {
 		t.Run("Test valid user id returns user", func(t *testing.T) {
-			actual, err := LookupUser(*user.Id, db)
+			actual, err := FindUser(map[string]interface{}{"id": *user.Id}, db)
 
 			if err != nil {
-				t.Errorf("LookupUser() returned error %v", err)
+				t.Errorf("FindUser() returned error %v", err)
 			}
 
 			if !cmp.Equal(user, *actual) {
@@ -79,7 +79,7 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 		})
 
 		t.Run("Test invalid user id returns empty user", func(t *testing.T) {
-			actual, err := LookupUser(0, db)
+			actual, err := FindUser(map[string]interface{}{"id": 0}, db)
 
 			if err != sql.ErrNoRows {
 				t.Errorf("Expected error: %v\ngot: %v\n", sql.ErrNoRows, err)

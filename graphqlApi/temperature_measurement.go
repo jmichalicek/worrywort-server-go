@@ -76,7 +76,7 @@ func (r *temperatureMeasurementResolver) CreatedBy(ctx context.Context) *userRes
 			log.Printf("No database in context")
 			return nil
 		}
-		user, err := worrywort.LookupUser(*r.m.UserId, db)
+		user, err := worrywort.FindUser(map[string]interface{}{"id": *r.m.UserId}, db)
 		if err != nil {
 			log.Printf("%v", err)
 			return nil
