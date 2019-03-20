@@ -116,22 +116,6 @@ func UpdateUser(db *sqlx.DB, u User) (User, error) {
 	return u, nil
 }
 
-// TODO: get all these lookup/find/etc named consistently
-// Looks up the user by id in the database and returns a new User
-func LookupUser(id int64, db *sqlx.DB) (*User, error) {
-	// TODO: rename this FindUser() and implement other query stuff?
-	// TODO: make this return nil if user is not found
-	// or keep that separate?
-	u := User{}
-	query := db.Rebind(
-		`SELECT id, uuid, first_name, last_name, email, password, created_at, updated_at, password FROM users WHERE id=?`)
-	err := db.Get(&u, query, id)
-	if err != nil {
-		return nil, err
-	}
-	return &u, nil
-}
-
 // Looks up the username (or email, as the case is for now) and verifies that the password
 // matches that of the user.
 // TODO: Just return a pointer to the user, nil if no user found or do a django-like AnonymousUser
@@ -142,9 +126,10 @@ func AuthenticateLogin(username, password string, db *sqlx.DB) (*User, error) {
 	u := new(User)
 	u.Id = nil
 
-	query := db.Rebind(
-		"SELECT id, uuid, email, first_name, last_name, created_at, updated_at, password FROM users WHERE email = ?")
-	err := db.Get(u, query, username)
+	u, err := FindUser(map[string]interface{}{"email": username}, db)
+	// query := db.Rebind(
+	// 	"SELECT id, uuid, email, first_name, last_name, created_at, updated_at, password FROM users WHERE email = ?")
+	// err := db.Get(u, query, username)
 	// I believe due to postgres having user_id be not null, our id is always a pointer to 0 after this
 	// if the user was not found, which throws things off.
 	if err != nil {
@@ -210,7 +195,7 @@ func FindUser(params map[string]interface{}, db *sqlx.DB) (*User, error) {
 	user := User{}
 	var values []interface{}
 	var where []string
-	for _, k := range []string{"id", "email"} {
+	for _, k := range []string{"id", "email", "uuid"} {
 		if v, ok := params[k]; ok {
 			values = append(values, v)
 			// TODO: Deal with values from sensor OR user table
@@ -222,7 +207,7 @@ func FindUser(params map[string]interface{}, db *sqlx.DB) (*User, error) {
 	// as in BatchesForUser, this now seems dumb
 	// queryCols := []string{"id", "name", "created_at", "updated_at", "user_id"}
 	// If I need this many places, maybe make a const
-	for _, k := range []string{"id", "email", "first_name", "last_name", "password", "created_at", "updated_at"} {
+	for _, k := range []string{"id", "uuid", "email", "first_name", "last_name", "password", "created_at", "updated_at"} {
 		selectCols += fmt.Sprintf("u.%s, ", k)
 	}
 

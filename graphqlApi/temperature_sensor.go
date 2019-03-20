@@ -39,7 +39,7 @@ func (r *sensorResolver) CreatedBy(ctx context.Context) *userResolver {
 			log.Printf("No database in context")
 			return nil
 		}
-		user, err := worrywort.LookupUser(*r.s.UserId, db)
+		user, err := worrywort.FindUser(map[string]interface{}{"id": *r.s.UserId}, db)
 		if err != nil {
 			log.Printf("%v", err)
 			return nil

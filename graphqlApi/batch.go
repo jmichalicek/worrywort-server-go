@@ -99,8 +99,15 @@ func (r *batchResolver) CreatedBy(ctx context.Context) (*userResolver, error) {
 		log.Printf("No database in context")
 		return nil, SERVER_ERROR
 	}
-	user, err := worrywort.LookupUser(*r.b.UserId, db)
-	return &userResolver{u: user}, err
+	resolved := new(userResolver)
+	user, err := worrywort.FindUser(map[string]interface{}{"id": *r.b.UserId}, db)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("Unexpected error: %v", err)
+		resolved = nil
+	} else {
+		*resolved = userResolver{u: user}
+	}
+	return resolved, err
 }
 
 type batchEdge struct {
