@@ -38,16 +38,9 @@ func (u User) queryColumns() []string {
 	return []string{"id", "first_name", "last_name", "email", "password", "created_at", "updated_at"}
 }
 
-// TODO: Remove NewUser()
-// Returns a new user
-func NewUser(id *int64, email, firstName, lastName string, createdAt, updatedAt time.Time) User {
-	return User{Id: id, Email: email, FirstName: firstName, LastName: lastName, CreatedAt: createdAt,
-		UpdatedAt: updatedAt}
-}
-
 // SetUserPassword hashes the given password and returns a new user with the password set to the bcrypt hashed value
 // using the given hashCost.  If hashCost is less than bcrypt.MinCost then worrywort.DefaultPasswordHashCost is used.
-func SetUserPassword(u User, password string, hashCost int) (User, error) {
+func SetUserPassword(u *User, password string, hashCost int) error {
 	// TODO: abstract this out to allow for easily using a different hashing algorithm
 	// or changing the hash cost, such as to something very low for tests?
 	if hashCost <= bcrypt.MinCost {
@@ -55,16 +48,13 @@ func SetUserPassword(u User, password string, hashCost int) (User, error) {
 	}
 	passwdBytes, err := bcrypt.GenerateFromPassword([]byte(password), hashCost)
 	if err != nil {
-		return u, err
+		return err
 	}
 	u.Password = string(passwdBytes)
-	return u, nil
+	return err
 }
 
-// Save the User to the database.  If User.Id is 0
-// then an insert is performed, otherwise an update on the User matching that id.
-func SaveUser(db *sqlx.DB, u User) (User, error) {
-	// TODO: TEST CASE
+func (u *User) Save(db *sqlx.DB) error {
 	if u.Id == nil || *u.Id == 0 {
 		return InsertUser(db, u)
 	} else {
@@ -75,7 +65,7 @@ func SaveUser(db *sqlx.DB, u User) (User, error) {
 // Inserts the passed in User into the database.
 // Returns a new copy of the user with any updated values set upon success.
 // Returns the same, unmodified User and errors on error
-func InsertUser(db *sqlx.DB, u User) (User, error) {
+func InsertUser(db *sqlx.DB, u *User) error {
 	// TODO: TEST CASE
 	var updatedAt time.Time
 	var createdAt time.Time
@@ -89,20 +79,20 @@ func InsertUser(db *sqlx.DB, u User) (User, error) {
 	err := db.QueryRow(
 		query, u.Email, u.FirstName, u.LastName, u.Password).Scan(userId, guid, &createdAt, &updatedAt)
 	if err != nil {
-		return u, err
+		return err
 	}
 
 	u.Id = userId
 	u.Uuid = *guid
 	u.CreatedAt = createdAt
 	u.UpdatedAt = updatedAt
-	return u, nil
+	return nil
 }
 
 // Saves the passed in user to the database using an UPDATE
 // Returns a new copy of the user with any updated values set upon success.
 // Returns the same, unmodified User and errors on error
-func UpdateUser(db *sqlx.DB, u User) (User, error) {
+func UpdateUser(db *sqlx.DB, u *User) error {
 	// TODO: TEST CASE
 	var updatedAt time.Time
 	query := db.Rebind(`UPDATE users SET email = ?, first_name = ?, last_name = ?, password = ?, updated_at = NOW()
@@ -110,10 +100,10 @@ func UpdateUser(db *sqlx.DB, u User) (User, error) {
 	err := db.QueryRow(
 		query, u.Email, u.FirstName, u.LastName, u.Password, u.Id).Scan(&updatedAt)
 	if err != nil {
-		return u, err
+		return err
 	}
 	u.UpdatedAt = updatedAt
-	return u, nil
+	return nil
 }
 
 // Looks up the username (or email, as the case is for now) and verifies that the password

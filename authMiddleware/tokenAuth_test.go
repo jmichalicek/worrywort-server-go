@@ -49,7 +49,8 @@ func TestTokenMiddleware(t *testing.T) {
 		// If a user is already set, such as by a different auth middleware such as http basic or jwt
 		// then this middleware should not change that.
 		uid := int64(2)
-		u := worrywort.NewUser(&uid, "jmichalicek@gmail.com", "Justin", "Michalicek", time.Now(), time.Now())
+		u := worrywort.User{Id: &uid, Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+
 		req, _ := http.NewRequest("GET", "/", nil)
 		req.Header.Set("Authorization", "token 12345")
 		ctx := req.Context()

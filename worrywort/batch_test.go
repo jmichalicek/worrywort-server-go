@@ -17,7 +17,8 @@ func TestSaveFermentor(t *testing.T) {
 	}
 	defer db.Close()
 
-	u, err := SaveUser(db, User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
@@ -68,8 +69,8 @@ func TestFindSensor(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	u, err = SaveUser(db, u)
+	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
@@ -101,8 +102,8 @@ func TestSaveSensor(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	u, err = SaveUser(db, u)
+	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
@@ -153,7 +154,8 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 	}
 	defer db.Close()
 
-	u, err := SaveUser(db, User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
@@ -258,9 +260,8 @@ func TestTemperatureMeasurementModel(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	u, err = SaveUser(db, u)
-
+	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
@@ -321,9 +322,8 @@ func TestFindBatch(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	u, err = SaveUser(db, u)
-
+	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
@@ -361,12 +361,14 @@ func TestFindBatches(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	u, err = SaveUser(db, u)
+	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
 
-	u2 := NewUser(nil, "user2@example.com", "Justin", "M", time.Now(), time.Now())
-	u2, err = SaveUser(db, u2)
-
+	u2 := User{Email: "user2@example.com", FirstName: "Justin", LastName: "M"}
+	err = u2.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
@@ -427,8 +429,11 @@ func TestBatchSenssorAssociations(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	u, err = SaveUser(db, u)
+	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
 
 	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
 	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)

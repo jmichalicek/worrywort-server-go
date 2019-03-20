@@ -118,7 +118,12 @@ func TestBatchResolver(t *testing.T) {
 	}
 	defer db.Close()
 
-	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
 	brewed := makeTestBatch(u, true)
 	bId := int64(1)
 	brewed.Id = &bId
@@ -310,7 +315,11 @@ func TestFermentorResolver(t *testing.T) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, "db", db)
 
-	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
 	fId := int64(1)
 	f := worrywort.Fermentor{Id: &fId, CreatedAt: time.Now(), UpdatedAt: time.Now(), Name: "Ferm", Description: "A Fermentor", Volume: 5.0, VolumeUnits: worrywort.GALLON,
 		FermentorType: worrywort.BUCKET, IsActive: true, IsAvailable: true, CreatedBy: &u, UserId: u.Id,
@@ -372,7 +381,12 @@ func TestSensorResolver(t *testing.T) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, "db", db)
 
-	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
 	sId := int64(1)
 	sensor := worrywort.Sensor{Id: &sId, Name: "Therm1", UserId: u.Id, CreatedBy: &u, CreatedAt: time.Now(),
 		UpdatedAt: time.Now(), Uuid: uuid.New().String()}
@@ -438,7 +452,12 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, "db", db)
 
-	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -537,7 +556,8 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 
 func TestAuthTokenResolver(t *testing.T) {
 	uId := int64(1)
-	u := worrywort.NewUser(&uId, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u := worrywort.User{Id: &uId, Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek", CreatedAt: time.Now(), UpdatedAt: time.Now()}
+
 	token := worrywort.NewToken("token", u, worrywort.TOKEN_SCOPE_ALL)
 	token.Id = "tokenid"
 	r := authTokenResolver{t: token}
@@ -570,7 +590,12 @@ func TestBatchSensorAssociationResolver(t *testing.T) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, "db", db)
 
-	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
 	sensor := worrywort.Sensor{Name: "Therm1", UserId: u.Id, CreatedBy: &u}
 	sensor, err = worrywort.SaveSensor(db, sensor)
 	if err != nil {
