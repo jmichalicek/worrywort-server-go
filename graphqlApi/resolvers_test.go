@@ -286,7 +286,7 @@ func TestBatchResolver(t *testing.T) {
 
 	t.Run("CreatedBy() without User populated", func(t *testing.T) {
 		batchNoUser := makeTestBatch(u, false)
-		batchNoUser, err = worrywort.SaveBatch(db, batchNoUser)
+		err = batchNoUser.Save(db)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -467,7 +467,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 	batch := makeTestBatch(u, false)
-	batch, err = worrywort.SaveBatch(db, batch)
+	err = batch.Save(db)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}

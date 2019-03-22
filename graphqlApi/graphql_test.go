@@ -229,21 +229,19 @@ func TestBatchQuery(t *testing.T) {
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
 
 	b := makeTestBatch(u, true)
-	b, err = worrywort.SaveBatch(db, b)
+	err = b.Save(db)
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
 
 	b2 := makeTestBatch(u, true)
-	b2, err = worrywort.SaveBatch(db, b2)
-
+	err = b2.Save(db)
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
 
 	u2batch := makeTestBatch(u2, true)
-	u2batch, err = worrywort.SaveBatch(db, u2batch)
-
+	err = u2batch.Save(db)
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
@@ -747,8 +745,8 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 
-	batch, err := worrywort.SaveBatch(
-		db, worrywort.Batch{UserId: u.Id, CreatedBy: &u, Name: "Test batch"})
+	batch := worrywort.Batch{UserId: u.Id, CreatedBy: &u, Name: "Test batch"}
+	err = batch.Save(db)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -765,8 +763,8 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 
-	batch2, err := worrywort.SaveBatch(
-		db, worrywort.Batch{UserId: u2.Id, CreatedBy: &u2, Name: "Test batch 2"})
+	batch2 := worrywort.Batch{UserId: u2.Id, CreatedBy: &u2, Name: "Test batch 2"}
+	err = batch2.Save(db)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -991,8 +989,8 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 
-	batch, err := worrywort.SaveBatch(
-		db, worrywort.Batch{UserId: u.Id, CreatedBy: &u, Name: "Test batch"})
+	batch := worrywort.Batch{UserId: u.Id, CreatedBy: &u, Name: "Test batch"}
+	err = batch.Save(db)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -1003,8 +1001,8 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	batch2, err := worrywort.SaveBatch(
-		db, worrywort.Batch{UserId: u2.Id, CreatedBy: &u, Name: "Test batch 2"})
+	batch2 := worrywort.Batch{UserId: u2.Id, CreatedBy: &u2, Name: "Test batch 2"}
+	err = batch2.Save(db)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -1014,12 +1012,8 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 
-	batch2, err = worrywort.SaveBatch(
-		db, worrywort.Batch{UserId: u2.Id, CreatedBy: &u2, Name: "Test batch 2"})
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-
+	// assoc2 and assoc3 test some bad states which should not happen, but making sure the api handles it
+	// safely in case they somehow do.
 	assoc1, _ := worrywort.AssociateBatchToSensor(batch, sensor, "Description", nil, db)
 	assoc2, _ := worrywort.AssociateBatchToSensor(batch, sensor2, "Description", nil, db)
 	assoc3, _ := worrywort.AssociateBatchToSensor(batch2, sensor, "Description", nil, db)

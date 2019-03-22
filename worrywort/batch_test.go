@@ -277,7 +277,7 @@ func TestTemperatureMeasurementModel(t *testing.T) {
 		VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
 		CreatedAt: createdAt, UpdatedAt: updatedAt, BrewNotes: "Brew Notes", TastingNotes: "Taste Notes",
 		RecipeURL: "http://example.org/beer"}
-	batch, err = SaveBatch(db, batch)
+	err = batch.Save(db)
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
@@ -337,7 +337,7 @@ func TestFindBatch(t *testing.T) {
 	b := Batch{UserId: u.Id, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5, VolumeInFermentor: 4.5,
 		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedAt: createdAt, UpdatedAt: updatedAt,
 		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
-	b, err = SaveBatch(db, b)
+	err = b.Save(db)
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
@@ -382,7 +382,7 @@ func TestFindBatches(t *testing.T) {
 	b := Batch{Name: "Testing", UserId: u.Id, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
 		VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedAt: createdAt,
 		UpdatedAt: updatedAt, BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
-	b, err = SaveBatch(db, b)
+	err = b.Save(db)
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
@@ -390,7 +390,7 @@ func TestFindBatches(t *testing.T) {
 	b2 := Batch{Name: "Testing 2", UserId: u.Id, BrewedDate: time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond), VolumeBoiled: 5, VolumeInFermentor: 4.5,
 		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedAt: createdAt, UpdatedAt: updatedAt,
 		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer", BottledDate: time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond)}
-	b2, err = SaveBatch(db, b2)
+	err = b2.Save(db)
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
@@ -400,8 +400,7 @@ func TestFindBatches(t *testing.T) {
 		CreatedAt: createdAt, UpdatedAt: updatedAt, BrewNotes: "Brew Notes", TastingNotes: "Taste Notes",
 		RecipeURL: "http://example.org/beer", BottledDate: time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond)}
 
-	u2batch, err = SaveBatch(db, u2batch)
-
+	err = u2batch.Save(db)
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
@@ -418,6 +417,7 @@ func TestFindBatches(t *testing.T) {
 	}
 }
 
+// TODO: WRITE THESE NOW
 func TestInsertBatch(t *testing.T) {}
 func TestUpdateBatch(t *testing.T) {}
 func TestSaveBatch(t *testing.T)   {}
@@ -440,7 +440,7 @@ func TestBatchSenssorAssociations(t *testing.T) {
 	batch := Batch{Name: "Testing", UserId: u.Id, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
 		VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, BrewNotes: "Brew Notes",
 		TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
-	batch, err = SaveBatch(db, batch)
+	err = batch.Save(db)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}

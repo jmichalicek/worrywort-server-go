@@ -145,7 +145,7 @@ func FindBatches(params map[string]interface{}, db *sqlx.DB) ([]*Batch, error) {
 
 // Save the User to the database.  If User.Id() is 0
 // then an insert is performed, otherwise an update on the User matching that id.
-func SaveBatch(db *sqlx.DB, b Batch) (Batch, error) {
+func (b *Batch) Save(db *sqlx.DB) error {
 	// TODO: TEST CASE
 	if b.Id == nil || *b.Id == 0 {
 		return InsertBatch(db, b)
@@ -157,7 +157,7 @@ func SaveBatch(db *sqlx.DB, b Batch) (Batch, error) {
 // Inserts the passed in User into the database.
 // Returns a new copy of the user with any updated values set upon success.
 // Returns the same, unmodified User and errors on error
-func InsertBatch(db *sqlx.DB, b Batch) (Batch, error) {
+func InsertBatch(db *sqlx.DB, b *Batch) error {
 	// TODO: TEST CASE
 	var updatedAt time.Time
 	var createdAt time.Time
@@ -173,22 +173,21 @@ func InsertBatch(db *sqlx.DB, b Batch) (Batch, error) {
 		query, b.UserId, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
 		b.VolumeBoiled, b.VolumeInFermentor, b.VolumeUnits, b.OriginalGravity, b.FinalGravity, b.RecipeURL,
 		b.MaxTemperature, b.MinTemperature, b.AverageTemperature).Scan(batchId, &createdAt, &updatedAt, batchUuid)
-	if err != nil {
-		return b, err
-	}
 
-	// TODO: Can I just assign these directly now in Scan()?
-	b.Id = batchId
-	b.CreatedAt = createdAt
-	b.UpdatedAt = updatedAt
-	b.Uuid = *batchUuid
-	return b, nil
+	if err == nil {
+		// TODO: Can I just assign these directly now in Scan()?
+		b.Id = batchId
+		b.CreatedAt = createdAt
+		b.UpdatedAt = updatedAt
+		b.Uuid = *batchUuid
+	}
+	return err
 }
 
 // Saves the passed in user to the database using an UPDATE
 // Returns a new copy of the user with any updated values set upon success.
 // Returns the same, unmodified User and errors on error
-func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
+func UpdateBatch(db *sqlx.DB, b *Batch) error {
 	// TODO: TEST CASE
 	var updatedAt time.Time
 
@@ -201,11 +200,11 @@ func UpdateBatch(db *sqlx.DB, b Batch) (Batch, error) {
 		query, b.UserId, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
 		b.VolumeBoiled, b.VolumeInFermentor, b.VolumeUnits, b.OriginalGravity, b.FinalGravity, b.RecipeURL,
 		b.MaxTemperature, b.MinTemperature, b.AverageTemperature).Scan(&updatedAt)
-	if err != nil {
-		return b, err
+
+	if err == nil {
+		b.UpdatedAt = updatedAt
 	}
-	b.UpdatedAt = updatedAt
-	return b, nil
+	return err
 }
 
 // The association between a sensor and a batch. This shows when a sensor
