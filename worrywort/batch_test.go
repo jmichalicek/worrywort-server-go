@@ -422,7 +422,106 @@ func TestInsertBatch(t *testing.T) {}
 func TestUpdateBatch(t *testing.T) {}
 func TestSaveBatch(t *testing.T)   {}
 
-func TestBatchSenssorAssociations(t *testing.T) {
+func TestBatch(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	t.Run("Save() new batch", func(t *testing.T) {
+		// TODO: FindBatch() will start joining the user and populating, at which point this also needs
+		// CreatedBy: &u set.
+		b := Batch{Name: "Testing", BrewedDate: time.Date(2019, time.January, 01, 12, 0, 0, 0, time.UTC),
+			BottledDate: time.Date(2019, time.January, 24, 12, 0, 0, 0, time.UTC), VolumeBoiled: 5, VolumeInFermentor: 4.5,
+			VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, UserId: u.Id, BrewNotes: "Brew notes",
+			TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer"}
+
+		if err := b.Save(db); err != nil {
+			t.Fatalf("Error inserting batch: %v", err)
+		}
+		if b.Id == nil {
+			t.Errorf("Save() on new batch did not set an id")
+		}
+
+		if b.UpdatedAt.IsZero() {
+			t.Errorf("Save() on new batch did not set UpdatedAt")
+		}
+
+		if b.CreatedAt.IsZero() {
+			t.Errorf("Save() on new batch did not set CreatedAt")
+		}
+
+		if b.Uuid == "" {
+			t.Errorf("Save() on new batch did not set Uuid")
+		}
+
+		batchArgs := make(map[string]interface{})
+		batchArgs["user_id"] = u.Id
+		batchArgs["id"] = b.Id
+		found, err := FindBatch(batchArgs, db)
+		if err != nil {
+			t.Fatalf("Error looking up batch: %s", err)
+		}
+		if !cmp.Equal(&b, found) {
+			t.Errorf("Expected: - | Got: +\n%v", cmp.Diff(&b, found))
+		}
+	})
+
+	t.Run("uSave() update existing batch", func(t *testing.T) {
+		// TODO: FindBatch() will start joining the user and populating, at which point this also needs
+		// CreatedBy: &u set.
+		b := Batch{Name: "Testing", BrewedDate: time.Date(2019, time.January, 01, 12, 0, 0, 0, time.UTC),
+			BottledDate: time.Date(2019, time.January, 24, 12, 0, 0, 0, time.UTC), VolumeBoiled: 5, VolumeInFermentor: 4.5,
+			VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, UserId: u.Id, BrewNotes: "Brew notes",
+			TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer"}
+		// b := &_b
+
+		if err := b.Save(db); err != nil {
+			t.Fatalf("Error inserting batch: %v", err)
+		}
+		if b.Id == nil {
+			t.Fatalf("Save() on new batch did not set an id")
+		}
+
+		// I am lazy. Change a few things, but not all of the things.
+		b.Name = "Updated"
+		b.TastingNotes = "Updated"
+		b.BrewNotes = "Updated"
+		b.RecipeURL = "https://example.org/updated"
+
+		if err := b.Save(db); err != nil {
+			t.Fatalf("Error updating batch: %v", err)
+		}
+
+		// if b.UpdatedAt == initialUpdatedAt {
+		// TODO: I would like to do this test, but using github.com/DATA-DOG/go-txdb
+		// both the initial insert and update are part of the same transaction, so get the same
+		// updated_at set.  I could do it in golang code instead of the sql NOW() function.
+		// 	t.Errorf("batch.Save() on existing batch did not update UpdatedAt")
+		// }
+
+		batchArgs := make(map[string]interface{})
+		batchArgs["user_id"] = u.Id
+		batchArgs["id"] = b.Id
+		found, err := FindBatch(batchArgs, db)
+		if err != nil {
+			t.Fatalf("Error looking up batch: %s", err)
+		}
+		// Newly looked up one should have the updates made
+		if !cmp.Equal(&b, found) {
+			t.Errorf("Expected: - | Got: +\n%v", cmp.Diff(&b, found))
+		}
+	})
+}
+
+func TestBatchSensorAssociations(t *testing.T) {
 	db, err := setUpTestDb()
 	if err != nil {
 		t.Fatalf("Got error setting up database: %s", err)

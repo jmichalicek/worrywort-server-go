@@ -78,7 +78,8 @@ func (b Batch) queryColumns() []string {
 func (b Batch) StrictEqual(other Batch) bool {
 	// TODO: do not follow the object for CreatedBy() to get id, but will need to add a CreatedById() to
 	// the batch struct
-	return b.Id == other.Id && b.Name == other.Name && b.BrewNotes == other.BrewNotes &&
+	// TODO: Use go-cmp for this?
+	return *b.Id == *other.Id && b.Name == other.Name && b.BrewNotes == other.BrewNotes &&
 		b.TastingNotes == other.TastingNotes && b.VolumeUnits == other.VolumeUnits &&
 		b.VolumeInFermentor == other.VolumeInFermentor && b.VolumeBoiled == other.VolumeBoiled &&
 		b.OriginalGravity == other.OriginalGravity && b.FinalGravity == other.FinalGravity &&
@@ -103,6 +104,7 @@ func buildBatchesQuery(params map[string]interface{}, db *sqlx.DB) (string, []in
 		}
 	}
 
+	// TODO: JOIN THE USER HERE!!!
 	selectCols := ""
 	queryCols := []string{"id", "name", "brew_notes", "tasting_notes", "brewed_date", "bottled_date",
 		"volume_boiled", "volume_in_fermentor", "volume_units", "original_gravity", "final_gravity", "recipe_url",
@@ -148,9 +150,13 @@ func FindBatches(params map[string]interface{}, db *sqlx.DB) ([]*Batch, error) {
 func (b *Batch) Save(db *sqlx.DB) error {
 	// TODO: TEST CASE
 	if b.Id == nil || *b.Id == 0 {
+		fmt.Print("Inserting batch\n")
 		return InsertBatch(db, b)
 	} else {
-		return UpdateBatch(db, b)
+		fmt.Printf("Updating batch %v\n", b)
+		err := UpdateBatch(db, b)
+		fmt.Printf("Updated batch %v\n\n\n\n", b)
+		return err
 	}
 }
 
@@ -167,7 +173,7 @@ func InsertBatch(db *sqlx.DB, b *Batch) error {
 	query := db.Rebind(`INSERT INTO batches (user_id, name, brew_notes, tasting_notes, brewed_date, bottled_date,
 		volume_boiled, volume_in_fermentor, volume_units, original_gravity, final_gravity, recipe_url, max_temperature,
 		min_temperature, average_temperature, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()) RETURNING id, created_at, updated_at, uuid`)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (NOW() at time zone 'utc'), (NOW() at time zone 'utc')) RETURNING id, created_at, updated_at, uuid`)
 
 	err := db.QueryRow(
 		query, b.UserId, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
@@ -175,6 +181,7 @@ func InsertBatch(db *sqlx.DB, b *Batch) error {
 		b.MaxTemperature, b.MinTemperature, b.AverageTemperature).Scan(batchId, &createdAt, &updatedAt, batchUuid)
 
 	if err == nil {
+		// TODO: double check to verify we get utc updated_at and created_at both this way and if just using "NOW()"
 		// TODO: Can I just assign these directly now in Scan()?
 		b.Id = batchId
 		b.CreatedAt = createdAt
@@ -195,11 +202,11 @@ func UpdateBatch(db *sqlx.DB, b *Batch) error {
 	query := db.Rebind(`UPDATE batches SET user_id = ?, name = ?, brew_notes = ?, tasting_notes = ?,
 		brewed_date = ?, bottled_date = ?, volume_boiled = ?, volume_in_fermentor = ?, volume_units = ?,
 		original_gravity = ?, final_gravity = ?, recipe_url = ?, max_temperature = ?, min_temperature = ?,
-		average_temperature = ?, updated_at = NOW() WHERE id = ? RETURNING updated_at`)
+		average_temperature = ?, updated_at = (NOW() at time zone 'utc') WHERE id = ? RETURNING updated_at`)
 	err := db.QueryRow(
 		query, b.UserId, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
 		b.VolumeBoiled, b.VolumeInFermentor, b.VolumeUnits, b.OriginalGravity, b.FinalGravity, b.RecipeURL,
-		b.MaxTemperature, b.MinTemperature, b.AverageTemperature).Scan(&updatedAt)
+		b.MaxTemperature, b.MinTemperature, b.AverageTemperature, b.Id).Scan(&updatedAt)
 
 	if err == nil {
 		b.UpdatedAt = updatedAt
