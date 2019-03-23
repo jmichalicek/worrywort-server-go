@@ -145,18 +145,13 @@ func FindBatches(params map[string]interface{}, db *sqlx.DB) ([]*Batch, error) {
 	return batches, err
 }
 
-// Save the User to the database.  If User.Id() is 0
+// Save the Batch to the database.  If User.Id() is 0
 // then an insert is performed, otherwise an update on the User matching that id.
 func (b *Batch) Save(db *sqlx.DB) error {
-	// TODO: TEST CASE
 	if b.Id == nil || *b.Id == 0 {
-		fmt.Print("Inserting batch\n")
 		return InsertBatch(db, b)
 	} else {
-		fmt.Printf("Updating batch %v\n", b)
-		err := UpdateBatch(db, b)
-		fmt.Printf("Updated batch %v\n\n\n\n", b)
-		return err
+		return UpdateBatch(db, b)
 	}
 }
 

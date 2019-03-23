@@ -109,15 +109,15 @@ func FindSensors(params map[string]interface{}, db *sqlx.DB) ([]*Sensor, error) 
 
 // Save the User to the database.  If User.Id() is 0
 // then an insert is performed, otherwise an update on the User matching that id.
-func SaveSensor(db *sqlx.DB, tm Sensor) (Sensor, error) {
-	if tm.Id == nil || *tm.Id == 0 {
-		return InsertSensor(db, tm)
+func (s *Sensor) Save(db *sqlx.DB) error {
+	if s.Id == nil || *s.Id == 0 {
+		return InsertSensor(db, s)
 	} else {
-		return UpdateSensor(db, tm)
+		return UpdateSensor(db, s)
 	}
 }
 
-func InsertSensor(db *sqlx.DB, t Sensor) (Sensor, error) {
+func InsertSensor(db *sqlx.DB, t *Sensor) error {
 	var updatedAt time.Time
 	var createdAt time.Time
 	sensorId := new(int64)
@@ -126,19 +126,20 @@ func InsertSensor(db *sqlx.DB, t Sensor) (Sensor, error) {
 	query := db.Rebind(`INSERT INTO sensors (user_id, name, updated_at)
 		VALUES (?, ?, NOW()) RETURNING id, uuid, created_at, updated_at`)
 	err := db.QueryRow(query, t.UserId, t.Name).Scan(sensorId, _uuid, &createdAt, &updatedAt)
-	if err != nil {
-		return t, err
+
+	// I prefer handling the error case in the if, but this actually makes for slightly less code
+	if err == nil {
+		// TODO: Can I just assign these directly now in Scan()?
+		t.Id = sensorId
+		t.Uuid = *_uuid
+		t.CreatedAt = createdAt
+		t.UpdatedAt = updatedAt
 	}
 
-	// TODO: Can I just assign these directly now in Scan()?
-	t.Id = sensorId
-	t.Uuid = *_uuid
-	t.CreatedAt = createdAt
-	t.UpdatedAt = updatedAt
-	return t, nil
+	return err
 }
 
-func UpdateSensor(db *sqlx.DB, t Sensor) (Sensor, error) {
+func UpdateSensor(db *sqlx.DB, t *Sensor) error {
 	// TODO: TEST CASE
 	var updatedAt time.Time
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
@@ -149,6 +150,5 @@ func UpdateSensor(db *sqlx.DB, t Sensor) (Sensor, error) {
 	if err == nil {
 		t.UpdatedAt = updatedAt
 	}
-	t.UpdatedAt = updatedAt
-	return t, err
+	return err
 }

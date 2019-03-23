@@ -76,8 +76,7 @@ func TestFindSensor(t *testing.T) {
 	}
 
 	sensor := Sensor{Name: "Test Sensor", UserId: u.Id}
-	sensor, err = SaveSensor(db, sensor)
-	if err != nil {
+	if err := sensor.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 	params := make(map[string]interface{})
@@ -110,39 +109,40 @@ func TestSaveSensor(t *testing.T) {
 
 	t.Run("Save New Sensor", func(t *testing.T) {
 		// TODO: should be able to use go-cmp to do this now.
-		sensor, err := SaveSensor(db, Sensor{Name: "Test Sensor", CreatedBy: &u})
-		if err != nil {
+		sensor := Sensor{Name: "Test Sensor", CreatedBy: &u}
+		if err := sensor.Save(db); err != nil {
 			t.Errorf("%v", err)
 		}
 
 		if *sensor.Id == 0 || sensor.Id == nil {
-			t.Errorf("SaveSensor returned with unexpected sensor id %v", sensor.Id)
+			t.Errorf("sensor.Save() returned with unexpected sensor id %v", sensor.Id)
 		}
 
 		if sensor.UpdatedAt.IsZero() {
-			t.Errorf("SaveSensor did not set UpdatedAt")
+			t.Errorf("sensor.Save() did not set UpdatedAt")
 		}
 
 		if sensor.CreatedAt.IsZero() {
-			t.Errorf("SaveSensor did not set CreatedAt")
+			t.Errorf("sensor.Save() did not set CreatedAt")
 		}
 	})
 
 	t.Run("Update Sensor", func(t *testing.T) {
-		sensor, err := SaveSensor(db, Sensor{Name: "Test Sensor", CreatedBy: &u})
-		// set date back in the past so that our date comparison consistenyly works
-		sensor.UpdatedAt = sensor.UpdatedAt.AddDate(0, 0, -1)
-		sensor.Name = "Updated Name"
-		updatedSensor, err := SaveSensor(db, sensor)
-		if err != nil {
+		sensor := Sensor{Name: "Test Sensor"}
+		if err := sensor.Save(db); err != nil {
 			t.Errorf("%v", err)
 		}
-		if updatedSensor.Name != "Updated Name" {
-			t.Errorf("SaveSensor did not update Name")
+		sensor.Name = "Updated Name"
+		if err := sensor.Save(db); err != nil {
+			t.Errorf("%v", err)
 		}
 
-		if sensor.UpdatedAt == updatedSensor.UpdatedAt {
-			t.Errorf("SaveSensor did not update UpdatedAt")
+		updated, err := FindSensor(map[string]interface{}{"id": sensor.Id}, db)
+		if err != nil {
+			t.Errorf("Got unexpected error: %s\n", err)
+		}
+		if !cmp.Equal(&sensor, updated) {
+			t.Errorf("Got: - | Expected: +\n%s", cmp.Diff(&sensor, updated))
 		}
 	})
 }
@@ -155,13 +155,12 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 	defer db.Close()
 
 	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
-	err = u.Save(db)
-	if err != nil {
+	if err := u.Save(db); err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor, err := SaveSensor(db, Sensor{Name: "Test Sensor", CreatedBy: &u})
-	if err != nil {
+	sensor := Sensor{Name: "Test Sensor", CreatedBy: &u}
+	if err := sensor.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -244,7 +243,7 @@ func TestSaveTemperatureMeasurement(t *testing.T) {
 		}
 
 		if m.UpdatedAt == updatedMeasurement.UpdatedAt {
-			t.Errorf("SaveSensor did not update UpdatedAt. Expected: %v\nGot: %v", m.UpdatedAt, updatedMeasurement.UpdatedAt)
+			t.Errorf("SaveTemperatureMeasurement did not update UpdatedAt. Expected: %v\nGot: %v", m.UpdatedAt, updatedMeasurement.UpdatedAt)
 		}
 	})
 }
@@ -281,8 +280,8 @@ func TestTemperatureMeasurementModel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
-	sensor, err := SaveSensor(db, Sensor{Name: "Test Sensor", CreatedBy: &u})
-	if err != nil {
+	sensor := Sensor{Name: "Test Sensor", CreatedBy: &u}
+	if err := sensor.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -539,13 +538,12 @@ func TestBatchSensorAssociations(t *testing.T) {
 	batch := Batch{Name: "Testing", UserId: u.Id, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
 		VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, BrewNotes: "Brew Notes",
 		TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
-	err = batch.Save(db)
-	if err != nil {
+	if err := batch.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	sensor, err := SaveSensor(db, Sensor{Name: "Test Sensor", CreatedBy: &u})
-	if err != nil {
+	sensor := Sensor{Name: "Test Sensor", CreatedBy: &u}
+	if err := sensor.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 

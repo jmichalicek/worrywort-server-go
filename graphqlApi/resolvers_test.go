@@ -428,8 +428,7 @@ func TestSensorResolver(t *testing.T) {
 		var s2 worrywort.Sensor = sensor
 		s2.CreatedBy = nil
 		s2.Id = nil
-		s2, err = worrywort.SaveSensor(db, s2)
-		if err != nil {
+		if err := s2.Save(db); err != nil {
 			t.Fatalf("%v", err)
 		}
 		r2 := sensorResolver{s: &s2}
@@ -462,13 +461,11 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 	sensor := worrywort.Sensor{Name: "Therm1", UserId: u.Id, CreatedBy: &u}
-	sensor, err = worrywort.SaveSensor(db, sensor)
-	if err != nil {
+	if err := sensor.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 	batch := makeTestBatch(u, false)
-	err = batch.Save(db)
-	if err != nil {
+	if err := batch.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 	assoc, err := worrywort.AssociateBatchToSensor(batch, sensor, "", nil, db)
@@ -597,11 +594,13 @@ func TestBatchSensorAssociationResolver(t *testing.T) {
 	}
 
 	sensor := worrywort.Sensor{Name: "Therm1", UserId: u.Id, CreatedBy: &u}
-	sensor, err = worrywort.SaveSensor(db, sensor)
-	if err != nil {
+	if err := sensor.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 	batch := makeTestBatch(u, true)
+	if err := batch.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
 	association := worrywort.BatchSensor{
 		BatchId: batch.Id, SensorId: sensor.Id, Batch: &batch, Sensor: &sensor, Description: "Description",
 		AssociatedAt: time.Now()}

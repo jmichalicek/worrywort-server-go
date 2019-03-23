@@ -401,14 +401,13 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: u.Id, Name: "Test Sensor", CreatedBy: &u})
-	if err != nil {
+	sensor := worrywort.Sensor{UserId: u.Id, Name: "Test Sensor", CreatedBy: &u}
+	if err := sensor.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	u2 := worrywort.User{Email: "user2@example.com", FirstName: "Justin", LastName: "M"}
-	err = u2.Save(db)
-	if err != nil {
+	if err = u2.Save(db); err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
@@ -455,9 +454,8 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 		}
 
 		var result createTemperatureMeasurement
-		err = json.Unmarshal(resultData.Data, &result)
-		if err != nil {
-			t.Fatalf("%v", result)
+		if err = json.Unmarshal(resultData.Data, &result); err != nil {
+			t.Fatalf("Error: %s for result %v", err, result)
 		}
 
 		// Test the returned graphql types
@@ -516,11 +514,17 @@ func TestSensorQuery(t *testing.T) {
 
 	// TODO: Can this become global to these tests?
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
-	sensor1, err := worrywort.SaveSensor(db, worrywort.Sensor{Name: "Sensor 1", UserId: u.Id})
-	sensor2, err := worrywort.SaveSensor(db, worrywort.Sensor{Name: "Sensor 2", UserId: u.Id})
+	sensor1 := worrywort.Sensor{Name: "Sensor 1", UserId: u.Id}
+	if err := sensor1.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+	sensor2 := worrywort.Sensor{Name: "Sensor 2", UserId: u.Id}
+	if err = sensor2.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
 	// Need one owned by another user to ensure it does not show up
-	_, err = worrywort.SaveSensor(db, worrywort.Sensor{Name: "Sensor 2", UserId: u2.Id})
-	if err != nil {
+	sensor3 := worrywort.Sensor{Name: "Sensor 3", UserId: u2.Id}
+	if err = sensor3.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -740,32 +744,28 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: u.Id, Name: "Test Sensor", CreatedBy: &u})
-	if err != nil {
+	sensor := worrywort.Sensor{UserId: u.Id, Name: "Test Sensor", CreatedBy: &u}
+	if err := sensor.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	batch := worrywort.Batch{UserId: u.Id, CreatedBy: &u, Name: "Test batch"}
-	err = batch.Save(db)
-	if err != nil {
+	if err := batch.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	u2 := worrywort.User{Email: "user2@example.com", FirstName: "Justin", LastName: "Michalicek"}
-	err = u2.Save(db)
-	if err != nil {
+	if err := u2.Save(db); err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor2, err := worrywort.SaveSensor(
-		db, worrywort.Sensor{UserId: u2.Id, Name: "Test Sensor 2", CreatedBy: &u2})
-	if err != nil {
+	sensor2 := worrywort.Sensor{UserId: u2.Id, Name: "Test Sensor 2", CreatedBy: &u2}
+	if err := sensor2.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	batch2 := worrywort.Batch{UserId: u2.Id, CreatedBy: &u2, Name: "Test batch 2"}
-	err = batch2.Save(db)
-	if err != nil {
+	if err = batch2.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -984,36 +984,34 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: u.Id, Name: "Test Sensor", CreatedBy: &u})
-	if err != nil {
+	sensor := worrywort.Sensor{UserId: u.Id, Name: "Test Sensor", CreatedBy: &u}
+	if err := sensor.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	batch := worrywort.Batch{UserId: u.Id, CreatedBy: &u, Name: "Test batch"}
-	err = batch.Save(db)
-	if err != nil {
+	if err = batch.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	u2 := worrywort.User{Email: "user2@example.com", FirstName: "Justin", LastName: "Michalicek"}
-	err = u2.Save(db)
-	if err != nil {
+	if err = u2.Save(db); err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
 	batch2 := worrywort.Batch{UserId: u2.Id, CreatedBy: &u2, Name: "Test batch 2"}
-	err = batch2.Save(db)
-	if err != nil {
+	if err = batch2.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	sensor2, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: u2.Id, Name: "Test Sensor 2", CreatedBy: &u2})
-	if err != nil {
+	sensor2 := worrywort.Sensor{UserId: u2.Id, Name: "Test Sensor 2", CreatedBy: &u2}
+	if err := sensor2.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	// assoc2 and assoc3 test some bad states which should not happen, but making sure the api handles it
 	// safely in case they somehow do.
+	// TODO: really should be t.Fatal if there's an error here...
 	assoc1, _ := worrywort.AssociateBatchToSensor(batch, sensor, "Description", nil, db)
 	assoc2, _ := worrywort.AssociateBatchToSensor(batch, sensor2, "Description", nil, db)
 	assoc3, _ := worrywort.AssociateBatchToSensor(batch2, sensor, "Description", nil, db)
