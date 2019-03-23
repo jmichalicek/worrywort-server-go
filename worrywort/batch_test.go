@@ -25,40 +25,42 @@ func TestSaveFermentor(t *testing.T) {
 	}
 
 	t.Run("New Fermentor", func(t *testing.T) {
-		fermentor, err := SaveFermentor(db, Fermentor{Name: "Fermentor", Description: "Fermentor Desc", Volume: 5.0,
-			VolumeUnits: GALLON, FermentorType: BUCKET, IsActive: true, IsAvailable: true, UserId: u.Id})
-		if err != nil {
-			t.Errorf("%v", err)
+		fermentor := Fermentor{Name: "Fermentor", Description: "Fermentor Desc", Volume: 5.0,
+			VolumeUnits: GALLON, FermentorType: BUCKET, IsActive: true, IsAvailable: true, UserId: u.Id}
+		if err := fermentor.Save(db); err != nil {
+			t.Fatalf("%v", err)
 		}
 		if fermentor.Id == nil || *fermentor.Id == 0 {
-			t.Errorf("SaveFermentor ended with unexpected id %v", fermentor.Id)
+			t.Errorf("Save() ended with unexpected id %v", fermentor.Id)
 		}
 
 		if fermentor.UpdatedAt.IsZero() {
-			t.Errorf("SaveFermentor did not set UpdatedAt")
+			t.Errorf("Save() did not set UpdatedAt")
 		}
 
 		if fermentor.CreatedAt.IsZero() {
-			t.Errorf("SaveFermentor did not set CreatedAt")
+			t.Errorf("Save() did not set CreatedAt")
 		}
 	})
 
 	t.Run("Update Fermentor", func(t *testing.T) {
-		fermentor, err := SaveFermentor(db, Fermentor{Name: "Fermentor", Description: "Fermentor Desc", Volume: 5.0,
-			VolumeUnits: GALLON, FermentorType: BUCKET, IsActive: true, IsAvailable: true, UserId: u.Id})
-		// set date back in the past so that our date comparison consistenyly works
-		fermentor.UpdatedAt = fermentor.UpdatedAt.AddDate(0, 0, -1)
-		fermentor.Name = "Updated Name"
-		updatedFermentor, err := SaveFermentor(db, fermentor)
-		if err != nil {
-			t.Errorf("%v", err)
+		fermentor := Fermentor{Name: "Fermentor", Description: "Fermentor Desc", Volume: 5.0,
+			VolumeUnits: GALLON, FermentorType: BUCKET, IsActive: true, IsAvailable: true, UserId: u.Id}
+		if err := fermentor.Save(db); err != nil {
+			t.Fatalf("Unexpected error: %v", err)
 		}
-		if updatedFermentor.Name != "Updated Name" {
-			t.Errorf("SaveFermentor did not update Name")
+		fermentor.Name = "Updated Name"
+		if err := fermentor.Save(db); err != nil {
+			t.Fatalf("%v", err)
 		}
 
-		if fermentor.UpdatedAt == updatedFermentor.UpdatedAt {
-			t.Errorf("SaveFermentor did not update UpdatedAt")
+		updated, err := FindFermentor(map[string]interface{}{"id": *fermentor.Id}, db)
+		if err != nil {
+			t.Fatalf("Error: %v", err)
+		}
+
+		if !cmp.Equal(&fermentor, updated) {
+			t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(&fermentor, updated))
 		}
 	})
 }

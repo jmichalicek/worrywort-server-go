@@ -64,10 +64,8 @@ func (tm *TemperatureMeasurement) Batch(db *sqlx.DB) (*Batch, error) {
 // then an insert is performed, otherwise an update on the User matching that id.
 func (tm *TemperatureMeasurement) Save(db *sqlx.DB) error {
 	if tm.Id != "" {
-		fmt.Printf("\nUPDATING\n\n")
 		return UpdateTemperatureMeasurement(db, tm)
 	} else {
-		fmt.Printf("\nINSERTING\n\n")
 		return InsertTemperatureMeasurement(db, tm)
 	}
 }

@@ -50,8 +50,8 @@ func FindFermentor(params map[string]interface{}, db *sqlx.DB) (*Fermentor, erro
 		}
 	}
 
-	q := `SELECT f.id, f.name, f.description, f.volume, f.volume_units, f.fermentor_type, f.is_active, f.is_available, f.user_id,
-		f.batch_id, FROM fermentors s WHERE ` + strings.Join(where, " AND ")
+	q := `SELECT f.id, f.name, f.description, f.volume, f.volume_units, f.fermentor_type, f.is_active, f.is_available,
+		f.user_id, f.batch_id, f.created_at, f.updated_at FROM fermentors f WHERE ` + strings.Join(where, " AND ")
 	query := db.Rebind(q)
 	err := db.Get(&f, query, values...)
 
@@ -63,7 +63,7 @@ func FindFermentor(params map[string]interface{}, db *sqlx.DB) (*Fermentor, erro
 }
 
 // Save a Fermentor - yes, inconsistent spelling.  Will be switchin to OR instead of ER globally.
-func SaveFermentor(db *sqlx.DB, f Fermentor) (Fermentor, error) {
+func (f *Fermentor) Save(db *sqlx.DB) error {
 	if f.Id != nil && *f.Id != 0 {
 		return UpdateFermentor(db, f)
 	} else {
@@ -71,7 +71,7 @@ func SaveFermentor(db *sqlx.DB, f Fermentor) (Fermentor, error) {
 	}
 }
 
-func InsertFermentor(db *sqlx.DB, f Fermentor) (Fermentor, error) {
+func InsertFermentor(db *sqlx.DB, f *Fermentor) error {
 	var updatedAt time.Time
 	var createdAt time.Time
 	fermentorId := new(int64)
@@ -80,18 +80,15 @@ func InsertFermentor(db *sqlx.DB, f Fermentor) (Fermentor, error) {
 		is_active, is_available, batch_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW()) RETURNING id, created_at, updated_at`)
 	err := db.QueryRow(query, f.UserId, f.Name, f.Description, f.Volume, f.VolumeUnits, f.FermentorType,
 		f.IsActive, f.IsAvailable, f.BatchId).Scan(fermentorId, &createdAt, &updatedAt)
-	if err != nil {
-		return f, err
+	if err == nil {
+		f.Id = fermentorId
+		f.CreatedAt = createdAt
+		f.UpdatedAt = updatedAt
 	}
-
-	// TODO: Can I just assign these directly now in Scan()?
-	f.Id = fermentorId
-	f.CreatedAt = createdAt
-	f.UpdatedAt = updatedAt
-	return f, nil
+	return err
 }
 
-func UpdateFermentor(db *sqlx.DB, f Fermentor) (Fermentor, error) {
+func UpdateFermentor(db *sqlx.DB, f *Fermentor) error {
 	// TODO: TEST CASE
 	var updatedAt time.Time
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
@@ -102,5 +99,5 @@ func UpdateFermentor(db *sqlx.DB, f Fermentor) (Fermentor, error) {
 	if err == nil {
 		f.UpdatedAt = updatedAt
 	}
-	return f, err
+	return err
 }
