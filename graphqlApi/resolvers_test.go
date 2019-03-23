@@ -476,8 +476,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	measurement := worrywort.TemperatureMeasurement{Temperature: 64.26, Units: worrywort.FAHRENHEIT,
 		RecordedAt: timeRecorded, SensorId: sensor.Id, Sensor: &sensor, CreatedBy: &u, UserId: u.Id, CreatedAt: time.Now(),
 		UpdatedAt: time.Now()}
-	measurement, err = worrywort.SaveTemperatureMeasurement(db, measurement)
-	if err != nil {
+	if err := measurement.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 	resolver := temperatureMeasurementResolver{m: &measurement}

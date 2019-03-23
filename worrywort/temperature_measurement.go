@@ -62,18 +62,18 @@ func (tm *TemperatureMeasurement) Batch(db *sqlx.DB) (*Batch, error) {
 
 // Save the User to the database.  If User.Id() is 0
 // then an insert is performed, otherwise an update on the User matching that id.
-func SaveTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (TemperatureMeasurement, error) {
+func (tm *TemperatureMeasurement) Save(db *sqlx.DB) error {
 	if tm.Id != "" {
+		fmt.Printf("\nUPDATING\n\n")
 		return UpdateTemperatureMeasurement(db, tm)
 	} else {
+		fmt.Printf("\nINSERTING\n\n")
 		return InsertTemperatureMeasurement(db, tm)
 	}
 }
 
-// Inserts the passed in User into the database.
-// Returns a new copy of the user with any updated values set upon success.
-// Returns the same, unmodified User and errors on error
-func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (TemperatureMeasurement, error) {
+// Insert a new TemperatureMeasurement into the database
+func InsertTemperatureMeasurement(db *sqlx.DB, tm *TemperatureMeasurement) error {
 	var updatedAt time.Time
 	var createdAt time.Time
 	var measurementId string
@@ -84,21 +84,16 @@ func InsertTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 		updated_at, sensor_id)
 		VALUES (?, ?, ?, ?, NOW(), NOW(), ?) RETURNING id, created_at, updated_at`)
 	err := db.QueryRow(query, insertVals...).Scan(&measurementId, &createdAt, &updatedAt)
-	if err != nil {
-		return tm, err
+	if err == nil {
+		tm.Id = measurementId
+		tm.CreatedAt = createdAt
+		tm.UpdatedAt = updatedAt
 	}
-
-	// TODO: Can I just assign these directly now in Scan()?
-	tm.Id = measurementId
-	tm.CreatedAt = createdAt
-	tm.UpdatedAt = updatedAt
-	return tm, nil
+	return err
 }
 
-// Saves the passed in user to the database using an UPDATE
-// Returns a new copy of the user with any updated values set upon success.
-// Returns the same, unmodified User and errors on error
-func UpdateTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (TemperatureMeasurement, error) {
+// Updates an existing TemperatureMeasurement in the database
+func UpdateTemperatureMeasurement(db *sqlx.DB, tm *TemperatureMeasurement) error {
 	var updatedAt time.Time
 	paramVals := []interface{}{tm.UserId, tm.Temperature, tm.Units, tm.RecordedAt, tm.SensorId}
 	paramVals = append(paramVals, tm.Id)
@@ -106,11 +101,10 @@ func UpdateTemperatureMeasurement(db *sqlx.DB, tm TemperatureMeasurement) (Tempe
 	query := db.Rebind(`UPDATE temperature_measurements SET user_id = ?, temperature = ?, units = ?,
 		recorded_at = ?, updated_at = NOW(), sensor_id = ? WHERE id = ? RETURNING updated_at`)
 	err := db.QueryRow(query, paramVals...).Scan(&updatedAt)
-	if err != nil {
-		return tm, err
+	if err == nil {
+		tm.UpdatedAt = updatedAt
 	}
-	tm.UpdatedAt = updatedAt
-	return tm, nil
+	return err
 }
 
 // Build the query string and values slice for query for temperature measurement(s)
@@ -121,7 +115,7 @@ func buildTemperatureMeasurementsQuery(params map[string]interface{}, db *sqlx.D
 	var where []string
 	// TODO: I suspect I will want to sort/filter by datetimes and by temperatures here as well
 	// using ranges or gt/lt, not jus a straight equals.
-	for _, k := range []string{"id", "user_id", "batch_id", "sensor_id"} {
+	for _, k := range []string{"id", "user_id", "sensor_id"} {
 		if v, ok := params[k]; ok {
 			values = append(values, v)
 			// TODO: Deal with values from sensor OR user table
@@ -133,7 +127,7 @@ func buildTemperatureMeasurementsQuery(params map[string]interface{}, db *sqlx.D
 	// as in BatchesForUser, this now seems dumb
 	// queryCols := []string{"id", "name", "created_at", "updated_at", "user_id"}
 	// If I need this many places, maybe make a const
-	for _, k := range []string{"id", "user_id", "batch_id", "sensor_id", "temperature",
+	for _, k := range []string{"id", "user_id", "sensor_id", "temperature",
 		"units", "recorded_at", "created_at", "updated_at"} {
 		selectCols += fmt.Sprintf("tm.%s, ", k)
 	}
