@@ -277,6 +277,7 @@ func (c createTemperatureMeasurementPayload) TemperatureMeasurement() *temperatu
 func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struct {
 	Input *createTemperatureMeasurementInput
 }) (*createTemperatureMeasurementPayload, error) {
+	// TODO: use db from context rather than r.Db for consistency throughout API
 	u, _ := authMiddleware.UserFromContext(ctx)
 
 	var inputPtr *createTemperatureMeasurementInput = args.Input
@@ -315,8 +316,7 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 
 	t := worrywort.TemperatureMeasurement{Sensor: sensorPtr, SensorId: sensorPtr.Id,
 		Temperature: input.Temperature, Units: unitType, RecordedAt: recordedAt, CreatedBy: &u, UserId: u.Id}
-	t, err = worrywort.SaveTemperatureMeasurement(r.db, t)
-	if err != nil {
+	if err := t.Save(r.db); err != nil {
 		log.Printf("Failed to save TemperatureMeasurement: %v\n", err)
 		return nil, err
 	}

@@ -9,39 +9,28 @@ import (
 	"time"
 )
 
-func TestNewUser(t *testing.T) {
-	createdAt := time.Now()
-	updatedAt := time.Now()
-	u := NewUser(nil, "user@example.com", "Justin", "Michalicek", createdAt, updatedAt)
-	expectedUser := User{Id: u.Id, Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek",
-		CreatedAt: createdAt, UpdatedAt: updatedAt}
-	if u != expectedUser {
-		t.Errorf("Expected:\n\n%v\n\nGot:\n\n%v", expectedUser, u)
-	}
-	if u.Id != nil {
-		t.Errorf("NewUser returned with unexpected user id %v", u.Id)
-	}
-}
-
 func TestUserStruct(t *testing.T) {
 	createdAt := time.Now()
 	updatedAt := time.Now().Add(time.Hour * time.Duration(1))
-	u := NewUser(nil, "user@example.com", "Justin", "Michalicek", createdAt, updatedAt)
+	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek", CreatedAt: createdAt,
+		UpdatedAt: updatedAt}
 
 	t.Run("SetUserPassword()", func(t *testing.T) {
 		password := "password"
 		// Not really part of User, but whatever for now.
 		// I believe the password hashing makes this test slow.  Should do like Django
 		// and use faster hashing for tests, perhaps, or reduce bcrypt cost at least
-		updatedUser, err := SetUserPassword(u, "password", bcrypt.MinCost)
+		err := SetUserPassword(&u, "password", bcrypt.MinCost)
 		if err != nil {
 			t.Errorf("Unexpected error hashing password: %v", err)
 		}
 
-		if bcrypt.CompareHashAndPassword([]byte(updatedUser.Password), []byte(password)) != nil {
+		if bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)) != nil {
 			t.Errorf("SetUserPassword() did not hash and set the password as expected")
 		}
 	})
+
+	//TODO: test User.Save(db)
 }
 
 func TestUserDatabaseFunctionality(t *testing.T) {
@@ -53,15 +42,16 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 		t.Fatalf("Got error setting up database: %s", err)
 	}
 	defer db.Close()
-	user := NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+
+	user := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
 	password := "password"
-	user, err = SetUserPassword(user, password, bcrypt.MinCost)
+	err = SetUserPassword(&user, password, bcrypt.MinCost)
 	if err != nil {
 		t.Fatalf("Error hashing password for test: %v", err)
 	}
-	user, err = SaveUser(db, user)
+	err = user.Save(db)
 	if err != nil {
-		t.Fatalf("Error setting up test user: %v", err)
+		t.Fatalf("failed to insert user: %s", err)
 	}
 
 	//func TestLookupUser(t *testing.T) {

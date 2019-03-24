@@ -81,11 +81,11 @@ func TestLoginMutation(t *testing.T) {
 	defer db.Close()
 
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
-	user := worrywort.NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	user := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
 	// This is the hash for the password `password`
 	// var hashedPassword string = "$2a$13$pPg7mwPA.VFf3W9AUZyMGO0Q2nhoh/979F/TZ8ED.iqVubLe.TDmi"
-	user, err = worrywort.SetUserPassword(user, "password", bcrypt.MinCost)
-	user, err = worrywort.SaveUser(db, user)
+	err = worrywort.SetUserPassword(&user, "password", bcrypt.MinCost)
+	err = user.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
@@ -163,7 +163,7 @@ func TestCurrentUserQuery(t *testing.T) {
 	defer db.Close()
 
 	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
-	u, err = worrywort.SaveUser(db, u)
+	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
@@ -209,16 +209,14 @@ func TestBatchQuery(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	u, err = worrywort.SaveUser(db, u)
-
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	u2 := worrywort.NewUser(nil, "user2@example.com", "Justin", "M", time.Now(), time.Now())
-	u2, err = worrywort.SaveUser(db, u2)
-
+	u2 := worrywort.User{Email: "user2@example.com", FirstName: "Justin", LastName: "M"}
+	err = u2.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
@@ -231,21 +229,19 @@ func TestBatchQuery(t *testing.T) {
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
 
 	b := makeTestBatch(u, true)
-	b, err = worrywort.SaveBatch(db, b)
+	err = b.Save(db)
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
 
 	b2 := makeTestBatch(u, true)
-	b2, err = worrywort.SaveBatch(db, b2)
-
+	err = b2.Save(db)
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
 
 	u2batch := makeTestBatch(u2, true)
-	u2batch, err = worrywort.SaveBatch(db, u2batch)
-
+	err = u2batch.Save(db)
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
@@ -399,20 +395,19 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	u, err = worrywort.SaveUser(db, u)
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: u.Id, Name: "Test Sensor", CreatedBy: &u})
-	if err != nil {
+	sensor := worrywort.Sensor{UserId: u.Id, Name: "Test Sensor", CreatedBy: &u}
+	if err := sensor.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	u2 := worrywort.NewUser(nil, "user2@example.com", "Justin", "M", time.Now(), time.Now())
-	u2, err = worrywort.SaveUser(db, u2)
-	if err != nil {
+	u2 := worrywort.User{Email: "user2@example.com", FirstName: "Justin", LastName: "M"}
+	if err = u2.Save(db); err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
@@ -459,9 +454,8 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 		}
 
 		var result createTemperatureMeasurement
-		err = json.Unmarshal(resultData.Data, &result)
-		if err != nil {
-			t.Fatalf("%v", result)
+		if err = json.Unmarshal(resultData.Data, &result); err != nil {
+			t.Fatalf("Error: %s for result %v", err, result)
 		}
 
 		// Test the returned graphql types
@@ -501,8 +495,9 @@ func TestSensorQuery(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	u, err = worrywort.SaveUser(db, u)
+	// TODO: This whole create 2 users and setup context is done A LOT here. can it be de-duplicated?
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
@@ -511,19 +506,25 @@ func TestSensorQuery(t *testing.T) {
 	ctx = context.WithValue(ctx, "db", db)
 	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
 
-	u2 := worrywort.NewUser(nil, "user2@example.com", "Justin", "M", time.Now(), time.Now())
-	u2, err = worrywort.SaveUser(db, u2)
+	u2 := worrywort.User{Email: "user2@example.com", FirstName: "Justin", LastName: "M"}
+	err = u2.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
 	// TODO: Can this become global to these tests?
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
-	sensor1, err := worrywort.SaveSensor(db, worrywort.Sensor{Name: "Sensor 1", UserId: u.Id})
-	sensor2, err := worrywort.SaveSensor(db, worrywort.Sensor{Name: "Sensor 2", UserId: u.Id})
+	sensor1 := worrywort.Sensor{Name: "Sensor 1", UserId: u.Id}
+	if err := sensor1.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+	sensor2 := worrywort.Sensor{Name: "Sensor 2", UserId: u.Id}
+	if err = sensor2.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
 	// Need one owned by another user to ensure it does not show up
-	_, err = worrywort.SaveSensor(db, worrywort.Sensor{Name: "Sensor 2", UserId: u2.Id})
-	if err != nil {
+	sensor3 := worrywort.Sensor{Name: "Sensor 3", UserId: u2.Id}
+	if err = sensor3.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -628,8 +629,8 @@ func TestCreateBatchMutation(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	u, err = worrywort.SaveUser(db, u)
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
@@ -737,39 +738,34 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	u, err = worrywort.SaveUser(db, u)
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: u.Id, Name: "Test Sensor", CreatedBy: &u})
-	if err != nil {
+	sensor := worrywort.Sensor{UserId: u.Id, Name: "Test Sensor", CreatedBy: &u}
+	if err := sensor.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	batch, err := worrywort.SaveBatch(
-		db, worrywort.Batch{UserId: u.Id, CreatedBy: &u, Name: "Test batch"})
-	if err != nil {
+	batch := worrywort.Batch{UserId: u.Id, CreatedBy: &u, Name: "Test batch"}
+	if err := batch.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	u2 := worrywort.NewUser(nil, "user2@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	u2, err = worrywort.SaveUser(db, u2)
-
-	if err != nil {
+	u2 := worrywort.User{Email: "user2@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	if err := u2.Save(db); err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor2, err := worrywort.SaveSensor(
-		db, worrywort.Sensor{UserId: u2.Id, Name: "Test Sensor 2", CreatedBy: &u2})
-	if err != nil {
+	sensor2 := worrywort.Sensor{UserId: u2.Id, Name: "Test Sensor 2", CreatedBy: &u2}
+	if err := sensor2.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	batch2, err := worrywort.SaveBatch(
-		db, worrywort.Batch{UserId: u2.Id, CreatedBy: &u2, Name: "Test batch 2"})
-	if err != nil {
+	batch2 := worrywort.Batch{UserId: u2.Id, CreatedBy: &u2, Name: "Test batch 2"}
+	if err = batch2.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -982,46 +978,40 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.NewUser(nil, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	u, err = worrywort.SaveUser(db, u)
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: u.Id, Name: "Test Sensor", CreatedBy: &u})
-	if err != nil {
+	sensor := worrywort.Sensor{UserId: u.Id, Name: "Test Sensor", CreatedBy: &u}
+	if err := sensor.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	batch, err := worrywort.SaveBatch(
-		db, worrywort.Batch{UserId: u.Id, CreatedBy: &u, Name: "Test batch"})
-	if err != nil {
+	batch := worrywort.Batch{UserId: u.Id, CreatedBy: &u, Name: "Test batch"}
+	if err = batch.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	u2 := worrywort.NewUser(nil, "user2@example.com", "Justin", "Michalicek", time.Now(), time.Now())
-	u2, err = worrywort.SaveUser(db, u2)
-	if err != nil {
+	u2 := worrywort.User{Email: "user2@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	if err = u2.Save(db); err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	batch2, err := worrywort.SaveBatch(
-		db, worrywort.Batch{UserId: u2.Id, CreatedBy: &u, Name: "Test batch 2"})
-	if err != nil {
+	batch2 := worrywort.Batch{UserId: u2.Id, CreatedBy: &u2, Name: "Test batch 2"}
+	if err = batch2.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	sensor2, err := worrywort.SaveSensor(db, worrywort.Sensor{UserId: u2.Id, Name: "Test Sensor 2", CreatedBy: &u2})
-	if err != nil {
+	sensor2 := worrywort.Sensor{UserId: u2.Id, Name: "Test Sensor 2", CreatedBy: &u2}
+	if err := sensor2.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	batch2, err = worrywort.SaveBatch(
-		db, worrywort.Batch{UserId: u2.Id, CreatedBy: &u2, Name: "Test batch 2"})
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-
+	// assoc2 and assoc3 test some bad states which should not happen, but making sure the api handles it
+	// safely in case they somehow do.
+	// TODO: really should be t.Fatal if there's an error here...
 	assoc1, _ := worrywort.AssociateBatchToSensor(batch, sensor, "Description", nil, db)
 	assoc2, _ := worrywort.AssociateBatchToSensor(batch, sensor2, "Description", nil, db)
 	assoc3, _ := worrywort.AssociateBatchToSensor(batch2, sensor, "Description", nil, db)

@@ -191,7 +191,7 @@ func (r *Resolver) CreateBatch(ctx context.Context, args *struct {
 	// TODO: Handle all of the optional inputs which could come in as null here but should be empty string when saved
 	// or could come in as an empty string but should be saved to db as null or nullint, etc.
 	batch := worrywort.Batch{UserId: u.Id, Name: input.Name, BrewedDate: brewedAt, BottledDate: bottledAt}
-	batch, err = worrywort.SaveBatch(r.db, batch)
+	err = batch.Save(r.db)
 	if err != nil {
 		log.Printf("Failed to save Batch: %v\n", err)
 		return nil, err

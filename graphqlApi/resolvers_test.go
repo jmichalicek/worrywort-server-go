@@ -118,7 +118,12 @@ func TestBatchResolver(t *testing.T) {
 	}
 	defer db.Close()
 
-	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
 	brewed := makeTestBatch(u, true)
 	bId := int64(1)
 	brewed.Id = &bId
@@ -281,7 +286,7 @@ func TestBatchResolver(t *testing.T) {
 
 	t.Run("CreatedBy() without User populated", func(t *testing.T) {
 		batchNoUser := makeTestBatch(u, false)
-		batchNoUser, err = worrywort.SaveBatch(db, batchNoUser)
+		err = batchNoUser.Save(db)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -310,7 +315,11 @@ func TestFermentorResolver(t *testing.T) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, "db", db)
 
-	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
 	fId := int64(1)
 	f := worrywort.Fermentor{Id: &fId, CreatedAt: time.Now(), UpdatedAt: time.Now(), Name: "Ferm", Description: "A Fermentor", Volume: 5.0, VolumeUnits: worrywort.GALLON,
 		FermentorType: worrywort.BUCKET, IsActive: true, IsAvailable: true, CreatedBy: &u, UserId: u.Id,
@@ -372,7 +381,12 @@ func TestSensorResolver(t *testing.T) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, "db", db)
 
-	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
 	sId := int64(1)
 	sensor := worrywort.Sensor{Id: &sId, Name: "Therm1", UserId: u.Id, CreatedBy: &u, CreatedAt: time.Now(),
 		UpdatedAt: time.Now(), Uuid: uuid.New().String()}
@@ -414,8 +428,7 @@ func TestSensorResolver(t *testing.T) {
 		var s2 worrywort.Sensor = sensor
 		s2.CreatedBy = nil
 		s2.Id = nil
-		s2, err = worrywort.SaveSensor(db, s2)
-		if err != nil {
+		if err := s2.Save(db); err != nil {
 			t.Fatalf("%v", err)
 		}
 		r2 := sensorResolver{s: &s2}
@@ -438,18 +451,21 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, "db", db)
 
-	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
 	sensor := worrywort.Sensor{Name: "Therm1", UserId: u.Id, CreatedBy: &u}
-	sensor, err = worrywort.SaveSensor(db, sensor)
-	if err != nil {
+	if err := sensor.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 	batch := makeTestBatch(u, false)
-	batch, err = worrywort.SaveBatch(db, batch)
-	if err != nil {
+	if err := batch.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 	assoc, err := worrywort.AssociateBatchToSensor(batch, sensor, "", nil, db)
@@ -460,8 +476,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	measurement := worrywort.TemperatureMeasurement{Temperature: 64.26, Units: worrywort.FAHRENHEIT,
 		RecordedAt: timeRecorded, SensorId: sensor.Id, Sensor: &sensor, CreatedBy: &u, UserId: u.Id, CreatedAt: time.Now(),
 		UpdatedAt: time.Now()}
-	measurement, err = worrywort.SaveTemperatureMeasurement(db, measurement)
-	if err != nil {
+	if err := measurement.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 	resolver := temperatureMeasurementResolver{m: &measurement}
@@ -537,7 +552,8 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 
 func TestAuthTokenResolver(t *testing.T) {
 	uId := int64(1)
-	u := worrywort.NewUser(&uId, "user@example.com", "Justin", "Michalicek", time.Now(), time.Now())
+	u := worrywort.User{Id: &uId, Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek", CreatedAt: time.Now(), UpdatedAt: time.Now()}
+
 	token := worrywort.NewToken("token", u, worrywort.TOKEN_SCOPE_ALL)
 	token.Id = "tokenid"
 	r := authTokenResolver{t: token}
@@ -570,13 +586,20 @@ func TestBatchSensorAssociationResolver(t *testing.T) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, "db", db)
 
-	u, err := worrywort.SaveUser(db, worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"})
-	sensor := worrywort.Sensor{Name: "Therm1", UserId: u.Id, CreatedBy: &u}
-	sensor, err = worrywort.SaveSensor(db, sensor)
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
 	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	sensor := worrywort.Sensor{Name: "Therm1", UserId: u.Id, CreatedBy: &u}
+	if err := sensor.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 	batch := makeTestBatch(u, true)
+	if err := batch.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
 	association := worrywort.BatchSensor{
 		BatchId: batch.Id, SensorId: sensor.Id, Batch: &batch, Sensor: &sensor, Description: "Description",
 		AssociatedAt: time.Now()}
