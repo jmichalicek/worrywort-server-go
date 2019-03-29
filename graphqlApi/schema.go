@@ -20,6 +20,7 @@ var Schema = `
 		batch(id: ID!): Batch
 		# Returns a list of batches for the currently authenticated user.
 		batches(first: Int after: String): BatchConnection!
+		batchSensorAssociations(first: Int after: String batchId: ID sensorId: ID): BatchSensorAssociationConnection!
 		# given sensors like iSpindel and Tilt, perhaps just "sensor" with a type
 		# is more appropriate?
 		sensor(id: ID!): Sensor
@@ -92,6 +93,16 @@ var Schema = `
 		disassociatedAt: String
 		id: ID!
 		sensor: Sensor!
+	}
+
+	type BatchSensorAssociationConnection {
+		pageInfo: PageInfo!
+		edges: [BatchSensorAssociationEdge!]
+	}
+
+	type BatchSensorAssociationEdge {
+		cursor: String!
+		node: BatchSensorAssociation!
 	}
 
 	type AssociateSensorToBatchPayload {

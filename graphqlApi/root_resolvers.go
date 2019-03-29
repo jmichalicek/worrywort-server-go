@@ -133,6 +133,42 @@ func (r *Resolver) Batches(ctx context.Context, args struct {
 		Edges:    &edges}, nil
 }
 
+func (r *Resolver) BatchSensorAssociations(ctx context.Context, args struct {
+	First    *int
+	After    *string
+	BatchId  *string
+	SensorId *string
+}) (*batchSensorAssociationConnection, error) {
+	u, _ := authMiddleware.UserFromContext(ctx)
+	db, ok := ctx.Value("db").(*sqlx.DB)
+	if !ok {
+		// TODO: logging with stack info?
+		log.Printf("No database in context")
+		return nil, SERVER_ERROR
+	}
+	associations, err := worrywort.FindBatchSensorAssociations(map[string]interface{}{"user_id": u.Id}, db)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	hasNextPage := false
+	hasPreviousPage := false
+	edges := []*batchSensorAssociationEdge{}
+	for _, assoc := range associations {
+		resolved := batchSensorAssociationResolver{assoc: assoc}
+		// TODO
+		// should base64 encode this cursor, but whatever for now
+		// also make not the id, but offset or whatever
+		edge := &batchSensorAssociationEdge{Node: &resolved, Cursor: string(resolved.Id())}
+		edges = append(edges, edge)
+	}
+
+	return &batchSensorAssociationConnection{
+		PageInfo: &pageInfo{HasNextPage: hasNextPage, HasPreviousPage: hasPreviousPage},
+		Edges:    &edges}, nil
+}
+
 func (r *Resolver) Fermentor(ctx context.Context, args struct{ ID graphql.ID }) (*fermentorResolver, error) {
 	// authUser, _ := authMiddleware.UserFromContext(ctx)
 	// TODO: Implement correctly!  Look up the Fermentor with FindFermentor
@@ -217,11 +253,10 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 }
 
 func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
-	First       *int
-	After       *string
-	SensorId    *string
-	BatchId     *string
-	FermentorId *string
+	First    *int
+	After    *string
+	SensorId *string
+	BatchId  *string
 }) (*temperatureMeasurementConnection, error) {
 	authUser, _ := authMiddleware.UserFromContext(ctx)
 	db, ok := ctx.Value("db").(*sqlx.DB)

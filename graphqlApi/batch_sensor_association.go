@@ -61,6 +61,29 @@ func (b *batchSensorAssociationResolver) DisassociatedAt() *string {
 	return nil
 }
 
+type batchSensorAssociationEdge struct {
+	Cursor string
+	Node   *batchSensorAssociationResolver
+}
+
+func (r *batchSensorAssociationEdge) CURSOR() string                        { return r.Cursor }
+func (r *batchSensorAssociationEdge) NODE() *batchSensorAssociationResolver { return r.Node }
+
+// Going full relay, I suppose
+// the graphql lib needs case-insensitive match of names on the methods
+// so the resolver functions are just named all caps... alternately the
+// struct members could be named as such to avoid a collision
+// idea from https://github.com/deltaskelta/graphql-go-pets-example/blob/ab169fb644b1a00998208e7feede5975214d60da/users.go#L156
+type batchSensorAssociationConnection struct {
+	// if dataloader is implemented, this could just store the ids (and do a lighter query for those ids) and use dataloader
+	// to get each individual edge or sensor and build the edge in the resolver function
+	Edges    *[]*batchSensorAssociationEdge
+	PageInfo *pageInfo
+}
+
+func (r *batchSensorAssociationConnection) PAGEINFO() pageInfo                    { return *r.PageInfo }
+func (r *batchSensorAssociationConnection) EDGES() *[]*batchSensorAssociationEdge { return r.Edges }
+
 // Mutation Payloads
 type associateSensorToBatchPayload struct {
 	assoc *batchSensorAssociationResolver

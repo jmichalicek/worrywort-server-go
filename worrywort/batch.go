@@ -292,15 +292,13 @@ func UpdateBatchSensorAssociation(b BatchSensor, db *sqlx.DB) (*BatchSensor, err
 	return &b, nil
 }
 
-func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*BatchSensor, error) {
-	// var association *BatchSensor = nil
-	// TODO: join batch and sensor tables and pre-populate the nested batch and sensor?
-	association := BatchSensor{}
-	assocPtr := &association
+// Build up the query for BatchSensorAssociations
+// TODO: Test Case for this
+func buildBatchSensorAssociationsQuery(params map[string]interface{}, db *sqlx.DB) (string, []interface{}) {
 	var values []interface{}
 	var where []string
-
 	selectCols := ""
+
 	queryCols := []string{"id", "batch_id", "sensor_id", "description", "associated_at", "disassociated_at",
 		"updated_at", "created_at"}
 	for _, k := range queryCols {
@@ -344,12 +342,19 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 		}
 	}
 
-	// TODO: no good, clean, maintainable way to manage joins with sqlx. tired of this. replace with
-	// gorm or pop/fizz.
 	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batch_sensor_association ba ` + joins + ` WHERE ` +
 		strings.Join(where, " AND ")
 
-	query := db.Rebind(q)
+	return db.Rebind(q), values
+}
+
+func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*BatchSensor, error) {
+	// var association *BatchSensor = nil
+	// TODO: join batch and sensor tables and pre-populate the nested batch and sensor?
+	association := BatchSensor{}
+	assocPtr := &association
+
+	query, values := buildBatchSensorAssociationsQuery(params, db)
 	err := db.Get(assocPtr, query, values...)
 	if err != nil {
 		// TODO: seems like I should be able to just have assoc be a nil ptr in the first place
@@ -358,4 +363,16 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 		assocPtr = nil
 	}
 	return assocPtr, err
+}
+
+func FindBatchSensorAssociations(params map[string]interface{}, db *sqlx.DB) ([]*BatchSensor, error) {
+	associations := []*BatchSensor{}
+	var values []interface{}
+
+	query, values := buildBatchSensorAssociationsQuery(params, db)
+	err := db.Select(&associations, query, values...)
+	if err != nil {
+		return nil, err
+	}
+	return associations, err
 }
