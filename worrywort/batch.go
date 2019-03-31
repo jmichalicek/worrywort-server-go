@@ -5,10 +5,10 @@ package worrywort
 import (
 	"errors"
 	"fmt"
+	"github.com/elgris/sqrl"
 	"github.com/jmoiron/sqlx"
 	"strings"
 	"time"
-	"github.com/elgris/sqrl"
 )
 
 // Seems like these types should go in a different file for clarity, but not sure where
@@ -320,7 +320,7 @@ func buildBatchSensorAssociationsQuery(params map[string]interface{}, db *sqlx.D
 	// TODO: Join createdBy for sensors and batches and populate that stuff as well?
 	// maybe have a param for joins or for how deep to join?
 	query = query.Join("sensors s ON ba.sensor_id = s.id") // TODO: handle the WHERE
-	query = query.Join("batches b ON ba.batch_id = b.id") // TODO: handle the WHERE
+	query = query.Join("batches b ON ba.batch_id = b.id")  // TODO: handle the WHERE
 
 	for _, k := range []string{"batch_id", "sensor_id", "id", "disassociated_at"} {
 		if v, ok := params[k]; ok {

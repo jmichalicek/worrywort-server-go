@@ -654,8 +654,8 @@ func TestFindBatchSensorAssociations(t *testing.T) {
 	}
 
 	var querytests = []struct {
-		name string
-		inputs map[string]interface{}
+		name     string
+		inputs   map[string]interface{}
 		expected []*BatchSensor
 	}{
 		// basic filters

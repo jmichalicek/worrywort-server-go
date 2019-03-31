@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	// "github.com/davecgh/go-spew/spew"
+	"encoding/base64"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
@@ -66,7 +67,10 @@ type batchSensorAssociationEdge struct {
 	Node   *batchSensorAssociationResolver
 }
 
-func (r *batchSensorAssociationEdge) CURSOR() string                        { return r.Cursor }
+func (r *batchSensorAssociationEdge) CURSOR() string {
+	c := base64.StdEncoding.EncodeToString([]byte(r.Cursor))
+	return c
+}
 func (r *batchSensorAssociationEdge) NODE() *batchSensorAssociationResolver { return r.Node }
 
 // Going full relay, I suppose

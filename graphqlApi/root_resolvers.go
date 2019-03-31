@@ -10,9 +10,11 @@ import (
 	"log"
 	// "os"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"time"
+	    "encoding/base64"
 )
 
 // log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -146,7 +148,26 @@ func (r *Resolver) BatchSensorAssociations(ctx context.Context, args struct {
 		log.Printf("No database in context")
 		return nil, SERVER_ERROR
 	}
-	associations, err := worrywort.FindBatchSensorAssociations(map[string]interface{}{"user_id": u.Id}, db)
+	var offset int
+	queryparams := map[string]interface{}{"user_id": u.Id}
+
+	if args.After != nil && *args.After != "" {
+		// TODO: Put this somewhere reusable!!
+		raw, err := base64.StdEncoding.DecodeString(*args.After)
+		if err != nil {
+			panic(err)
+		}
+		var cursordata struct{ Offset int }
+		json.Unmarshal(raw, &cursordata)
+		offset = cursordata.Offset
+		queryparams["offset"] = offset
+	}
+
+	if args.First != nil {
+		queryparams["limit"] = *args.First + 1 // +1 to easily see if there are more
+	}
+
+	associations, err := worrywort.FindBatchSensorAssociations(queryparams, db)
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("%v", err)
 		return nil, err
@@ -155,13 +176,20 @@ func (r *Resolver) BatchSensorAssociations(ctx context.Context, args struct {
 	hasNextPage := false
 	hasPreviousPage := false
 	edges := []*batchSensorAssociationEdge{}
-	for _, assoc := range associations {
-		resolved := batchSensorAssociationResolver{assoc: assoc}
-		// TODO
-		// should base64 encode this cursor, but whatever for now
-		// also make not the id, but offset or whatever
-		edge := &batchSensorAssociationEdge{Node: &resolved, Cursor: string(resolved.Id())}
-		edges = append(edges, edge)
+	for i, assoc := range associations {
+		if i <= *args.First {
+			resolved := batchSensorAssociationResolver{assoc: assoc}
+			// TODO: Not 100% sure about this. We have current offset + current index + 1 where the extra 1
+			// is added so that the offset value in the cursor will be to start at the NEXT item, which feels odd
+			// since the param used is "After". This could optionally add the 1 to the incoming data
+			// which might feel more natural
+			cursorval := offset + i + 1
+			edge := &batchSensorAssociationEdge{Node: &resolved, Cursor: MakeOffsetCursor(cursorval)}
+			edges = append(edges, edge)
+		} else {
+			// had one more than was actually requested, there is a next page
+			hasNextPage = true
+		}
 	}
 
 	return &batchSensorAssociationConnection{
