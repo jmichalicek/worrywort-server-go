@@ -8,6 +8,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"strings"
 	"time"
+	"github.com/elgris/sqrl"
 )
 
 // Seems like these types should go in a different file for clarity, but not sure where
@@ -293,84 +294,54 @@ func UpdateBatchSensorAssociation(b BatchSensor, db *sqlx.DB) (*BatchSensor, err
 }
 
 // Build up the query for BatchSensorAssociations
-// TODO: Test Case for this
-func buildBatchSensorAssociationsQuery(params map[string]interface{}, db *sqlx.DB) (string, []interface{}) {
-	var values []interface{}
-	var where []string
-	selectCols := ""
-
+func buildBatchSensorAssociationsQuery(params map[string]interface{}, db *sqlx.DB) *sqrl.SelectBuilder {
+	query := sqrl.Select().From("batch_sensor_association ba")
+	// probably more efficient to use Columns() here but I am planning on moving all of the columns names somewhere
+	// more central for easier management across querying in multiple places.
 	queryCols := []string{"id", "batch_id", "sensor_id", "description", "associated_at", "disassociated_at",
 		"updated_at", "created_at"}
 	for _, k := range queryCols {
-		selectCols += fmt.Sprintf("ba.%s, ", k)
+		query = query.Column(fmt.Sprintf("ba.%s", k))
 	}
 
 	batchQueryCols := []string{"id", "name", "brew_notes", "tasting_notes", "brewed_date", "bottled_date",
 		"volume_boiled", "volume_in_fermentor", "volume_units", "original_gravity", "final_gravity", "recipe_url",
 		"max_temperature", "min_temperature", "average_temperature", "created_at", "updated_at", "user_id", "uuid"}
 	for _, k := range batchQueryCols {
-		selectCols += fmt.Sprintf("b.%s AS \"b.%s\", ", k, k)
+		query = query.Column(fmt.Sprintf("b.%s AS \"b.%s\"", k, k))
+
 	}
 
 	sensorQueryCols := []string{"id", "name", "created_at", "updated_at", "user_id", "uuid"}
 	for _, k := range sensorQueryCols {
-		selectCols += fmt.Sprintf("s.%s AS \"s.%s\", ", k, k)
+		query = query.Column(fmt.Sprintf("s.%s AS \"s.%s\"", k, k))
 	}
 
 	// TODO: Join createdBy for sensors and batches and populate that stuff as well?
 	// maybe have a param for joins or for how deep to join?
-	userId, ok := params["user_id"]
-	joins := ` INNER JOIN sensors s ON ba.sensor_id = s.id `
-	if ok && userId != nil {
-		joins = joins + ` AND s.user_id = ? `
-		values = append(values, userId)
-	}
-	// this seems dumb and repetitive. It works for now, though.
-	joins = joins + ` INNER JOIN batches b on ba.batch_id = b.id`
-	if ok && userId != nil {
-		joins = joins + ` AND b.user_id = ? `
-		values = append(values, userId)
-	}
+	query = query.Join("sensors s ON ba.sensor_id = s.id") // TODO: handle the WHERE
+	query = query.Join("batches b ON ba.batch_id = b.id") // TODO: handle the WHERE
 
 	for _, k := range []string{"batch_id", "sensor_id", "id", "disassociated_at"} {
 		if v, ok := params[k]; ok {
-			if v != nil {
-				values = append(values, v)
-				// TODO: Deal with values from batch OR user table
-				where = append(where, fmt.Sprintf("ba.%s = ?", k))
-			} else {
-				where = append(where, fmt.Sprintf("ba.%s IS NULL ", k))
-			}
+			// this even handles nil/IS NULL
+			query = query.Where(sqrl.Eq{fmt.Sprintf("ba.%s", k): v})
 		}
 	}
 
-	// TODO: this feels a bit gross... using sqrl would clean it up some.
-	// what if limit and offset are column names - should these be separate params?
-	limit := ""
+	if userId, ok := params["user_id"]; ok {
+		query = query.Where(sqrl.Eq{"b.user_id": userId})
+		query = query.Where(sqrl.Eq{"s.user_id": userId})
+	}
+
 	if v, ok := params["limit"]; ok {
-		switch v.(type) {
-		case int:
-			limit = fmt.Sprintf(" LIMIT %d", v)
-		}
+		query = query.Limit(uint64(v.(int)))
 	}
-
-	offset := ""
 	if v, ok := params["offset"]; ok {
-		switch v.(type) {
-		case int:
-			offset = fmt.Sprintf(" OFFSET %d", v)
-		}
+		query = query.Offset(uint64(v.(int)))
 	}
 
-	// TODO: use sqrl
-	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batch_sensor_association ba ` + joins
-	if len(where) > 0 {
-		q = q + ` WHERE ` +
-			strings.Join(where, " AND ")
-	}
-	q = q + limit + offset
-
-	return db.Rebind(q), values
+	return query
 }
 
 func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*BatchSensor, error) {
@@ -379,8 +350,13 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 	association := BatchSensor{}
 	assocPtr := &association
 
-	query, values := buildBatchSensorAssociationsQuery(params, db)
-	err := db.Get(assocPtr, query, values...)
+	q := buildBatchSensorAssociationsQuery(params, db)
+	query, values, err := q.ToSql()
+	if err != nil {
+		return nil, err
+	}
+	query = db.Rebind(query)
+	err = db.Get(assocPtr, query, values...)
 	if err != nil {
 		// TODO: seems like I should be able to just have assoc be a nil ptr in the first place
 		// then I would not need to do this.  This bit is here becaus assoc is a zero value, not nil,
@@ -394,8 +370,13 @@ func FindBatchSensorAssociations(params map[string]interface{}, db *sqlx.DB) ([]
 	associations := []*BatchSensor{}
 	var values []interface{}
 
-	query, values := buildBatchSensorAssociationsQuery(params, db)
-	err := db.Select(&associations, query, values...)
+	q := buildBatchSensorAssociationsQuery(params, db)
+	query, values, err := q.ToSql()
+	if err != nil {
+		return associations, err
+	}
+	query = db.Rebind(query)
+	err = db.Select(&associations, query, values...)
 	if err != nil {
 		associations = nil
 	}
