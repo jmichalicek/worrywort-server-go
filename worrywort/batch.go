@@ -235,7 +235,7 @@ type BatchSensor struct {
 // TODO: Just pass batch and sensor ids? The whole struct is not needed here.
 // If I pass in pointers, I can safely attach them as well...
 // TODO: Why not follow same pattern as other structs with insert, save, etc.?
-func AssociateBatchToSensor(batch Batch, sensor Sensor, description string, associatedAt *time.Time, db *sqlx.DB) (*BatchSensor, error) {
+func AssociateBatchToSensor(batch *Batch, sensor *Sensor, description string, associatedAt *time.Time, db *sqlx.DB) (*BatchSensor, error) {
 	var updatedAt time.Time
 	var createdAt time.Time
 	var assocTime time.Time
@@ -272,7 +272,7 @@ func AssociateBatchToSensor(batch Batch, sensor Sensor, description string, asso
 
 	// TODO: attach the batch and sensor which were passed in
 	bs := BatchSensor{Id: assocId, BatchId: batch.Id, SensorId: sensor.Id, Description: description,
-		AssociatedAt: assocTime, UpdatedAt: updatedAt, CreatedAt: createdAt}
+		AssociatedAt: assocTime, UpdatedAt: updatedAt, CreatedAt: createdAt, Batch: batch, Sensor: sensor}
 	return &bs, nil
 }
 
@@ -317,6 +317,8 @@ func buildBatchSensorAssociationsQuery(params map[string]interface{}, db *sqlx.D
 		selectCols += fmt.Sprintf("s.%s AS \"s.%s\", ", k, k)
 	}
 
+	// TODO: Join createdBy for sensors and batches and populate that stuff as well?
+	// maybe have a param for joins or for how deep to join?
 	userId, ok := params["user_id"]
 	joins := ` INNER JOIN sensors s ON ba.sensor_id = s.id `
 	if ok && userId != nil {
@@ -342,8 +344,27 @@ func buildBatchSensorAssociationsQuery(params map[string]interface{}, db *sqlx.D
 		}
 	}
 
+	// TODO: this feels a bit gross... using sqrl would clean it up some.
+	// what if limit and offset are column names - should these be separate params?
+	limit := ""
+	if v, ok := params["limit"]; ok {
+		switch v.(type) {
+		case int:
+			limit = fmt.Sprintf(" LIMIT %d", v)
+		}
+	}
+
+	offset := ""
+	if v, ok := params["offset"]; ok {
+		switch v.(type) {
+		case int:
+			offset = fmt.Sprintf(" OFFSET %d", v)
+		}
+	}
+
+	// TODO: use sqrl
 	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batch_sensor_association ba ` + joins + ` WHERE ` +
-		strings.Join(where, " AND ")
+		strings.Join(where, " AND ") + limit + offset
 
 	return db.Rebind(q), values
 }
@@ -372,7 +393,7 @@ func FindBatchSensorAssociations(params map[string]interface{}, db *sqlx.DB) ([]
 	query, values := buildBatchSensorAssociationsQuery(params, db)
 	err := db.Select(&associations, query, values...)
 	if err != nil {
-		return nil, err
+		associations = nil
 	}
 	return associations, err
 }

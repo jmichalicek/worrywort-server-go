@@ -167,7 +167,7 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 	} else {
 		description = ""
 	}
-	association, err := worrywort.AssociateBatchToSensor(*batchPtr, *sensorPtr, description, nil, db)
+	association, err := worrywort.AssociateBatchToSensor(batchPtr, sensorPtr, description, nil, db)
 	if err != nil {
 		log.Printf("%v", err)
 		return nil, errors.New("Specified Sensor does not exist.")

@@ -5,7 +5,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -189,7 +188,7 @@ func TestTemperatureMeasurementModel(t *testing.T) {
 
 	// to ensure it is in the past
 	mTime := time.Now().Add(time.Duration(-5) * time.Minute).Round(time.Microsecond)
-	_, err = AssociateBatchToSensor(batch, sensor, "", &mTime, db)
+	_, err = AssociateBatchToSensor(&batch, &sensor, "", &mTime, db)
 	measurement := TemperatureMeasurement{CreatedBy: &u, UserId: u.Id, SensorId: sensor.Id,
 		Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()}
 	if err := measurement.Save(db); err != nil {
@@ -549,7 +548,7 @@ func TestBatchSensorAssociations(t *testing.T) {
 
 	t.Run("AssociateBatchToSensor()", func(t *testing.T) {
 		defer cleanAssociations()
-		association, err := AssociateBatchToSensor(batch, sensor, "Testing", nil, db)
+		association, err := AssociateBatchToSensor(&batch, &sensor, "Testing", nil, db)
 		if err != nil {
 			t.Errorf("Error: %v", err)
 		}
@@ -583,7 +582,7 @@ func TestBatchSensorAssociations(t *testing.T) {
 
 	t.Run("UpdateBatchSensorAssociation()", func(t *testing.T) {
 		defer cleanAssociations()
-		aPtr, err := AssociateBatchToSensor(batch, sensor, "Testing", nil, db)
+		aPtr, err := AssociateBatchToSensor(&batch, &sensor, "Testing", nil, db)
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
@@ -594,18 +593,119 @@ func TestBatchSensorAssociations(t *testing.T) {
 			t.Fatalf("%v", err)
 		}
 		// Making sure the change was persisted to the db
-		updated2 := BatchSensor{}
-		q := `SELECT id, sensor_id, batch_id, description, associated_at, disassociated_at, created_at,
-			updated_at FROM batch_sensor_association bs WHERE id = ? AND sensor_id = ? AND batch_id = ? AND description = ?
-			AND disassociated_at IS NULL`
-		query := db.Rebind(q)
-		err = db.Get(&updated2, query, association.Id, association.SensorId, association.BatchId, "Updated")
+		expected, err := FindBatchSensorAssociation(map[string]interface{}{"id": updated.Id}, db)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
+		if expected.Description != "Updated" {
+			t.Errorf("Expected: %s\nGot: %s. Changes may not have persisted to the database.", spew.Sdump(expected),
+				spew.Sdump(updated))
+		}
+	})
+}
 
-		if !reflect.DeepEqual(*updated, updated2) {
-			t.Errorf("Expected: %s\nGot: %s. Changes may not have persisted to the database.", spew.Sdump(updated), spew.Sdump(updated2))
+func TestFindBatchSensorAssociations(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
+	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
+	batch := Batch{Name: "Testing", UserId: u.Id, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
+		VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, BrewNotes: "Brew Notes",
+		TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
+	if err := batch.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	batch2 := Batch{Name: "Testing2", UserId: u.Id, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
+		VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, BrewNotes: "Brew Notes",
+		TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
+	if err := batch2.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	sensor := Sensor{Name: "Test Sensor", CreatedBy: &u}
+	if err := sensor.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	sensor2 := Sensor{Name: "Test Sensor2", CreatedBy: &u}
+	if err := sensor2.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	association, err := AssociateBatchToSensor(&batch, &sensor, "Testing", nil, db)
+	if err != nil {
+		t.Errorf("Error: %v", err)
+	}
+
+	cleanAssociations := func() {
+		q := `DELETE FROM batch_sensor_association WHERE sensor_id = ? AND batch_id = ?`
+		q = db.Rebind(q)
+		_, err := db.Exec(q, sensor.Id, batch.Id)
+		if err != nil {
+			panic(err)
+		}
+	}
+	defer cleanAssociations()
+
+	t.Run("find by batchId", func(t *testing.T) {
+		// could make this a table test here pretty easily
+		associations, err := FindBatchSensorAssociations(map[string]interface{}{"batch_id": *batch.Id}, db)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+
+		expected := []*BatchSensor{association}
+		//TODO: There is definitely a better way to do this using cmp
+		// rig our known not correct "expected" to work
+		association.Batch.CreatedBy = nil
+		association.Sensor.CreatedBy = nil
+		if !cmp.Equal(expected, associations) {
+			t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(expected, associations))
+		}
+
+		// test bad batch id
+		a2, err := FindBatchSensorAssociations(map[string]interface{}{"batch_id": *batch2.Id}, db)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		if len(a2) != 0 {
+			t.Errorf("Expected: slice with length of 0, got length %v", spew.Sdump(a2))
+		}
+	})
+
+	t.Run("find by sensorId", func(t *testing.T) {
+		associations, err := FindBatchSensorAssociations(map[string]interface{}{"sensor_id": *sensor.Id}, db)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+
+		expected := []*BatchSensor{association}
+		//TODO: There is definitely a better way to do this using cmp
+		// rig our known not correct "expected" to work
+		association.Batch.CreatedBy = nil
+		association.Sensor.CreatedBy = nil
+		if !cmp.Equal(expected, associations) {
+			t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(expected, associations))
+		}
+
+		// test bad batch id
+		a2, err := FindBatchSensorAssociations(map[string]interface{}{"sensor_id": *sensor2.Id}, db)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		if len(a2) != 0 {
+			t.Errorf("Expected: slice with length of 0, got length %v", spew.Sdump(a2))
 		}
 	})
 }

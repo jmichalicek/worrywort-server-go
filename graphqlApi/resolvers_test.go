@@ -468,7 +468,7 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	if err := batch.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
-	assoc, err := worrywort.AssociateBatchToSensor(batch, sensor, "", nil, db)
+	assoc, err := worrywort.AssociateBatchToSensor(&batch, &sensor, "", nil, db)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}

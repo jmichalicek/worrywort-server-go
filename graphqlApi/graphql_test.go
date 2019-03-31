@@ -824,7 +824,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 	t.Run("Test reassociate to batch", func(t *testing.T) {
 		defer cleanAssociations()
 
-		previousAssoc, err := worrywort.AssociateBatchToSensor(batch, sensor, "Testing", nil, db)
+		previousAssoc, err := worrywort.AssociateBatchToSensor(&batch, &sensor, "Testing", nil, db)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -865,7 +865,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 
 	t.Run("Sensor already associated to same batch", func(t *testing.T) {
 		defer cleanAssociations()
-		_, err := worrywort.AssociateBatchToSensor(batch, sensor, "Testing", nil, db)
+		_, err := worrywort.AssociateBatchToSensor(&batch, &sensor, "Testing", nil, db)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -1012,9 +1012,9 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	// assoc2 and assoc3 test some bad states which should not happen, but making sure the api handles it
 	// safely in case they somehow do.
 	// TODO: really should be t.Fatal if there's an error here...
-	assoc1, _ := worrywort.AssociateBatchToSensor(batch, sensor, "Description", nil, db)
-	assoc2, _ := worrywort.AssociateBatchToSensor(batch, sensor2, "Description", nil, db)
-	assoc3, _ := worrywort.AssociateBatchToSensor(batch2, sensor, "Description", nil, db)
+	assoc1, _ := worrywort.AssociateBatchToSensor(&batch, &sensor, "Description", nil, db)
+	assoc2, _ := worrywort.AssociateBatchToSensor(&batch, &sensor2, "Description", nil, db)
+	assoc3, _ := worrywort.AssociateBatchToSensor(&batch2, &sensor, "Description", nil, db)
 
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
 
