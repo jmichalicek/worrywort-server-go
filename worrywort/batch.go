@@ -363,8 +363,12 @@ func buildBatchSensorAssociationsQuery(params map[string]interface{}, db *sqlx.D
 	}
 
 	// TODO: use sqrl
-	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batch_sensor_association ba ` + joins + ` WHERE ` +
-		strings.Join(where, " AND ") + limit + offset
+	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batch_sensor_association ba ` + joins
+	if len(where) > 0 {
+		q = q + ` WHERE ` +
+			strings.Join(where, " AND ")
+	}
+	q = q + limit + offset
 
 	return db.Rebind(q), values
 }

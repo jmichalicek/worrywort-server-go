@@ -633,79 +633,50 @@ func TestFindBatchSensorAssociations(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 
-	sensor := Sensor{Name: "Test Sensor", CreatedBy: &u}
+	sensor := Sensor{Name: "Test Sensor", UserId: u.Id}
 	if err := sensor.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	sensor2 := Sensor{Name: "Test Sensor2", CreatedBy: &u}
+	sensor2 := Sensor{Name: "Test Sensor2", UserId: u.Id}
 	if err := sensor2.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
 	association, err := AssociateBatchToSensor(&batch, &sensor, "Testing", nil, db)
 	if err != nil {
-		t.Errorf("Error: %v", err)
+		t.Fatalf("Error: %v", err)
 	}
 
-	cleanAssociations := func() {
-		q := `DELETE FROM batch_sensor_association WHERE sensor_id = ? AND batch_id = ?`
-		q = db.Rebind(q)
-		_, err := db.Exec(q, sensor.Id, batch.Id)
-		if err != nil {
-			panic(err)
-		}
+	association2, err := AssociateBatchToSensor(&batch, &sensor2, "Testing 2", nil, db)
+	if err != nil {
+		t.Fatalf("Error: %v", err)
 	}
-	defer cleanAssociations()
 
-	t.Run("find by batchId", func(t *testing.T) {
-		// could make this a table test here pretty easily
-		associations, err := FindBatchSensorAssociations(map[string]interface{}{"batch_id": *batch.Id}, db)
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
+	var querytests = []struct {
+		name string
+		inputs map[string]interface{}
+		expected []*BatchSensor
+	}{
+		// basic filters
+		{"By batch.Id", map[string]interface{}{"batch_id": *batch.Id}, []*BatchSensor{association, association2}},
+		{"By sensor.Id", map[string]interface{}{"sensor_id": *sensor.Id}, []*BatchSensor{association}},
+		{"By batch2.Id", map[string]interface{}{"batch_id": *batch2.Id}, []*BatchSensor{}},
+		{"By sensor2.Id", map[string]interface{}{"sensor_id": *sensor2.Id}, []*BatchSensor{association2}},
+		// pagination
+		{"Paginated no offset", map[string]interface{}{"limit": 1}, []*BatchSensor{association}},
+		{"Paginated with offset", map[string]interface{}{"limit": 1, "offset": 1}, []*BatchSensor{association2}},
+	}
 
-		expected := []*BatchSensor{association}
-		//TODO: There is definitely a better way to do this using cmp
-		// rig our known not correct "expected" to work
-		association.Batch.CreatedBy = nil
-		association.Sensor.CreatedBy = nil
-		if !cmp.Equal(expected, associations) {
-			t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(expected, associations))
-		}
-
-		// test bad batch id
-		a2, err := FindBatchSensorAssociations(map[string]interface{}{"batch_id": *batch2.Id}, db)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-		if len(a2) != 0 {
-			t.Errorf("Expected: slice with length of 0, got length %v", spew.Sdump(a2))
-		}
-	})
-
-	t.Run("find by sensorId", func(t *testing.T) {
-		associations, err := FindBatchSensorAssociations(map[string]interface{}{"sensor_id": *sensor.Id}, db)
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
-
-		expected := []*BatchSensor{association}
-		//TODO: There is definitely a better way to do this using cmp
-		// rig our known not correct "expected" to work
-		association.Batch.CreatedBy = nil
-		association.Sensor.CreatedBy = nil
-		if !cmp.Equal(expected, associations) {
-			t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(expected, associations))
-		}
-
-		// test bad batch id
-		a2, err := FindBatchSensorAssociations(map[string]interface{}{"sensor_id": *sensor2.Id}, db)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-		if len(a2) != 0 {
-			t.Errorf("Expected: slice with length of 0, got length %v", spew.Sdump(a2))
-		}
-	})
+	for _, qt := range querytests {
+		t.Run(qt.name, func(t *testing.T) {
+			associations, err := FindBatchSensorAssociations(qt.inputs, db)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if !cmp.Equal(qt.expected, associations) {
+				t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(qt.expected, associations))
+			}
+		})
+	}
 }
