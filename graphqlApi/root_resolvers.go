@@ -10,7 +10,10 @@ import (
 	"log"
 	// "os"
 	"database/sql"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"github.com/davecgh/go-spew/spew"
 	"strconv"
 	"time"
 )
@@ -133,6 +136,79 @@ func (r *Resolver) Batches(ctx context.Context, args struct {
 		Edges:    &edges}, nil
 }
 
+func (r *Resolver) BatchSensorAssociations(ctx context.Context, args struct {
+	First    *int
+	After    *string
+	BatchId  *string
+	SensorId *string
+}) (*batchSensorAssociationConnection, error) {
+	u, _ := authMiddleware.UserFromContext(ctx)
+	db, ok := ctx.Value("db").(*sqlx.DB)
+	if !ok {
+		// TODO: logging with stack info?
+		log.Printf("No database in context")
+		return nil, SERVER_ERROR
+	}
+	var offset int
+	queryparams := map[string]interface{}{"user_id": u.Id}
+
+	if args.After != nil && *args.After != "" {
+		// TODO: Put this somewhere reusable!!
+		raw, err := base64.StdEncoding.DecodeString(*args.After)
+		if err != nil {
+			log.Printf("err")
+			// TODO: probably should NOT panic, but return a nicer error about invalid cursor.
+			panic(err)
+		}
+		var cursordata struct {
+			Offset int `json:"offset"`
+		}
+		json.Unmarshal(raw, &cursordata)
+		offset = cursordata.Offset
+		queryparams["offset"] = offset
+	}
+
+	if args.First != nil {
+		queryparams["limit"] = *args.First + 1 // +1 to easily see if there are more
+	}
+
+	if args.BatchId != nil {
+		queryparams["batch_uuid"] = *args.BatchId
+	}
+
+	if args.SensorId != nil {
+		queryparams["sensor_uuid"] = args.SensorId
+	}
+
+	associations, err := worrywort.FindBatchSensorAssociations(queryparams, db)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	hasNextPage := false
+	hasPreviousPage := false
+	edges := []*batchSensorAssociationEdge{}
+	for i, assoc := range associations {
+		if args.First == nil || i < *args.First {
+			resolved := batchSensorAssociationResolver{assoc: assoc}
+			// TODO: Not 100% sure about this. We have current offset + current index + 1 where the extra 1
+			// is added so that the offset value in the cursor will be to start at the NEXT item, which feels odd
+			// since the param used is "After". This could optionally add the 1 to the incoming data
+			// which might feel more natural
+			cursorval := offset + i + 1
+			edge := &batchSensorAssociationEdge{Node: &resolved, Cursor: MakeOffsetCursor(cursorval)}
+			edges = append(edges, edge)
+		} else {
+			// had one more than was actually requested, there is a next page
+			hasNextPage = true
+		}
+	}
+	return &batchSensorAssociationConnection{
+		PageInfo: &pageInfo{HasNextPage: hasNextPage, HasPreviousPage: hasPreviousPage},
+		Edges:    &edges}, nil
+}
+
 func (r *Resolver) Fermentor(ctx context.Context, args struct{ ID graphql.ID }) (*fermentorResolver, error) {
 	// authUser, _ := authMiddleware.UserFromContext(ctx)
 	// TODO: Implement correctly!  Look up the Fermentor with FindFermentor
@@ -171,7 +247,7 @@ func (r *Resolver) Sensors(ctx context.Context, args struct {
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
 		// TODO: logging with stack info?
-		log.Printf("No database in context")
+		log.Printf("No database in context: %s", spew.Sdump(ctx))
 		return nil, SERVER_ERROR
 	}
 
@@ -217,11 +293,10 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 }
 
 func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
-	First       *int
-	After       *string
-	SensorId    *string
-	BatchId     *string
-	FermentorId *string
+	First    *int
+	After    *string
+	SensorId *string
+	BatchId  *string
 }) (*temperatureMeasurementConnection, error) {
 	authUser, _ := authMiddleware.UserFromContext(ctx)
 	db, ok := ctx.Value("db").(*sqlx.DB)

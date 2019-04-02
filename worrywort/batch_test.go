@@ -5,7 +5,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -189,7 +188,7 @@ func TestTemperatureMeasurementModel(t *testing.T) {
 
 	// to ensure it is in the past
 	mTime := time.Now().Add(time.Duration(-5) * time.Minute).Round(time.Microsecond)
-	_, err = AssociateBatchToSensor(batch, sensor, "", &mTime, db)
+	_, err = AssociateBatchToSensor(&batch, &sensor, "", &mTime, db)
 	measurement := TemperatureMeasurement{CreatedBy: &u, UserId: u.Id, SensorId: sensor.Id,
 		Temperature: 70.0, Units: FAHRENHEIT, RecordedAt: time.Now()}
 	if err := measurement.Save(db); err != nil {
@@ -549,7 +548,7 @@ func TestBatchSensorAssociations(t *testing.T) {
 
 	t.Run("AssociateBatchToSensor()", func(t *testing.T) {
 		defer cleanAssociations()
-		association, err := AssociateBatchToSensor(batch, sensor, "Testing", nil, db)
+		association, err := AssociateBatchToSensor(&batch, &sensor, "Testing", nil, db)
 		if err != nil {
 			t.Errorf("Error: %v", err)
 		}
@@ -583,7 +582,7 @@ func TestBatchSensorAssociations(t *testing.T) {
 
 	t.Run("UpdateBatchSensorAssociation()", func(t *testing.T) {
 		defer cleanAssociations()
-		aPtr, err := AssociateBatchToSensor(batch, sensor, "Testing", nil, db)
+		aPtr, err := AssociateBatchToSensor(&batch, &sensor, "Testing", nil, db)
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
@@ -594,18 +593,90 @@ func TestBatchSensorAssociations(t *testing.T) {
 			t.Fatalf("%v", err)
 		}
 		// Making sure the change was persisted to the db
-		updated2 := BatchSensor{}
-		q := `SELECT id, sensor_id, batch_id, description, associated_at, disassociated_at, created_at,
-			updated_at FROM batch_sensor_association bs WHERE id = ? AND sensor_id = ? AND batch_id = ? AND description = ?
-			AND disassociated_at IS NULL`
-		query := db.Rebind(q)
-		err = db.Get(&updated2, query, association.Id, association.SensorId, association.BatchId, "Updated")
+		expected, err := FindBatchSensorAssociation(map[string]interface{}{"id": updated.Id}, db)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
-
-		if !reflect.DeepEqual(*updated, updated2) {
-			t.Errorf("Expected: %s\nGot: %s. Changes may not have persisted to the database.", spew.Sdump(updated), spew.Sdump(updated2))
+		if expected.Description != "Updated" {
+			t.Errorf("Expected: %s\nGot: %s. Changes may not have persisted to the database.", spew.Sdump(expected),
+				spew.Sdump(updated))
 		}
 	})
+}
+
+func TestFindBatchSensorAssociations(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
+	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
+	batch := Batch{Name: "Testing", UserId: u.Id, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
+		VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, BrewNotes: "Brew Notes",
+		TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
+	if err := batch.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	batch2 := Batch{Name: "Testing2", UserId: u.Id, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
+		VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, BrewNotes: "Brew Notes",
+		TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
+	if err := batch2.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	sensor := Sensor{Name: "Test Sensor", UserId: u.Id}
+	if err := sensor.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	sensor2 := Sensor{Name: "Test Sensor2", UserId: u.Id}
+	if err := sensor2.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	association, err := AssociateBatchToSensor(&batch, &sensor, "Testing", nil, db)
+	if err != nil {
+		t.Fatalf("Error: %v", err)
+	}
+
+	association2, err := AssociateBatchToSensor(&batch, &sensor2, "Testing 2", nil, db)
+	if err != nil {
+		t.Fatalf("Error: %v", err)
+	}
+
+	var querytests = []struct {
+		name     string
+		inputs   map[string]interface{}
+		expected []*BatchSensor
+	}{
+		// basic filters
+		{"By batch.Id", map[string]interface{}{"batch_id": *batch.Id}, []*BatchSensor{association, association2}},
+		{"By sensor.Id", map[string]interface{}{"sensor_id": *sensor.Id}, []*BatchSensor{association}},
+		{"By batch2.Id", map[string]interface{}{"batch_id": *batch2.Id}, []*BatchSensor{}},
+		{"By sensor2.Id", map[string]interface{}{"sensor_id": *sensor2.Id}, []*BatchSensor{association2}},
+		// pagination
+		{"Paginated no offset", map[string]interface{}{"limit": 1}, []*BatchSensor{association}},
+		{"Paginated with offset", map[string]interface{}{"limit": 1, "offset": 1}, []*BatchSensor{association2}},
+	}
+
+	for _, qt := range querytests {
+		t.Run(qt.name, func(t *testing.T) {
+			associations, err := FindBatchSensorAssociations(qt.inputs, db)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if !cmp.Equal(qt.expected, associations) {
+				t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(qt.expected, associations))
+			}
+		})
+	}
 }

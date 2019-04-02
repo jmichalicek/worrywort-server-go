@@ -18,10 +18,19 @@
   version = "v1.1.1"
 
 [[projects]]
+  branch = "master"
+  digest = "1:68e7bc676f9ede4faeee8d297465ec04abf2147ebdea5d6903554b5b1c504ebf"
+  name = "github.com/elgris/sqrl"
+  packages = ["."]
+  pruneopts = ""
+  revision = "90ecf730640af15b296b0613b5d74848b3675e53"
+
+[[projects]]
   digest = "1:f9f45f75f332e03fc7e9fe9188ea4e1ce4d14779ef34fa1b023da67518e36327"
   name = "github.com/google/go-cmp"
   packages = [
     "cmp",
+    "cmp/cmpopts",
     "cmp/internal/diff",
     "cmp/internal/function",
     "cmp/internal/value",
@@ -120,7 +129,9 @@
   input-imports = [
     "github.com/DATA-DOG/go-txdb",
     "github.com/davecgh/go-spew/spew",
+    "github.com/elgris/sqrl",
     "github.com/google/go-cmp/cmp",
+    "github.com/google/go-cmp/cmp/cmpopts",
     "github.com/google/uuid",
     "github.com/graph-gophers/graphql-go",
     "github.com/graph-gophers/graphql-go/relay",

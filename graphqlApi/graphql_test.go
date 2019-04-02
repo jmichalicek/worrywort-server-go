@@ -3,6 +3,7 @@ package graphqlApi_test
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	txdb "github.com/DATA-DOG/go-txdb"
@@ -824,7 +825,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 	t.Run("Test reassociate to batch", func(t *testing.T) {
 		defer cleanAssociations()
 
-		previousAssoc, err := worrywort.AssociateBatchToSensor(batch, sensor, "Testing", nil, db)
+		previousAssoc, err := worrywort.AssociateBatchToSensor(&batch, &sensor, "Testing", nil, db)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -865,7 +866,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 
 	t.Run("Sensor already associated to same batch", func(t *testing.T) {
 		defer cleanAssociations()
-		_, err := worrywort.AssociateBatchToSensor(batch, sensor, "Testing", nil, db)
+		_, err := worrywort.AssociateBatchToSensor(&batch, &sensor, "Testing", nil, db)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -1012,9 +1013,9 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	// assoc2 and assoc3 test some bad states which should not happen, but making sure the api handles it
 	// safely in case they somehow do.
 	// TODO: really should be t.Fatal if there's an error here...
-	assoc1, _ := worrywort.AssociateBatchToSensor(batch, sensor, "Description", nil, db)
-	assoc2, _ := worrywort.AssociateBatchToSensor(batch, sensor2, "Description", nil, db)
-	assoc3, _ := worrywort.AssociateBatchToSensor(batch2, sensor, "Description", nil, db)
+	assoc1, _ := worrywort.AssociateBatchToSensor(&batch, &sensor, "Description", nil, db)
+	assoc2, _ := worrywort.AssociateBatchToSensor(&batch, &sensor2, "Description", nil, db)
+	assoc3, _ := worrywort.AssociateBatchToSensor(&batch2, &sensor, "Description", nil, db)
 
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
 
@@ -1174,4 +1175,141 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 			t.Errorf("Expected query error `BatchSensorAssociation does not exist.`, Got: %v", resultData.Errors)
 		}
 	})
+}
+
+func TestBatchSensorAssociationsQuery(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	sensor := worrywort.Sensor{UserId: u.Id, Name: "Test Sensor", CreatedBy: &u}
+	if err := sensor.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	batch := worrywort.Batch{UserId: u.Id, CreatedBy: &u, Name: "Test batch"}
+	if err = batch.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	batch2 := worrywort.Batch{UserId: u.Id, CreatedBy: &u, Name: "Test batch 2"}
+	if err = batch2.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	sensor2 := worrywort.Sensor{UserId: u.Id, Name: "Test Sensor 2", CreatedBy: &u}
+	if err := sensor2.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	assoc1, _ := worrywort.AssociateBatchToSensor(&batch, &sensor, "Description", nil, db)
+	assoc2, _ := worrywort.AssociateBatchToSensor(&batch2, &sensor2, "Description", nil, db)
+	assoc1cursor := fmt.Sprintf("%s", base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursor(1))))
+	assoc2cursor := fmt.Sprintf("%s", base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursor(2))))
+
+	// if needed, make actual types for the returned structs to unmarshal to
+	var testargs = []struct {
+		Name      string
+		Variables map[string]interface{}
+		Expected  []byte
+	}{
+		{
+			Name:      "BatchSensorAssociation()",
+			Variables: map[string]interface{}{},
+			Expected: []byte(fmt.Sprintf(`{"batchSensorAssociations": {
+					"__typename": "BatchSensorAssociationConnection",
+				  	"pageInfo": {"hasPreviousPage": false, "hasNextPage": false},
+					"edges": [
+						{"__typename": "BatchSensorAssociationEdge", "cursor": "%s", "node": {"__typename":"BatchSensorAssociation","id":"%s"}},
+						{"__typename": "BatchSensorAssociationEdge", "cursor": "%s", "node": {"__typename":"BatchSensorAssociation","id":"%s"}}
+					]}}`,
+				assoc1cursor, assoc1.Id, assoc2cursor, assoc2.Id))},
+		{
+			Name:      "BatchSensorAssociation(first: 1)",
+			Variables: map[string]interface{}{"first": 1},
+			Expected: []byte(fmt.Sprintf(
+				`{"batchSensorAssociations": {
+				  "__typename":"BatchSensorAssociationConnection",
+				  "pageInfo": {"hasPreviousPage": false, "hasNextPage": true},
+				  "edges": [
+				  	{"__typename": "BatchSensorAssociationEdge", "cursor": "%s", "node": {"__typename":"BatchSensorAssociation","id":"%s"}}
+				  ]}}`,
+				assoc1cursor, assoc1.Id))},
+		{
+			Name:      "BatchSensorAssociation(after: FIRST_CURSOR)",
+			Variables: map[string]interface{}{"after": assoc1cursor},
+			Expected: []byte(fmt.Sprintf(
+				`{"batchSensorAssociations": {
+				  "__typename":"BatchSensorAssociationConnection",
+				  "pageInfo": {"hasPreviousPage": false, "hasNextPage": false},
+				  "edges": [
+				  	{"__typename": "BatchSensorAssociationEdge", "cursor": "%s", "node": {"__typename":"BatchSensorAssociation","id":"%s"}}
+				  ]}}`,
+				assoc2cursor, assoc2.Id))},
+		{
+			Name:      "BatchSensorAssociation(batchId: BATCH_1_ID)",
+			Variables: map[string]interface{}{"batchId": batch.Uuid},
+			Expected: []byte(fmt.Sprintf(
+				`{"batchSensorAssociations": {
+				  "__typename":"BatchSensorAssociationConnection",
+				  "pageInfo": {"hasPreviousPage": false, "hasNextPage": false},
+				  "edges": [
+				  	{"__typename": "BatchSensorAssociationEdge", "cursor": "%s", "node": {"__typename":"BatchSensorAssociation","id":"%s"}}
+				  ]}}`,
+				assoc1cursor, assoc1.Id))},
+		{
+			Name:      "BatchSensorAssociation(sensorId: SENSOR2_ID)",
+			Variables: map[string]interface{}{"sensorId": sensor2.Uuid},
+			Expected: []byte(fmt.Sprintf(
+				`{"batchSensorAssociations": {
+				  "__typename":"BatchSensorAssociationConnection",
+				  "pageInfo": {"hasPreviousPage": false, "hasNextPage": false},
+				  "edges": [
+				  	{"__typename": "BatchSensorAssociationEdge", "cursor": "%s", "node": {"__typename":"BatchSensorAssociation","id":"%s"}}
+				  ]}}`,
+				assoc1cursor, assoc2.Id))}, // cursor is badly named - if only assoc2 is returned, it has that cursor
+	}
+
+	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	for _, qt := range testargs {
+		t.Run(qt.Name, func(t *testing.T) {
+			var expected interface{}
+			err = json.Unmarshal(qt.Expected, &expected)
+			if err != nil {
+				t.Errorf("%s", err)
+			}
+
+			query := strings.Trim(`
+					query getBatchSensorAssociations($first: Int $after: String $batchId: ID $sensorId: ID) {
+						batchSensorAssociations(first: $first after: $after batchId: $batchId sensorId: $sensorId) {
+							__typename pageInfo {hasPreviousPage hasNextPage}
+							edges {
+								__typename cursor node { __typename id }
+							}
+						}
+					}`, " ")
+			operationName := ""
+			ctx := context.Background()
+			ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+			ctx = context.WithValue(ctx, "db", db)
+			resultData := worrywortSchema.Exec(ctx, query, operationName, qt.Variables)
+			var result interface{}
+			err = json.Unmarshal(resultData.Data, &result)
+			if err != nil {
+				t.Fatalf("%v: %v", result, resultData)
+			}
+			if !cmp.Equal(expected, result) {
+				t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(expected, result))
+			}
+		})
+	}
+
 }
