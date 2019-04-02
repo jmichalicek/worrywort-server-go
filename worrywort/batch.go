@@ -5,6 +5,7 @@ package worrywort
 import (
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/elgris/sqrl"
 	"github.com/jmoiron/sqlx"
 	"strings"
@@ -329,6 +330,14 @@ func buildBatchSensorAssociationsQuery(params map[string]interface{}, db *sqlx.D
 		}
 	}
 
+	if v, ok := params["batch_uuid"]; ok {
+		query = query.Where(sqrl.Eq{"b.uuid": v})
+	}
+
+	if v, ok := params["sensor_uuid"]; ok {
+		query = query.Where(sqrl.Eq{"s.uuid": v})
+	}
+
 	if userId, ok := params["user_id"]; ok {
 		query = query.Where(sqrl.Eq{"b.user_id": userId})
 		query = query.Where(sqrl.Eq{"s.user_id": userId})
@@ -372,6 +381,7 @@ func FindBatchSensorAssociations(params map[string]interface{}, db *sqlx.DB) ([]
 
 	q := buildBatchSensorAssociationsQuery(params, db)
 	query, values, err := q.ToSql()
+	fmt.Printf("\n\nQUERY: %s\nVALUES: %s\n", query, spew.Sdump(values))
 	if err != nil {
 		return associations, err
 	}

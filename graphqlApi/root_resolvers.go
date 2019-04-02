@@ -10,11 +10,12 @@ import (
 	"log"
 	// "os"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/davecgh/go-spew/spew"
 	"strconv"
 	"time"
-	    "encoding/base64"
 )
 
 // log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -155,9 +156,13 @@ func (r *Resolver) BatchSensorAssociations(ctx context.Context, args struct {
 		// TODO: Put this somewhere reusable!!
 		raw, err := base64.StdEncoding.DecodeString(*args.After)
 		if err != nil {
+			log.Printf("err")
+			// TODO: probably should NOT panic, but return a nicer error about invalid cursor.
 			panic(err)
 		}
-		var cursordata struct{ Offset int }
+		var cursordata struct {
+			Offset int `json:"offset"`
+		}
 		json.Unmarshal(raw, &cursordata)
 		offset = cursordata.Offset
 		queryparams["offset"] = offset
@@ -165,6 +170,14 @@ func (r *Resolver) BatchSensorAssociations(ctx context.Context, args struct {
 
 	if args.First != nil {
 		queryparams["limit"] = *args.First + 1 // +1 to easily see if there are more
+	}
+
+	if args.BatchId != nil {
+		queryparams["batch_uuid"] = *args.BatchId
+	}
+
+	if args.SensorId != nil {
+		queryparams["sensor_uuid"] = args.SensorId
 	}
 
 	associations, err := worrywort.FindBatchSensorAssociations(queryparams, db)
@@ -177,7 +190,7 @@ func (r *Resolver) BatchSensorAssociations(ctx context.Context, args struct {
 	hasPreviousPage := false
 	edges := []*batchSensorAssociationEdge{}
 	for i, assoc := range associations {
-		if i <= *args.First {
+		if args.First == nil || i < *args.First {
 			resolved := batchSensorAssociationResolver{assoc: assoc}
 			// TODO: Not 100% sure about this. We have current offset + current index + 1 where the extra 1
 			// is added so that the offset value in the cursor will be to start at the NEXT item, which feels odd
@@ -191,7 +204,6 @@ func (r *Resolver) BatchSensorAssociations(ctx context.Context, args struct {
 			hasNextPage = true
 		}
 	}
-
 	return &batchSensorAssociationConnection{
 		PageInfo: &pageInfo{HasNextPage: hasNextPage, HasPreviousPage: hasPreviousPage},
 		Edges:    &edges}, nil
@@ -235,7 +247,7 @@ func (r *Resolver) Sensors(ctx context.Context, args struct {
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
 		// TODO: logging with stack info?
-		log.Printf("No database in context")
+		log.Printf("No database in context: %s", spew.Sdump(ctx))
 		return nil, SERVER_ERROR
 	}
 

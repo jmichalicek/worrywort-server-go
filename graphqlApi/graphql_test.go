@@ -3,6 +3,7 @@ package graphqlApi_test
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	txdb "github.com/DATA-DOG/go-txdb"
@@ -21,7 +22,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	    "encoding/base64"
 )
 
 const DefaultUserKey string = "user"
@@ -1212,70 +1212,104 @@ func TestBatchSensorAssociationsQuery(t *testing.T) {
 
 	assoc1, _ := worrywort.AssociateBatchToSensor(&batch, &sensor, "Description", nil, db)
 	assoc2, _ := worrywort.AssociateBatchToSensor(&batch2, &sensor2, "Description", nil, db)
-	limit1 := 1
 	assoc1cursor := fmt.Sprintf("%s", base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursor(1))))
 	assoc2cursor := fmt.Sprintf("%s", base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursor(2))))
 
-	var t1expected interface{}
-	var t2expected interface{}
-	var t3expected interface{}
-	err = json.Unmarshal(
-		[]byte(
-			fmt.Sprintf(
-				`{"batchSensorAssociations": {
-					"__typename": "BatchSensorAssociationConnection",
-					"pageInfo": {"hasPreviousPage": false, "hasNextPage": false},
-					"edges": [
-						{"__typename": "BatchSensorAssociationEdge", "cursor": "%s", "node": {"__typename":"BatchSensorAssociation","id":"%s"}},
-						{"__typename": "BatchSensorAssociationEdge", "cursor": "%s", "node": {"__typename":"BatchSensorAssociation","id":"%s"}}]}}`,
-				assoc1cursor, assoc1.Id, assoc2cursor, assoc2.Id)), &t1expected)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-
-	err = json.Unmarshal(
-		[]byte(
-			fmt.Sprintf(
-				`{"batchSensorAssociations": {
-					"__typename":"BatchSensorAssociationConnection",
-					"pageInfo": {"hasPreviousPage": false, "hasNextPage": true},
-					"edges": [
-						{"__typename": "BatchSensorAssociationEdge", "cursor": "%s", "node": {"__typename":"BatchSensorAssociation","id":"%s"}}]}}`,
-				assoc1cursor, assoc1.Id)), &t2expected)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-
-	err = json.Unmarshal(
-		[]byte(
-			fmt.Sprintf(
-				`{"batchSensorAssociations": {
-					"__typename":"BatchSensorAssociationConnection",
-					"pageInfo": {"hasPreviousPage": false, "hasNextPage": false},
-					"edges": [
-						{"__typename": "BatchSensorAssociationEdge", "cursor": "%s", "node": {"__typename":"BatchSensorAssociation","id":"%s"}}]}}`,
-				assoc2cursor, assoc2.Id)), &t3expected)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-
 	// if needed, make actual types for the returned structs to unmarshal to
 	var testargs = []struct {
-		Name string
-		BatchId *string
-		SensorId *string
-		First *int
-		After *string
-		Expected interface{}}{
-			{Name: "BatchSensorAssocaiation()", Expected: t1expected},
-			{Name: "BatchSensorAssocaiation(first: 1)", First: &limit1, Expected: t2expected},
-			{Name: "BatchSensorAssocaiation(after: FIRST_CURSOR)", After: &assoc1cursor, Expected: t3expected},
-		}
+		Name      string
+		Variables map[string]interface{}
+		Expected  []byte
+	}{
+		{
+			Name:      "BatchSensorAssociation()",
+			Variables: map[string]interface{}{},
+			Expected: []byte(fmt.Sprintf(`{"batchSensorAssociations": {
+					"__typename": "BatchSensorAssociationConnection",
+				  	"pageInfo": {"hasPreviousPage": false, "hasNextPage": false},
+					"edges": [
+						{"__typename": "BatchSensorAssociationEdge", "cursor": "%s", "node": {"__typename":"BatchSensorAssociation","id":"%s"}},
+						{"__typename": "BatchSensorAssociationEdge", "cursor": "%s", "node": {"__typename":"BatchSensorAssociation","id":"%s"}}
+					]}}`,
+				assoc1cursor, assoc1.Id, assoc2cursor, assoc2.Id))},
+		{
+			Name:      "BatchSensorAssociation(first: 1)",
+			Variables: map[string]interface{}{"first": 1},
+			Expected: []byte(fmt.Sprintf(
+				`{"batchSensorAssociations": {
+				  "__typename":"BatchSensorAssociationConnection",
+				  "pageInfo": {"hasPreviousPage": false, "hasNextPage": true},
+				  "edges": [
+				  	{"__typename": "BatchSensorAssociationEdge", "cursor": "%s", "node": {"__typename":"BatchSensorAssociation","id":"%s"}}
+				  ]}}`,
+				assoc1cursor, assoc1.Id))},
+		{
+			Name:      "BatchSensorAssociation(after: FIRST_CURSOR)",
+			Variables: map[string]interface{}{"after": assoc1cursor},
+			Expected: []byte(fmt.Sprintf(
+				`{"batchSensorAssociations": {
+				  "__typename":"BatchSensorAssociationConnection",
+				  "pageInfo": {"hasPreviousPage": false, "hasNextPage": false},
+				  "edges": [
+				  	{"__typename": "BatchSensorAssociationEdge", "cursor": "%s", "node": {"__typename":"BatchSensorAssociation","id":"%s"}}
+				  ]}}`,
+				assoc2cursor, assoc2.Id))},
+		{
+			Name:      "BatchSensorAssociation(batchId: BATCH_1_ID)",
+			Variables: map[string]interface{}{"batchId": batch.Uuid},
+			Expected: []byte(fmt.Sprintf(
+				`{"batchSensorAssociations": {
+				  "__typename":"BatchSensorAssociationConnection",
+				  "pageInfo": {"hasPreviousPage": false, "hasNextPage": false},
+				  "edges": [
+				  	{"__typename": "BatchSensorAssociationEdge", "cursor": "%s", "node": {"__typename":"BatchSensorAssociation","id":"%s"}}
+				  ]}}`,
+				assoc1cursor, assoc1.Id))},
+		{
+			Name:      "BatchSensorAssociation(sensorId: SENSOR2_ID)",
+			Variables: map[string]interface{}{"sensorId": sensor2.Uuid},
+			Expected: []byte(fmt.Sprintf(
+				`{"batchSensorAssociations": {
+				  "__typename":"BatchSensorAssociationConnection",
+				  "pageInfo": {"hasPreviousPage": false, "hasNextPage": false},
+				  "edges": [
+				  	{"__typename": "BatchSensorAssociationEdge", "cursor": "%s", "node": {"__typename":"BatchSensorAssociation","id":"%s"}}
+				  ]}}`,
+				assoc1cursor, assoc2.Id))}, // cursor is badly named - if only assoc2 is returned, it has that cursor
+	}
 
-		for _, qt := range testargs {
-			t.Run(qt.Name, func(t *testing.T) {
-				// TODO: ACTUALLY RUN TESTS
-			})
-		}
+	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	for _, qt := range testargs {
+		t.Run(qt.Name, func(t *testing.T) {
+			var expected interface{}
+			err = json.Unmarshal(qt.Expected, &expected)
+			if err != nil {
+				t.Errorf("%s", err)
+			}
+
+			query := strings.Trim(`
+					query getBatchSensorAssociations($first: Int $after: String $batchId: ID $sensorId: ID) {
+						batchSensorAssociations(first: $first after: $after batchId: $batchId sensorId: $sensorId) {
+							__typename pageInfo {hasPreviousPage hasNextPage}
+							edges {
+								__typename cursor node { __typename id }
+							}
+						}
+					}`, " ")
+			operationName := ""
+			ctx := context.Background()
+			ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+			ctx = context.WithValue(ctx, "db", db)
+			resultData := worrywortSchema.Exec(ctx, query, operationName, qt.Variables)
+			var result interface{}
+			err = json.Unmarshal(resultData.Data, &result)
+			if err != nil {
+				t.Fatalf("%v: %v", result, resultData)
+			}
+			if !cmp.Equal(expected, result) {
+				t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(expected, result))
+			}
+		})
+	}
 
 }
