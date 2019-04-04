@@ -10,8 +10,6 @@ import (
 	"log"
 	// "os"
 	"database/sql"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"github.com/davecgh/go-spew/spew"
 	"strconv"
@@ -117,20 +115,45 @@ func (r *Resolver) Batches(ctx context.Context, args struct {
 		return nil, SERVER_ERROR
 	}
 
-	batches, err := worrywort.FindBatches(map[string]interface{}{"user_id": u.Id}, db)
+	queryparams := map[string]interface{}{"user_id": u.Id}
+	offset := 0
+
+	if args.After != nil && *args.After != "" {
+		if cursorData, err := DecodeCursor(*args.After); err == nil && cursorData.Offset != nil {
+			offset = *cursorData.Offset
+			queryparams["offset"] = *cursorData.Offset
+		}
+	}
+
+	if args.First != nil {
+		queryparams["limit"] = *args.First + 1 // +1 to easily see if there are more
+	}
+
+	batches, err := worrywort.FindBatches(queryparams, db)
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("%v", err)
 		return nil, err
 	}
-	edges := []*batchEdge{}
-	for index, _ := range batches {
-		resolvedBatch := batchResolver{b: batches[index]}
-		// should base64 encode this cursor, but whatever for now
-		edge := &batchEdge{Node: &resolvedBatch, Cursor: string(resolvedBatch.ID())}
-		edges = append(edges, edge)
-	}
+
 	hasNextPage := false
 	hasPreviousPage := false
+	edges := []*batchEdge{}
+	for i, b := range batches {
+		if args.First == nil || i < *args.First {
+			resolvedBatch := batchResolver{b: b}
+			// TODO: maybe move this bit of addition into MakeOffsetCursor?
+			cursorval := offset + i + 1
+			c, err := MakeOffsetCursor(cursorval)
+			if err != nil {
+				log.Printf("%s", err)
+				return nil, SERVER_ERROR
+			}
+			edge := &batchEdge{Node: &resolvedBatch, Cursor: c}
+			edges = append(edges, edge)
+		} else {
+			hasNextPage = true
+		}
+	}
 	return &batchConnection{
 		PageInfo: &pageInfo{HasNextPage: hasNextPage, HasPreviousPage: hasPreviousPage},
 		Edges:    &edges}, nil
@@ -153,19 +176,10 @@ func (r *Resolver) BatchSensorAssociations(ctx context.Context, args struct {
 	queryparams := map[string]interface{}{"user_id": u.Id}
 
 	if args.After != nil && *args.After != "" {
-		// TODO: Put this somewhere reusable!!
-		raw, err := base64.StdEncoding.DecodeString(*args.After)
-		if err != nil {
-			log.Printf("err")
-			// TODO: probably should NOT panic, but return a nicer error about invalid cursor.
-			panic(err)
+		if cursorData, err := DecodeCursor(*args.After); err == nil && cursorData.Offset != nil {
+			offset = *cursorData.Offset
+			queryparams["offset"] = *cursorData.Offset
 		}
-		var cursordata struct {
-			Offset int `json:"offset"`
-		}
-		json.Unmarshal(raw, &cursordata)
-		offset = cursordata.Offset
-		queryparams["offset"] = offset
 	}
 
 	if args.First != nil {
@@ -197,7 +211,12 @@ func (r *Resolver) BatchSensorAssociations(ctx context.Context, args struct {
 			// since the param used is "After". This could optionally add the 1 to the incoming data
 			// which might feel more natural
 			cursorval := offset + i + 1
-			edge := &batchSensorAssociationEdge{Node: &resolved, Cursor: MakeOffsetCursor(cursorval)}
+			c, err := MakeOffsetCursor(cursorval)
+			if err != nil {
+				log.Printf("%s", err)
+				return nil, SERVER_ERROR
+			}
+			edge := &batchSensorAssociationEdge{Node: &resolved, Cursor: c}
 			edges = append(edges, edge)
 		} else {
 			// had one more than was actually requested, there is a next page

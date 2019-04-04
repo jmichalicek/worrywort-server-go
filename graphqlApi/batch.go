@@ -3,6 +3,7 @@ package graphqlApi
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"github.com/davecgh/go-spew/spew"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
@@ -113,7 +114,11 @@ type batchEdge struct {
 	Node   *batchResolver
 }
 
-func (r *batchEdge) CURSOR() string       { return r.Cursor }
+func (r *batchEdge) CURSOR() string {
+	// TODO: base4encode as part of MakeOffsetCursor instead?
+	c := base64.StdEncoding.EncodeToString([]byte(r.Cursor))
+	return c
+}
 func (r *batchEdge) NODE() *batchResolver { return r.Node }
 
 // Going full relay, I suppose

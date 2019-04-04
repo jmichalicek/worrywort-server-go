@@ -394,15 +394,33 @@ func TestFindBatches(t *testing.T) {
 		t.Fatalf("Unexpected error saving batch: %s", err)
 	}
 
-	// TODO: split up into sub tests for different functionality... no pagination, pagination, etc.
-	batches, err := FindBatches(map[string]interface{}{"user_id": u.Id}, db)
-	if err != nil {
-		t.Fatalf("\n%v\n", err)
+	var testmatrix = []struct {
+		name     string
+		inputs   map[string]interface{}
+		expected []*Batch
+	}{
+		// basic filters
+		// This is ok for now, but really don't want to write one test per potential filter as those grow
+		// will at least add user uuid probably.
+		{"Unfiltered", map[string]interface{}{}, []*Batch{&b, &b2, &u2batch}},
+		{"By batch.Id", map[string]interface{}{"id": *b.Id}, []*Batch{&b}},
+		{"By batch.Uuid", map[string]interface{}{"uuid": b.Uuid}, []*Batch{&b}},
+		{"By batch.user_id", map[string]interface{}{"user_id": *u2.Id}, []*Batch{&u2batch}},
+		// pagination
+		{"Paginated no offset", map[string]interface{}{"limit": 1}, []*Batch{&b}},
+		{"Paginated with offset", map[string]interface{}{"limit": 1, "offset": 1}, []*Batch{&b2}},
 	}
 
-	expected := []*Batch{&b, &b2}
-	if !cmp.Equal(expected, batches) {
-		t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(expected, batches))
+	for _, tm := range testmatrix {
+		t.Run(tm.name, func(t *testing.T) {
+			batches, err := FindBatches(tm.inputs, db)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if !cmp.Equal(tm.expected, batches) {
+				t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(tm.expected, batches))
+			}
+		})
 	}
 }
 

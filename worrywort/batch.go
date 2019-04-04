@@ -5,10 +5,10 @@ package worrywort
 import (
 	"errors"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 	"github.com/elgris/sqrl"
 	"github.com/jmoiron/sqlx"
-	"strings"
+	// "strings"
 	"time"
 )
 
@@ -94,31 +94,33 @@ func (b Batch) StrictEqual(other Batch) bool {
 
 // I wonder if this can be further meged in with buildTemperatureMeasuremensQuery
 // and does it need to return the []interface{} for values?
-func buildBatchesQuery(params map[string]interface{}, db *sqlx.DB) (string, []interface{}) {
-	var values []interface{}
-	var where []string
+func buildBatchesQuery(params map[string]interface{}, db *sqlx.DB) *sqrl.SelectBuilder {
+	query := sqrl.Select().From("batches b")
 	for _, k := range []string{"id", "user_id", "uuid"} {
 		// TODO: return error if not ok?
 		if v, ok := params[k]; ok {
-			values = append(values, v)
-			// TODO: Deal with values from batch OR user table
-			where = append(where, fmt.Sprintf("b.%s = ?", k))
+			query = query.Where(sqrl.Eq{fmt.Sprintf("b.%s", k): v})
 		}
 	}
 
 	// TODO: JOIN THE USER HERE!!!
-	selectCols := ""
+	// probably more efficient to use Columns() here but I am planning on moving all of the columns names somewhere
+	// more central for easier management across querying in multiple places.
 	queryCols := []string{"id", "name", "brew_notes", "tasting_notes", "brewed_date", "bottled_date",
 		"volume_boiled", "volume_in_fermentor", "volume_units", "original_gravity", "final_gravity", "recipe_url",
 		"max_temperature", "min_temperature", "average_temperature", "created_at", "updated_at", "user_id", "uuid"}
 	for _, k := range queryCols {
-		selectCols += fmt.Sprintf("b.%s, ", k)
+		query = query.Column(fmt.Sprintf("b.%s", k))
 	}
 
-	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM batches b WHERE ` +
-		strings.Join(where, " AND ")
+	if v, ok := params["limit"]; ok {
+		query = query.Limit(uint64(v.(int)))
+	}
+	if v, ok := params["offset"]; ok {
+		query = query.Offset(uint64(v.(int)))
+	}
 
-	return db.Rebind(q), values
+	return query
 }
 
 // Find a batch by exact match of attributes
@@ -128,21 +130,28 @@ func buildBatchesQuery(params map[string]interface{}, db *sqlx.DB) (string, []in
 func FindBatch(params map[string]interface{}, db *sqlx.DB) (*Batch, error) {
 	// TODO: This is a dumb way to do it and I should do it like in temperature_measurement.go
 	batch := new(Batch)
-	query, values := buildBatchesQuery(params, db)
-	err := db.Get(batch, query, values...)
+	query, values, err := buildBatchesQuery(params, db).ToSql()
 	if err != nil {
 		return nil, err
+	}
+	query = db.Rebind(query)
+	err = db.Get(batch, query, values...)
+	if err != nil {
+		batch = nil
 	}
 	return batch, err
 }
 
 func FindBatches(params map[string]interface{}, db *sqlx.DB) ([]*Batch, error) {
 	batches := []*Batch{}
-	query, values := buildBatchesQuery(params, db)
-	err := db.Select(&batches, query, values...)
-
+	query, values, err := buildBatchesQuery(params, db).ToSql()
 	if err != nil {
 		return nil, err
+	}
+	query = db.Rebind(query)
+	err = db.Select(&batches, query, values...)
+	if err != nil {
+		batches = nil
 	}
 	return batches, err
 }
@@ -167,6 +176,7 @@ func InsertBatch(db *sqlx.DB, b *Batch) error {
 	batchId := new(int64)
 	batchUuid := new(string)
 
+	// TODO: use sqrl
 	query := db.Rebind(`INSERT INTO batches (user_id, name, brew_notes, tasting_notes, brewed_date, bottled_date,
 		volume_boiled, volume_in_fermentor, volume_units, original_gravity, final_gravity, recipe_url, max_temperature,
 		min_temperature, average_temperature, created_at, updated_at)
@@ -196,6 +206,7 @@ func UpdateBatch(db *sqlx.DB, b *Batch) error {
 	var updatedAt time.Time
 
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
+	// TODO: use sqrl
 	query := db.Rebind(`UPDATE batches SET user_id = ?, name = ?, brew_notes = ?, tasting_notes = ?,
 		brewed_date = ?, bottled_date = ?, volume_boiled = ?, volume_in_fermentor = ?, volume_units = ?,
 		original_gravity = ?, final_gravity = ?, recipe_url = ?, max_temperature = ?, min_temperature = ?,
@@ -260,6 +271,7 @@ func AssociateBatchToSensor(batch *Batch, sensor *Sensor, description string, as
 	// err := db.QueryRow(
 	// 	query, batch.Id, sensor.Id, description, associatedAt).StructScan(bs)
 
+	// TODO: use sqrl
 	query := db.Rebind(`INSERT INTO batch_sensor_association (batch_id, sensor_id, description, associated_at,
 		updated_at) VALUES (?, ?, ?, ?, NOW()) RETURNING id, created_at, updated_at, associated_at`)
 
@@ -284,6 +296,7 @@ func UpdateBatchSensorAssociation(b BatchSensor, db *sqlx.DB) (*BatchSensor, err
 	var updatedAt time.Time
 
 	// TODO: Use introspection and reflection to set these rather than manually managing this?
+	// TODO: use sqrl
 	query := db.Rebind(`UPDATE batch_sensor_association SET batch_id = ?, sensor_id = ?, description = ?, associated_at = ?, disassociated_at = ?,
 		updated_at = NOW() WHERE id = ? RETURNING updated_at`)
 	err := db.QueryRow(query, b.BatchId, b.SensorId, b.Description, b.AssociatedAt, b.DisassociatedAt, b.Id).Scan(&updatedAt)
@@ -377,11 +390,8 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 
 func FindBatchSensorAssociations(params map[string]interface{}, db *sqlx.DB) ([]*BatchSensor, error) {
 	associations := []*BatchSensor{}
-	var values []interface{}
-
 	q := buildBatchSensorAssociationsQuery(params, db)
 	query, values, err := q.ToSql()
-	fmt.Printf("\n\nQUERY: %s\nVALUES: %s\n", query, spew.Sdump(values))
 	if err != nil {
 		return associations, err
 	}
