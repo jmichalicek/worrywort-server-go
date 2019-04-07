@@ -68,6 +68,7 @@ type batchSensorAssociationEdge struct {
 }
 
 func (r *batchSensorAssociationEdge) CURSOR() string {
+	// TODO: base4encode as part of MakeOffsetCursor instead?
 	c := base64.StdEncoding.EncodeToString([]byte(r.Cursor))
 	return c
 }

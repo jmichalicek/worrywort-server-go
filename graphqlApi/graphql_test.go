@@ -301,51 +301,72 @@ func TestBatchQuery(t *testing.T) {
 		}
 	})
 
-	t.Run("Test batches() query returns the users batches", func(t *testing.T) {
-		// could stop at batches() just to see that it returns the correct type
-		// and then know that is correct from the struct level testing of each type
-		// but want to see that the user filter works anyway
-		query := `
-			query getBatches {
-				batches {
-					__typename
-					edges {
+	// TODO: Id's in the `expected` here will change once I start properly base64 encoding and maybe
+	// adding type info
+	// TODO: again, maybe make structs for the responses
+	var response_1 = `{"batches": {
+		"__typename":"BatchConnection",
+		"pageInfo": {"hasNextPage": %s, "hasPreviousPage": %s},
+		"edges": [{"__typename": "BatchEdge", "cursor": "%s", "node": {"__typename":"Batch","id":"%s"}}]}}`
+	var response_2 = `{"batches": {
+		"__typename":"BatchConnection",
+		"pageInfo": {"hasNextPage": false, "hasPreviousPage": false},
+		"edges": [{"__typename": "BatchEdge", "cursor": "%s", "node": {"__typename":"Batch","id":"%s"}},
+					{"__typename": "BatchEdge", "cursor": "%s",  "node": {"__typename":"Batch","id":"%s"}}]}}`
+	after0cursor := fmt.Sprintf("%s", base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursorP(1))))
+	after1cursor := fmt.Sprintf("%s", base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursorP(2))))
+	var testargs = []struct {
+		Name      string
+		Variables map[string]interface{}
+		Expected  []byte
+	}{
+		{
+			Name:      "Batches()",
+			Variables: map[string]interface{}{},
+			Expected:  []byte(fmt.Sprintf(response_2, after0cursor, b.Uuid, after1cursor, b2.Uuid))},
+		{
+			Name:      "Batches(first: 1)",
+			Variables: map[string]interface{}{"first": 1},
+			Expected:  []byte(fmt.Sprintf(response_1, "true", "false", after0cursor, b.Uuid))},
+		{
+			Name:      "Batches(after: FIRST_CURSOR)",
+			Variables: map[string]interface{}{"after": after0cursor},
+			Expected:  []byte(fmt.Sprintf(response_1, "false", "false", after1cursor, b2.Uuid))},
+	}
+
+	for _, qt := range testargs {
+		t.Run(qt.Name, func(t *testing.T) {
+			var expected interface{}
+			err = json.Unmarshal(qt.Expected, &expected)
+			if err != nil {
+				t.Errorf("%v", err)
+			}
+
+			query := `query getBatches($first: Int $after: String) {
+					batches(first: $first after: $after) {
 						__typename
-						node {
-							__typename
-							id
+						pageInfo {hasPreviousPage hasNextPage}
+						edges {
+							__typename cursor
+							node { __typename id }
 						}
 					}
-				}
+				}`
+			operationName := ""
+			ctx := context.Background()
+			ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+			ctx = context.WithValue(ctx, "db", db)
+			resultData := worrywortSchema.Exec(ctx, query, operationName, qt.Variables)
+			var result interface{}
+			err = json.Unmarshal(resultData.Data, &result)
+			if err != nil {
+				t.Fatalf("%v: %v", result, resultData)
 			}
-		`
-		operationName := ""
-		result := worrywortSchema.Exec(ctx, query, operationName, nil)
-
-		var expected interface{}
-		err := json.Unmarshal(
-			[]byte(
-				fmt.Sprintf(
-					`{"batches": {
-						"__typename":"BatchConnection",
-						"edges": [{"__typename": "BatchEdge","node": {"__typename":"Batch","id":"%s"}},
-								  {"__typename": "BatchEdge","node": {"__typename":"Batch","id":"%s"}}]}}`,
-					b.Uuid, b2.Uuid)), &expected)
-		if err != nil {
-			t.Fatalf("%v", err)
-		}
-
-		var actual interface{}
-		err = json.Unmarshal(result.Data, &actual)
-		if err != nil {
-			t.Fatalf("%v", err)
-		}
-
-		if !cmp.Equal(expected, actual) {
-			t.Errorf("Expected: - | Got +\n%s", cmp.Diff(expected, actual))
-			// t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
-		}
-	})
+			if !cmp.Equal(expected, result) {
+				t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(expected, result))
+			}
+		})
+	}
 
 	t.Run("Test batches() query when not authenticated", func(t *testing.T) {
 		// TODO: This WILL start returning a 403 once I correct how auth works
@@ -1212,8 +1233,8 @@ func TestBatchSensorAssociationsQuery(t *testing.T) {
 
 	assoc1, _ := worrywort.AssociateBatchToSensor(&batch, &sensor, "Description", nil, db)
 	assoc2, _ := worrywort.AssociateBatchToSensor(&batch2, &sensor2, "Description", nil, db)
-	assoc1cursor := fmt.Sprintf("%s", base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursor(1))))
-	assoc2cursor := fmt.Sprintf("%s", base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursor(2))))
+	assoc1cursor := fmt.Sprintf("%s", base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursorP(1))))
+	assoc2cursor := fmt.Sprintf("%s", base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursorP(2))))
 
 	// if needed, make actual types for the returned structs to unmarshal to
 	var testargs = []struct {
