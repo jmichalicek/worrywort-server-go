@@ -389,16 +389,10 @@ func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*Ba
 }
 
 func FindBatchSensorAssociations(params map[string]interface{}, db *sqlx.DB) ([]*BatchSensor, error) {
-	associations := []*BatchSensor{}
-	q := buildBatchSensorAssociationsQuery(params, db)
-	query, values, err := q.ToSql()
-	if err != nil {
-		return associations, err
+	associations := new([]*BatchSensor)
+	query, values, err := buildBatchSensorAssociationsQuery(params, db).ToSql()
+	if err == nil {
+		err = db.Select(associations, db.Rebind(query), values...)
 	}
-	query = db.Rebind(query)
-	err = db.Select(&associations, query, values...)
-	if err != nil {
-		associations = nil
-	}
-	return associations, err
+	return *associations, err
 }

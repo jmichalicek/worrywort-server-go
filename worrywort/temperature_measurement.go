@@ -2,8 +2,8 @@ package worrywort
 
 import (
 	"fmt"
+	"github.com/elgris/sqrl"
 	"github.com/jmoiron/sqlx"
-	"strings"
 	"time"
 	// "github.com/davecgh/go-spew/spew"
 )
@@ -41,6 +41,7 @@ func (tm *TemperatureMeasurement) Batch(db *sqlx.DB) (*Batch, error) {
 		// to write an efficient query for it here.
 		// Because associated_at can be modified, in the case that disassociated is null, we could potentially
 		// get the wrong association without checking the associated_at time as well
+		// TODO: Join the user on here
 		q := `SELECT b.* FROM batches b LEFT JOIN batch_sensor_association bsa
 			ON bsa.batch_id = b.id AND bsa.associated_at <= ?
 			AND (bsa.disassociated_at IS NULL OR bsa.disassociated_at >= ?) WHERE bsa.sensor_id = ?
@@ -107,42 +108,50 @@ func UpdateTemperatureMeasurement(db *sqlx.DB, tm *TemperatureMeasurement) error
 
 // Build the query string and values slice for query for temperature measurement(s)
 // as needed by sqlx db.Get() and db.Select() and returns them
-func buildTemperatureMeasurementsQuery(params map[string]interface{}, db *sqlx.DB) (string, []interface{}, error) {
-	// TODO: Pass in limit, offset!
-	var values []interface{}
-	var where []string
+func buildTemperatureMeasurementsQuery(params map[string]interface{}, db *sqlx.DB) *sqrl.SelectBuilder {
+	query := sqrl.Select().From("temperature_measurements tm")
+
 	// TODO: I suspect I will want to sort/filter by datetimes and by temperatures here as well
 	// using ranges or gt/lt, not jus a straight equals.
+	// TODO: filter by batch id(s) here?
+	// TODO: allow multiple sensor ids?
+	// TODO: query for multiple measurement ids?
+	// TODO: An interesting take here might be to take a sqrl.Select() with any joins, etc. already
+	//			 in place, but maybe there should just be args... a list of `join_cols` with `sensor`, `sensor.user`, etc.
+	//       or maybe a generic `join_sensor(sb *sqrl.SelectBuilder, on string, prefix string)` function?
 	for _, k := range []string{"id", "user_id", "sensor_id"} {
+		// TODO: return error if not ok?
 		if v, ok := params[k]; ok {
-			values = append(values, v)
-			// TODO: Deal with values from sensor OR user table
-			where = append(where, fmt.Sprintf("tm.%s = ?", k))
+			query = query.Where(sqrl.Eq{fmt.Sprintf("tm.%s", k): v})
 		}
 	}
 
-	selectCols := ""
-	// as in BatchesForUser, this now seems dumb
-	// queryCols := []string{"id", "name", "created_at", "updated_at", "user_id"}
-	// If I need this many places, maybe make a const
 	for _, k := range []string{"id", "user_id", "sensor_id", "temperature",
 		"units", "recorded_at", "created_at", "updated_at"} {
-		selectCols += fmt.Sprintf("tm.%s, ", k)
+		query = query.Column(fmt.Sprintf("tm.%s", k))
 	}
 
-	// TODO: Can I easily dynamically add in joining and attaching the User to this without overcomplicating the code?
-	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM temperature_measurements tm WHERE ` + strings.Join(where, " AND ")
+	if v, ok := params["limit"]; ok {
+		query = query.Limit(uint64(v.(int)))
+	}
+	if v, ok := params["offset"]; ok {
+		query = query.Offset(uint64(v.(int)))
+	}
 
-	return db.Rebind(q), values, nil
+	// TODO: join sensor? sensor.user? how far do I nest that?
+	return query
 }
 
 /*
  * Look up a single TemperatureMeasurement by its id
  */
 func FindTemperatureMeasurement(params map[string]interface{}, db *sqlx.DB) (*TemperatureMeasurement, error) {
-	query, values, err := buildTemperatureMeasurementsQuery(params, db)
+	query, values, err := buildTemperatureMeasurementsQuery(params, db).ToSql()
+	if err != nil {
+		return nil, err
+	}
 	measurement := TemperatureMeasurement{}
-	err = db.Get(&measurement, query, values...)
+	err = db.Get(&measurement, db.Rebind(query), values...)
 
 	if err != nil {
 		return nil, err
@@ -152,13 +161,12 @@ func FindTemperatureMeasurement(params map[string]interface{}, db *sqlx.DB) (*Te
 }
 
 func FindTemperatureMeasurements(params map[string]interface{}, db *sqlx.DB) ([]*TemperatureMeasurement, error) {
-	query, values, err := buildTemperatureMeasurementsQuery(params, db)
-	measurements := []*TemperatureMeasurement{}
-	err = db.Select(&measurements, query, values...)
-
-	if err != nil {
-		return nil, err
+	// TODO: rewrite other Find* like this... I like the simplicity. I do prefer returning nil if there's an error,
+	// but I'm going to follow some advice on a very short reddit thread - https://www.reddit.com/r/golang/comments/2xmnvs/returning_nil_for_a_struct/
+	measurements := new([]*TemperatureMeasurement)
+	query, values, err := buildTemperatureMeasurementsQuery(params, db).ToSql()
+	if err == nil {
+		err = db.Select(measurements, db.Rebind(query), values...)
 	}
-
-	return measurements, err
+	return *measurements, err
 }

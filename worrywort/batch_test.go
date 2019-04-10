@@ -679,7 +679,7 @@ func TestFindBatchSensorAssociations(t *testing.T) {
 		// basic filters
 		{"By batch.Id", map[string]interface{}{"batch_id": *batch.Id}, []*BatchSensor{association, association2}},
 		{"By sensor.Id", map[string]interface{}{"sensor_id": *sensor.Id}, []*BatchSensor{association}},
-		{"By batch2.Id", map[string]interface{}{"batch_id": *batch2.Id}, []*BatchSensor{}},
+		{"By batch2.Id", map[string]interface{}{"batch_id": *batch2.Id}, []*BatchSensor(nil)},
 		{"By sensor2.Id", map[string]interface{}{"sensor_id": *sensor2.Id}, []*BatchSensor{association2}},
 		// pagination
 		{"Paginated no offset", map[string]interface{}{"limit": 1}, []*BatchSensor{association}},
