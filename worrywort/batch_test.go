@@ -698,3 +698,88 @@ func TestFindBatchSensorAssociations(t *testing.T) {
 		})
 	}
 }
+
+func TestFindTemperatureMeasurements(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	// TODO: must be a good way to shorten this setup model creation... function which takes count of
+	// users to create, etc. I suppose.
+	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	u2 := User{Email: "user2@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u2.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	s1 := Sensor{Name: "Test Sensor", UserId: u.Id}
+	if err := s1.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	s2 := Sensor{Name: "Test Sensor", UserId: u2.Id}
+	if err := s2.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	m1 := TemperatureMeasurement{UserId: u.Id, SensorId: s1.Id, Temperature: 70.0, Units: FAHRENHEIT,
+		RecordedAt: time.Now().Round(time.Microsecond)}
+	if err := m1.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	m2 := TemperatureMeasurement{UserId: u.Id, SensorId: s1.Id, Temperature: 70.0, Units: FAHRENHEIT,
+		RecordedAt: time.Now().Round(time.Microsecond)}
+	if err := m2.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	m3 := TemperatureMeasurement{UserId: u2.Id, SensorId: s2.Id, Temperature: 71.0, Units: FAHRENHEIT,
+		RecordedAt: time.Now().Round(time.Microsecond)}
+	if err := m3.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	var testmatrix = []struct {
+		name     string
+		inputs   map[string]interface{}
+		expected []*TemperatureMeasurement
+	}{
+		// basic filters
+		// This is ok for now, but really don't want to write one test per potential filter as those grow
+		// will at least add user uuid probably.
+		{"Unfiltered", map[string]interface{}{}, []*TemperatureMeasurement{&m1, &m2, &m3}},
+		{"By m1.Id", map[string]interface{}{"id": m1.Id}, []*TemperatureMeasurement{&m1}},
+		{"By m2.SensorId", map[string]interface{}{"sensor_id": *s1.Id}, []*TemperatureMeasurement{&m1, &m2}},
+		{"By m3.UserId", map[string]interface{}{"user_id": *u2.Id}, []*TemperatureMeasurement{&m3}},
+		// pagination
+		{"Paginated no offset", map[string]interface{}{"limit": 1}, []*TemperatureMeasurement{&m1}},
+		{"Paginated with offset", map[string]interface{}{"limit": 1, "offset": 1}, []*TemperatureMeasurement{&m2}},
+	}
+
+	for _, tm := range testmatrix {
+		t.Run(tm.name, func(t *testing.T) {
+			measurements, err := FindTemperatureMeasurements(tm.inputs, db)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			// Not 100% sure IgnoreUnexported is the best way to go here. Mostly want to ignore m.batch, but this will
+			// ignore other unexported things as well if they are added
+			cmpOpts := []cmp.Option{
+				cmpopts.IgnoreUnexported(TemperatureMeasurement{}),
+				// cmp.AllowUnexported(*m.batch),
+			}
+			if !cmp.Equal(tm.expected, measurements, cmpOpts...) {
+				t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(tm.expected, measurements, cmpOpts...))
+			}
+		})
+	}
+}
