@@ -128,32 +128,21 @@ func buildBatchesQuery(params map[string]interface{}, db *sqlx.DB) *sqrl.SelectB
 // TODO: Use fields() to iterate over the fields and use the `db`
 // tag to map field name to db field.
 func FindBatch(params map[string]interface{}, db *sqlx.DB) (*Batch, error) {
-	// TODO: This is a dumb way to do it and I should do it like in temperature_measurement.go
 	batch := new(Batch)
 	query, values, err := buildBatchesQuery(params, db).ToSql()
-	if err != nil {
-		return nil, err
-	}
-	query = db.Rebind(query)
-	err = db.Get(batch, query, values...)
-	if err != nil {
-		batch = nil
+	if err == nil {
+		err = db.Get(batch, db.Rebind(query), values...)
 	}
 	return batch, err
 }
 
 func FindBatches(params map[string]interface{}, db *sqlx.DB) ([]*Batch, error) {
-	batches := []*Batch{}
+	batches := new([]*Batch)
 	query, values, err := buildBatchesQuery(params, db).ToSql()
-	if err != nil {
-		return nil, err
+	if err == nil {
+		err = db.Select(batches, db.Rebind(query), values...)
 	}
-	query = db.Rebind(query)
-	err = db.Select(&batches, query, values...)
-	if err != nil {
-		batches = nil
-	}
-	return batches, err
+	return *batches, err
 }
 
 // Save the Batch to the database.  If User.Id() is 0
@@ -367,25 +356,12 @@ func buildBatchSensorAssociationsQuery(params map[string]interface{}, db *sqlx.D
 }
 
 func FindBatchSensorAssociation(params map[string]interface{}, db *sqlx.DB) (*BatchSensor, error) {
-	// var association *BatchSensor = nil
-	// TODO: join batch and sensor tables and pre-populate the nested batch and sensor?
-	association := BatchSensor{}
-	assocPtr := &association
-
-	q := buildBatchSensorAssociationsQuery(params, db)
-	query, values, err := q.ToSql()
-	if err != nil {
-		return nil, err
+	association := new(BatchSensor)
+	query, values, err := buildBatchSensorAssociationsQuery(params, db).ToSql()
+	if err == nil {
+		err = db.Get(association, db.Rebind(query), values...)
 	}
-	query = db.Rebind(query)
-	err = db.Get(assocPtr, query, values...)
-	if err != nil {
-		// TODO: seems like I should be able to just have assoc be a nil ptr in the first place
-		// then I would not need to do this.  This bit is here becaus assoc is a zero value, not nil,
-		// so assocPtr is not ever nil
-		assocPtr = nil
-	}
-	return assocPtr, err
+	return association, err
 }
 
 func FindBatchSensorAssociations(params map[string]interface{}, db *sqlx.DB) ([]*BatchSensor, error) {

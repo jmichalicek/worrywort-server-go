@@ -146,18 +146,12 @@ func buildTemperatureMeasurementsQuery(params map[string]interface{}, db *sqlx.D
  * Look up a single TemperatureMeasurement by its id
  */
 func FindTemperatureMeasurement(params map[string]interface{}, db *sqlx.DB) (*TemperatureMeasurement, error) {
+	measurement := new(TemperatureMeasurement)
 	query, values, err := buildTemperatureMeasurementsQuery(params, db).ToSql()
-	if err != nil {
-		return nil, err
+	if err == nil {
+		err = db.Get(measurement, db.Rebind(query), values...)
 	}
-	measurement := TemperatureMeasurement{}
-	err = db.Get(&measurement, db.Rebind(query), values...)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &measurement, err
+	return measurement, err
 }
 
 func FindTemperatureMeasurements(params map[string]interface{}, db *sqlx.DB) ([]*TemperatureMeasurement, error) {
