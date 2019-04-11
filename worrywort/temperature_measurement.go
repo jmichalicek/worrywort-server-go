@@ -126,6 +126,9 @@ func buildTemperatureMeasurementsQuery(params map[string]interface{}, db *sqlx.D
 		}
 	}
 
+	// TODO: handle sensor_uuid!
+	// TODO: handle batch_uuid... could get interesting since batch is not joined to this... measurement.sensor.batch_sensor_assoc.batch.uuid
+	// may be a cleaner way... hmmm
 	for _, k := range []string{"id", "user_id", "sensor_id", "temperature",
 		"units", "recorded_at", "created_at", "updated_at"} {
 		query = query.Column(fmt.Sprintf("tm.%s", k))
