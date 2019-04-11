@@ -126,11 +126,25 @@ func buildTemperatureMeasurementsQuery(params map[string]interface{}, db *sqlx.D
 		}
 	}
 
+	// TODO: Find a better way to check this... a more generic django style sensor__uuid where it splits
+	// would be ideal. A naive could always just use the first as the table alias and update the model as such
+	// and yes, this is a bit lazy, but just always join because I am going to want it anyway once I start
+	// actually populating the sensor all the time
+	query = query.LeftJoin("sensors s on s.id = tm.sensor_id") // left join in case there is not one... I suppose
+	if v, ok := params["sensor_uuid"]; ok {
+		query = query.Where(sqrl.Eq{"s.uuid": v})
+	}
+
+	// if v, ok := params["batch_uuid"]; ok {
+	// 	// query = query.Where(sqrl.Eq{fmt.Sprintf("s.uuid", k): v})
+	// 	query = query.Join("sensors s on s.id = tm.sensor_id")
+	// }
+
 	// TODO: handle sensor_uuid!
 	// TODO: handle batch_uuid... could get interesting since batch is not joined to this... measurement.sensor.batch_sensor_assoc.batch.uuid
 	// may be a cleaner way... hmmm
-	for _, k := range []string{"id", "user_id", "sensor_id", "temperature",
-		"units", "recorded_at", "created_at", "updated_at"} {
+	for _, k := range []string{"id", "user_id", "sensor_id", "temperature", "units", "recorded_at", "created_at",
+		"updated_at"} {
 		query = query.Column(fmt.Sprintf("tm.%s", k))
 	}
 

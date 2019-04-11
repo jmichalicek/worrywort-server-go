@@ -758,7 +758,8 @@ func TestFindTemperatureMeasurements(t *testing.T) {
 		// will at least add user uuid probably.
 		{"Unfiltered", map[string]interface{}{}, []*TemperatureMeasurement{&m1, &m2, &m3}},
 		{"By m1.Id", map[string]interface{}{"id": m1.Id}, []*TemperatureMeasurement{&m1}},
-		{"By m2.SensorId", map[string]interface{}{"sensor_id": *s1.Id}, []*TemperatureMeasurement{&m1, &m2}},
+		{"By sensor_Id", map[string]interface{}{"sensor_id": *s1.Id}, []*TemperatureMeasurement{&m1, &m2}},
+		{"By sensor_uuid", map[string]interface{}{"sensor_uuid": s1.Uuid}, []*TemperatureMeasurement{&m1, &m2}},
 		{"By m3.UserId", map[string]interface{}{"user_id": *u2.Id}, []*TemperatureMeasurement{&m3}},
 		// pagination
 		{"Paginated no offset", map[string]interface{}{"limit": 1}, []*TemperatureMeasurement{&m1}},
