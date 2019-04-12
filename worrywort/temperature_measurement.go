@@ -115,7 +115,6 @@ func buildTemperatureMeasurementsQuery(params map[string]interface{}, db *sqlx.D
 	// using ranges or gt/lt, not jus a straight equals.
 	// TODO: filter by batch id(s) here?
 	// TODO: allow multiple sensor ids?
-	// TODO: query for multiple measurement ids?
 	// TODO: An interesting take here might be to take a sqrl.Select() with any joins, etc. already
 	//			 in place, but maybe there should just be args... a list of `join_cols` with `sensor`, `sensor.user`, etc.
 	//       or maybe a generic `join_sensor(sb *sqrl.SelectBuilder, on string, prefix string)` function?
@@ -135,10 +134,24 @@ func buildTemperatureMeasurementsQuery(params map[string]interface{}, db *sqlx.D
 		query = query.Where(sqrl.Eq{"s.uuid": v})
 	}
 
-	// if v, ok := params["batch_uuid"]; ok {
-	// 	// query = query.Where(sqrl.Eq{fmt.Sprintf("s.uuid", k): v})
-	// 	query = query.Join("sensors s on s.id = tm.sensor_id")
-	// }
+	if v, ok := params["batch_uuid"]; ok {
+		// query = query.Where(sqrl.Eq{fmt.Sprintf("s.uuid", k): v})
+		// TODO: Good way to add in prefetching the list of associations here, but only conditionally?
+		// TODO: Also wondering if this may be better as a subquery
+		query = query.Join(
+			"batch_sensor_association bsa ON bsa.sensor_id = tm.sensor_id").Join("batches b ON b.id = bsa.batch_id")
+		query = query.Where(sqrl.And{
+			sqrl.Eq{"b.uuid": v},
+			sqrl.Expr("tm.recorded_at >= bsa.associated_at AND (tm.recorded_at <= bsa.disassociated_at OR bsa.disassociated_at IS NULL)"),
+			// TODO: follow up with sqrl dev to see if I am doing this wrong. It doesn't seem to like either of these.
+			// sqrl.GtOrEq{"tm.recorded_at": "bsa.associated_at"},
+			// and nested AND and OR
+			// sqrl.And{
+			// 	sqrl.Expr("tm.recorded_at >= bsa.associated_at"),
+			// 	sqrl.Expr("tm.recorded_at <= bsa.disassociated_at OR bsa.disassociated_at IS NULL"),
+			// },
+		})
+	}
 
 	// TODO: handle sensor_uuid!
 	// TODO: handle batch_uuid... could get interesting since batch is not joined to this... measurement.sensor.batch_sensor_assoc.batch.uuid
@@ -156,6 +169,8 @@ func buildTemperatureMeasurementsQuery(params map[string]interface{}, db *sqlx.D
 	}
 
 	// TODO: join sensor? sensor.user? how far do I nest that?
+	// x, _, _ := query.ToSql()
+	// fmt.Printf("\n\n\nSQL: %s\n\n\n", x)
 	return query
 }
 

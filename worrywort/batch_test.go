@@ -10,6 +10,25 @@ import (
 	"time"
 )
 
+// utility to add a given number of minutes to a time.Time and round to match
+// what postgres returns
+func addMinutes(d time.Time, increment int) time.Time {
+	return d.Add(time.Duration(increment) * time.Minute).Round(time.Microsecond)
+}
+
+// Make a standard, generic batch for testing
+// optionally attach the user
+func makeTestBatch(u *User, attachUser bool) Batch {
+	b := Batch{Name: "Testing", BrewedDate: addMinutes(time.Now(), -60),
+		BottledDate: addMinutes(time.Now(), -10), VolumeBoiled: 5, VolumeInFermentor: 4.5, VolumeUnits: GALLON,
+		OriginalGravity: 1.060, FinalGravity: 1.020, UserId: u.Id, BrewNotes: "Brew notes", TastingNotes: "Taste notes",
+		RecipeURL: "http://example.org/beer"}
+	if attachUser {
+		b.CreatedBy = u
+	}
+	return b
+}
+
 func TestSaveFermentor(t *testing.T) {
 	db, err := setUpTestDb()
 	if err != nil {
@@ -730,8 +749,14 @@ func TestFindTemperatureMeasurements(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 
+	// TODO: make batch, associate with sensor, and test
+	b := makeTestBatch(&u, false)
+	if err := b.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
 	m1 := TemperatureMeasurement{UserId: u.Id, SensorId: s1.Id, Temperature: 70.0, Units: FAHRENHEIT,
-		RecordedAt: time.Now().Round(time.Microsecond)}
+		RecordedAt: addMinutes(b.BrewedDate, -1)}
 	if err := m1.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -748,6 +773,11 @@ func TestFindTemperatureMeasurements(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 
+	_, err = AssociateBatchToSensor(&b, &s1, "", &b.BrewedDate, db)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
 	var testmatrix = []struct {
 		name     string
 		inputs   map[string]interface{}
@@ -761,6 +791,8 @@ func TestFindTemperatureMeasurements(t *testing.T) {
 		{"By sensor_Id", map[string]interface{}{"sensor_id": *s1.Id}, []*TemperatureMeasurement{&m1, &m2}},
 		{"By sensor_uuid", map[string]interface{}{"sensor_uuid": s1.Uuid}, []*TemperatureMeasurement{&m1, &m2}},
 		{"By m3.UserId", map[string]interface{}{"user_id": *u2.Id}, []*TemperatureMeasurement{&m3}},
+		{"By batch_uuid with active sensor association", map[string]interface{}{"batch_uuid": b.Uuid}, []*TemperatureMeasurement{&m2}},
+		// todo: add a batch_uuid test validating if the measurement is AFTER the disassociation
 		// pagination
 		{"Paginated no offset", map[string]interface{}{"limit": 1}, []*TemperatureMeasurement{&m1}},
 		{"Paginated with offset", map[string]interface{}{"limit": 1, "offset": 1}, []*TemperatureMeasurement{&m2}},
