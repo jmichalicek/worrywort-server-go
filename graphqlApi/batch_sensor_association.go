@@ -154,16 +154,15 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 
 	// TODO: Is this correct?  Maybe I really want to associate a sensor with 2 batches, such as for
 	// ambient air temperature. Maybe this should only ensure it's not associated with the same batch twice.
-	existing, err := worrywort.FindBatchSensorAssociation(
+	_, err = worrywort.FindBatchSensorAssociation(
 		map[string]interface{}{"sensor_id": tempSensorId, "disassociated_at": nil, "user_id": u.Id}, db)
-
-	if existing != nil {
-		return nil, errors.New("Sensor already associated to Batch.")
-	}
 
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("%v", err)
 		return nil, SERVER_ERROR
+	} else if err == nil {
+		// if we did not get any error back, that's actually an error. Wanted sql.ErrNoRows
+		return nil, errors.New("Sensor already associated to Batch.")
 	}
 
 	var description string

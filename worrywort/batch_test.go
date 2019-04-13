@@ -10,6 +10,25 @@ import (
 	"time"
 )
 
+// utility to add a given number of minutes to a time.Time and round to match
+// what postgres returns
+func addMinutes(d time.Time, increment int) time.Time {
+	return d.Add(time.Duration(increment) * time.Minute).Round(time.Microsecond)
+}
+
+// Make a standard, generic batch for testing
+// optionally attach the user
+func makeTestBatch(u *User, attachUser bool) Batch {
+	b := Batch{Name: "Testing", BrewedDate: addMinutes(time.Now(), -60),
+		BottledDate: addMinutes(time.Now(), -10), VolumeBoiled: 5, VolumeInFermentor: 4.5, VolumeUnits: GALLON,
+		OriginalGravity: 1.060, FinalGravity: 1.020, UserId: u.Id, BrewNotes: "Brew notes", TastingNotes: "Taste notes",
+		RecipeURL: "http://example.org/beer"}
+	if attachUser {
+		b.CreatedBy = u
+	}
+	return b
+}
+
 func TestSaveFermentor(t *testing.T) {
 	db, err := setUpTestDb()
 	if err != nil {
@@ -679,7 +698,7 @@ func TestFindBatchSensorAssociations(t *testing.T) {
 		// basic filters
 		{"By batch.Id", map[string]interface{}{"batch_id": *batch.Id}, []*BatchSensor{association, association2}},
 		{"By sensor.Id", map[string]interface{}{"sensor_id": *sensor.Id}, []*BatchSensor{association}},
-		{"By batch2.Id", map[string]interface{}{"batch_id": *batch2.Id}, []*BatchSensor{}},
+		{"By batch2.Id", map[string]interface{}{"batch_id": *batch2.Id}, []*BatchSensor(nil)},
 		{"By sensor2.Id", map[string]interface{}{"sensor_id": *sensor2.Id}, []*BatchSensor{association2}},
 		// pagination
 		{"Paginated no offset", map[string]interface{}{"limit": 1}, []*BatchSensor{association}},
@@ -694,6 +713,105 @@ func TestFindBatchSensorAssociations(t *testing.T) {
 			}
 			if !cmp.Equal(qt.expected, associations) {
 				t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(qt.expected, associations))
+			}
+		})
+	}
+}
+
+func TestFindTemperatureMeasurements(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	// TODO: must be a good way to shorten this setup model creation... function which takes count of
+	// users to create, etc. I suppose.
+	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	u2 := User{Email: "user2@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u2.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	s1 := Sensor{Name: "Test Sensor", UserId: u.Id}
+	if err := s1.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	s2 := Sensor{Name: "Test Sensor", UserId: u2.Id}
+	if err := s2.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	// TODO: make batch, associate with sensor, and test
+	b := makeTestBatch(&u, false)
+	if err := b.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	m1 := TemperatureMeasurement{UserId: u.Id, SensorId: s1.Id, Temperature: 70.0, Units: FAHRENHEIT,
+		RecordedAt: addMinutes(b.BrewedDate, -1)}
+	if err := m1.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	m2 := TemperatureMeasurement{UserId: u.Id, SensorId: s1.Id, Temperature: 70.0, Units: FAHRENHEIT,
+		RecordedAt: time.Now().Round(time.Microsecond)}
+	if err := m2.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	m3 := TemperatureMeasurement{UserId: u2.Id, SensorId: s2.Id, Temperature: 71.0, Units: FAHRENHEIT,
+		RecordedAt: time.Now().Round(time.Microsecond)}
+	if err := m3.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	_, err = AssociateBatchToSensor(&b, &s1, "", &b.BrewedDate, db)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	var testmatrix = []struct {
+		name     string
+		inputs   map[string]interface{}
+		expected []*TemperatureMeasurement
+	}{
+		// basic filters
+		// This is ok for now, but really don't want to write one test per potential filter as those grow
+		// will at least add user uuid probably.
+		{"Unfiltered", map[string]interface{}{}, []*TemperatureMeasurement{&m1, &m2, &m3}},
+		{"By m1.Id", map[string]interface{}{"id": m1.Id}, []*TemperatureMeasurement{&m1}},
+		{"By sensor_Id", map[string]interface{}{"sensor_id": *s1.Id}, []*TemperatureMeasurement{&m1, &m2}},
+		{"By sensor_uuid", map[string]interface{}{"sensor_uuid": s1.Uuid}, []*TemperatureMeasurement{&m1, &m2}},
+		{"By m3.UserId", map[string]interface{}{"user_id": *u2.Id}, []*TemperatureMeasurement{&m3}},
+		{"By batch_uuid with active sensor association", map[string]interface{}{"batch_uuid": b.Uuid}, []*TemperatureMeasurement{&m2}},
+		// todo: add a batch_uuid test validating if the measurement is AFTER the disassociation
+		// pagination
+		{"Paginated no offset", map[string]interface{}{"limit": 1}, []*TemperatureMeasurement{&m1}},
+		{"Paginated with offset", map[string]interface{}{"limit": 1, "offset": 1}, []*TemperatureMeasurement{&m2}},
+	}
+
+	for _, tm := range testmatrix {
+		t.Run(tm.name, func(t *testing.T) {
+			measurements, err := FindTemperatureMeasurements(tm.inputs, db)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			// Not 100% sure IgnoreUnexported is the best way to go here. Mostly want to ignore m.batch, but this will
+			// ignore other unexported things as well if they are added
+			cmpOpts := []cmp.Option{
+				cmpopts.IgnoreUnexported(TemperatureMeasurement{}),
+				// cmp.AllowUnexported(*m.batch),
+			}
+			if !cmp.Equal(tm.expected, measurements, cmpOpts...) {
+				t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(tm.expected, measurements, cmpOpts...))
 			}
 		})
 	}

@@ -325,22 +325,64 @@ func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
 		return nil, SERVER_ERROR
 	}
 
+	queryparams := map[string]interface{}{"user_id": authUser.Id}
+	offset := 0 // TODO: implement correct offset in return values.
+
+	if args.After != nil && *args.After != "" {
+		if cursorData, err := DecodeCursor(*args.After); err == nil && cursorData.Offset != nil {
+			offset = *cursorData.Offset
+			queryparams["offset"] = *cursorData.Offset
+		}
+	}
+
+	if args.First != nil {
+		queryparams["limit"] = *args.First + 1 // +1 to easily see if there are more
+	}
+
+	if args.BatchId != nil {
+		queryparams["batch_uuid"] = *args.BatchId
+	}
+
+	if args.SensorId != nil {
+		queryparams["sensor_uuid"] = args.SensorId
+	}
+
 	// TODO: pagination, the rest of the optional filter params
-	measurements, err := worrywort.FindTemperatureMeasurements(map[string]interface{}{"user_id": authUser.Id}, db)
+	measurements, err := worrywort.FindTemperatureMeasurements(queryparams, db)
 
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("%v", err)
 		return nil, err
 	}
+	// edges := []*temperatureMeasurementEdge{}
+	// for index, _ := range measurements {
+	// 	measurementResolver := temperatureMeasurementResolver{m: measurements[index]}
+	// 	// should base64 encode this cursor, but whatever for now
+	// 	edge := &temperatureMeasurementEdge{Node: &measurementResolver, Cursor: string(measurementResolver.ID())}
+	// 	edges = append(edges, edge)
+	// }
+	// hasNextPage := false
+	// hasPreviousPage := false
+
 	edges := []*temperatureMeasurementEdge{}
-	for index, _ := range measurements {
-		measurementResolver := temperatureMeasurementResolver{m: measurements[index]}
-		// should base64 encode this cursor, but whatever for now
-		edge := &temperatureMeasurementEdge{Node: &measurementResolver, Cursor: string(measurementResolver.ID())}
-		edges = append(edges, edge)
-	}
 	hasNextPage := false
 	hasPreviousPage := false
+	for i, m := range measurements {
+		if args.First == nil || i < *args.First {
+			resolved := temperatureMeasurementResolver{m: m}
+			// TODO: maybe move this bit of addition into MakeOffsetCursor?
+			cursorval := offset + i + 1
+			c, err := MakeOffsetCursor(cursorval)
+			if err != nil {
+				log.Printf("%s", err)
+				return nil, SERVER_ERROR
+			}
+			edge := &temperatureMeasurementEdge{Node: &resolved, Cursor: c}
+			edges = append(edges, edge)
+		} else {
+			hasNextPage = true
+		}
+	}
 	return &temperatureMeasurementConnection{
 		PageInfo: &pageInfo{HasNextPage: hasNextPage, HasPreviousPage: hasPreviousPage},
 		Edges:    &edges}, nil
