@@ -326,11 +326,11 @@ func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
 	}
 
 	queryparams := map[string]interface{}{"user_id": authUser.Id}
-	// offset := 0  // TODO: implement correct offset in return values.
+	offset := 0 // TODO: implement correct offset in return values.
 
 	if args.After != nil && *args.After != "" {
 		if cursorData, err := DecodeCursor(*args.After); err == nil && cursorData.Offset != nil {
-			// offset = *cursorData.Offset
+			offset = *cursorData.Offset
 			queryparams["offset"] = *cursorData.Offset
 		}
 	}
@@ -354,15 +354,35 @@ func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
 		log.Printf("%v", err)
 		return nil, err
 	}
+	// edges := []*temperatureMeasurementEdge{}
+	// for index, _ := range measurements {
+	// 	measurementResolver := temperatureMeasurementResolver{m: measurements[index]}
+	// 	// should base64 encode this cursor, but whatever for now
+	// 	edge := &temperatureMeasurementEdge{Node: &measurementResolver, Cursor: string(measurementResolver.ID())}
+	// 	edges = append(edges, edge)
+	// }
+	// hasNextPage := false
+	// hasPreviousPage := false
+
 	edges := []*temperatureMeasurementEdge{}
-	for index, _ := range measurements {
-		measurementResolver := temperatureMeasurementResolver{m: measurements[index]}
-		// should base64 encode this cursor, but whatever for now
-		edge := &temperatureMeasurementEdge{Node: &measurementResolver, Cursor: string(measurementResolver.ID())}
-		edges = append(edges, edge)
-	}
 	hasNextPage := false
 	hasPreviousPage := false
+	for i, m := range measurements {
+		if args.First == nil || i < *args.First {
+			resolved := temperatureMeasurementResolver{m: m}
+			// TODO: maybe move this bit of addition into MakeOffsetCursor?
+			cursorval := offset + i + 1
+			c, err := MakeOffsetCursor(cursorval)
+			if err != nil {
+				log.Printf("%s", err)
+				return nil, SERVER_ERROR
+			}
+			edge := &temperatureMeasurementEdge{Node: &resolved, Cursor: c}
+			edges = append(edges, edge)
+		} else {
+			hasNextPage = true
+		}
+	}
 	return &temperatureMeasurementConnection{
 		PageInfo: &pageInfo{HasNextPage: hasNextPage, HasPreviousPage: hasPreviousPage},
 		Edges:    &edges}, nil

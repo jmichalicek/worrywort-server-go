@@ -2,10 +2,10 @@ package worrywort
 
 import (
 	"fmt"
+	//"github.com/davecgh/go-spew/spew"
 	"github.com/elgris/sqrl"
 	"github.com/jmoiron/sqlx"
 	"time"
-	// "github.com/davecgh/go-spew/spew"
 )
 
 // A single recorded temperature measurement from a temperatureSensor
@@ -110,7 +110,6 @@ func UpdateTemperatureMeasurement(db *sqlx.DB, tm *TemperatureMeasurement) error
 // as needed by sqlx db.Get() and db.Select() and returns them
 func buildTemperatureMeasurementsQuery(params map[string]interface{}, db *sqlx.DB) *sqrl.SelectBuilder {
 	query := sqrl.Select().From("temperature_measurements tm")
-
 	// TODO: I suspect I will want to sort/filter by datetimes and by temperatures here as well
 	// using ranges or gt/lt, not jus a straight equals.
 	// TODO: filter by batch id(s) here?
@@ -169,8 +168,8 @@ func buildTemperatureMeasurementsQuery(params map[string]interface{}, db *sqlx.D
 	}
 
 	// TODO: join sensor? sensor.user? how far do I nest that?
-	// x, _, _ := query.ToSql()
-	// fmt.Printf("\n\n\nSQL: %s\n\n\n", x)
+	// x, vals, _ := query.ToSql()
+	// fmt.Printf("\n\n\nSQL: %s\nvals: %#v\n\n", x, vals)
 	return query
 }
 

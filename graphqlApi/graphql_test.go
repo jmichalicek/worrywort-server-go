@@ -1332,5 +1332,202 @@ func TestBatchSensorAssociationsQuery(t *testing.T) {
 			}
 		})
 	}
+}
 
+func TestTemperatureMeasurementsQuery(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	// TODO: must be a good way to shorten this setup model creation... function which takes count of
+	// users to create, etc. I suppose.
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	u2 := worrywort.User{Email: "user2@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u2.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	s1 := worrywort.Sensor{Name: "Test Sensor", UserId: u.Id}
+	if err := s1.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	s2 := worrywort.Sensor{Name: "Test Sensor", UserId: u2.Id}
+	if err := s2.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	// TODO: make batch, associate with sensor, and test
+	b := makeTestBatch(u, false)
+	if err := b.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	assoc1, err := worrywort.AssociateBatchToSensor(&b, &s1, "", &b.BrewedDate, db)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	m1 := worrywort.TemperatureMeasurement{UserId: u.Id, SensorId: s1.Id, Temperature: 70.0, Units: worrywort.FAHRENHEIT,
+		RecordedAt: addMinutes(b.BrewedDate, -1)}
+	if err := m1.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	m2 := worrywort.TemperatureMeasurement{UserId: u.Id, SensorId: s1.Id, Temperature: 70.0, Units: worrywort.FAHRENHEIT,
+		RecordedAt: addMinutes(assoc1.AssociatedAt, 1)}
+	if err := m2.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	m3 := worrywort.TemperatureMeasurement{UserId: u2.Id, SensorId: s2.Id, Temperature: 71.0, Units: worrywort.FAHRENHEIT,
+		RecordedAt: time.Now().Round(time.Microsecond)}
+	if err := m3.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	type tm struct {
+		Typename string `json:"__typename"`
+		Id       string `json:"id"`
+	}
+	type temperatureMeasurementEdge struct {
+		Typename string `json:"__typename"`
+		Cursor   string `json:"cursor"`
+		Node     tm     `json:"Node"`
+	}
+
+	type pageInfo struct {
+		HasNextPage     bool `json:"hasNextPage"`
+		HasPreviousPage bool `json:"hasPreviousPage"`
+	}
+
+	type temperatureMeasurementsConnection struct {
+		Typename string                       `json:"__typename"`
+		PageInfo pageInfo                     `json:"pageInfo"`
+		Edges    []temperatureMeasurementEdge `json:"Edges"`
+	}
+
+	type tmResponse struct {
+		TemperatureMeasurements temperatureMeasurementsConnection `json:"temperatureMeasurements"`
+	}
+
+	encodedOffset1 := base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursorP(1)))
+	encodedOffset2 := base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursorP(2)))
+	var testmatrix = []struct {
+		name      string
+		variables map[string]interface{}
+		expected  tmResponse
+	}{
+		// basic filters
+		// This is ok for now, but really don't want to write one test per potential filter as those grow
+		// will at least add user uuid probably.
+		{"Unfiltered", map[string]interface{}{},
+			tmResponse{
+				temperatureMeasurementsConnection{
+					Typename: "TemperatureMeasurementConnection",
+					PageInfo: pageInfo{false, false},
+					Edges: []temperatureMeasurementEdge{
+						temperatureMeasurementEdge{Typename: "TemperatureMeasurementEdge", Cursor: encodedOffset1,
+							Node: tm{Typename: "TemperatureMeasurement", Id: m1.Id}},
+						temperatureMeasurementEdge{Typename: "TemperatureMeasurementEdge", Cursor: encodedOffset2,
+							Node: tm{Typename: "TemperatureMeasurement", Id: m2.Id},
+						},
+					},
+				},
+			},
+		},
+		{"temperatureMeasurements(batchId: <batch1>)", map[string]interface{}{"batchId": b.Uuid},
+			tmResponse{
+				temperatureMeasurementsConnection{
+					Typename: "TemperatureMeasurementConnection",
+					PageInfo: pageInfo{false, false},
+					Edges: []temperatureMeasurementEdge{
+						temperatureMeasurementEdge{Typename: "TemperatureMeasurementEdge", Cursor: encodedOffset1,
+							Node: tm{Typename: "TemperatureMeasurement", Id: m2.Id}},
+					},
+				},
+			},
+		},
+		{"temperatureMeasurements(sensorId: <s1.Uuid>)", map[string]interface{}{"sensorId": s1.Uuid},
+			tmResponse{
+				temperatureMeasurementsConnection{
+					Typename: "TemperatureMeasurementConnection",
+					PageInfo: pageInfo{false, false},
+					Edges: []temperatureMeasurementEdge{
+						temperatureMeasurementEdge{Typename: "TemperatureMeasurementEdge", Cursor: encodedOffset1,
+							Node: tm{Typename: "TemperatureMeasurement", Id: m1.Id}},
+						temperatureMeasurementEdge{Typename: "TemperatureMeasurementEdge", Cursor: encodedOffset2,
+							Node: tm{Typename: "TemperatureMeasurement", Id: m2.Id},
+						},
+					},
+				},
+			},
+		},
+		// Pagination tests
+		{"temperatureMeasurements(first: 1)", map[string]interface{}{"first": 1},
+			tmResponse{
+				temperatureMeasurementsConnection{
+					Typename: "TemperatureMeasurementConnection",
+					PageInfo: pageInfo{HasNextPage: true, HasPreviousPage: false},
+					Edges: []temperatureMeasurementEdge{
+						temperatureMeasurementEdge{Typename: "TemperatureMeasurementEdge", Cursor: encodedOffset1,
+							Node: tm{Typename: "TemperatureMeasurement", Id: m1.Id}},
+					},
+				},
+			},
+		},
+		{"temperatureMeasurements(after: <encodedOffset1>)", map[string]interface{}{"after": encodedOffset1},
+			tmResponse{
+				temperatureMeasurementsConnection{
+					Typename: "TemperatureMeasurementConnection",
+					PageInfo: pageInfo{false, false},
+					Edges: []temperatureMeasurementEdge{
+						temperatureMeasurementEdge{Typename: "TemperatureMeasurementEdge", Cursor: encodedOffset2,
+							Node: tm{Typename: "TemperatureMeasurement", Id: m2.Id}},
+					},
+				},
+			},
+		},
+		// // todo: add a batch_uuid test validating if the measurement is AFTER the disassociation
+	}
+
+	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	for _, tm := range testmatrix {
+		t.Run(tm.name, func(t *testing.T) {
+			query := strings.Trim(`
+					query getTemperatureMeasurements($first: Int $after: String $batchId: ID $sensorId: ID) {
+						temperatureMeasurements(first: $first after: $after batchId: $batchId sensorId: $sensorId) {
+							__typename pageInfo {hasPreviousPage hasNextPage}
+							edges {
+								__typename cursor node { __typename id }
+							}
+						}
+					}`, " ")
+			operationName := ""
+			ctx := context.Background()
+			ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+			ctx = context.WithValue(ctx, "db", db)
+			resultData := worrywortSchema.Exec(ctx, query, operationName, tm.variables)
+
+			var result tmResponse
+			if err = json.Unmarshal(resultData.Data, &result); err != nil {
+				t.Fatalf("Error: %s for result %v", err, result)
+			}
+
+			if err != nil {
+				t.Fatalf("%v: %v", result, resultData)
+			}
+			if !cmp.Equal(tm.expected, result) {
+				t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(tm.expected, result))
+			}
+		})
+	}
 }

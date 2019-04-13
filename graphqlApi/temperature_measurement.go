@@ -2,6 +2,7 @@ package graphqlApi
 
 import (
 	"context"
+	"encoding/base64"
 	"github.com/davecgh/go-spew/spew"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
@@ -91,7 +92,10 @@ type temperatureMeasurementEdge struct {
 	Node   *temperatureMeasurementResolver
 }
 
-func (r *temperatureMeasurementEdge) CURSOR() string                        { return r.Cursor }
+func (r *temperatureMeasurementEdge) CURSOR() string {
+	c := base64.StdEncoding.EncodeToString([]byte(r.Cursor))
+	return c
+}
 func (r *temperatureMeasurementEdge) NODE() *temperatureMeasurementResolver { return r.Node }
 
 type temperatureMeasurementConnection struct {
