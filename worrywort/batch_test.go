@@ -96,7 +96,7 @@ func TestFindSensor(t *testing.T) {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	sensor := Sensor{Name: "Test Sensor", UserId: u.Id}
+	sensor := Sensor{Name: "Test Sensor", UserId: u.Id, CreatedBy: &u}
 	if err := sensor.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -104,7 +104,6 @@ func TestFindSensor(t *testing.T) {
 	params["user_id"] = *u.Id
 	params["id"] = *sensor.Id
 	foundSensor, err := FindSensor(params, db)
-	// foundSensor, err := FindSensor(map[string]interface{}{"user_id": u.Id, "id": sensor.Id}, db)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -130,7 +129,7 @@ func TestSaveSensor(t *testing.T) {
 
 	t.Run("Save New Sensor", func(t *testing.T) {
 		// TODO: should be able to use go-cmp to do this now.
-		sensor := Sensor{Name: "Test Sensor", CreatedBy: &u}
+		sensor := Sensor{Name: "Test Sensor", CreatedBy: &u, UserId: u.Id}
 		if err := sensor.Save(db); err != nil {
 			t.Errorf("%v", err)
 		}
@@ -149,7 +148,7 @@ func TestSaveSensor(t *testing.T) {
 	})
 
 	t.Run("Update Sensor", func(t *testing.T) {
-		sensor := Sensor{Name: "Test Sensor"}
+		sensor := Sensor{Name: "Test Sensor", UserId: u.Id, CreatedBy: &u}
 		if err := sensor.Save(db); err != nil {
 			t.Errorf("%v", err)
 		}

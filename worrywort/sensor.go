@@ -15,7 +15,7 @@ type Sensor struct {
 	Id        *int64 `db:"id"`
 	Uuid      string `db:"uuid"`
 	Name      string `db:"name"`
-	CreatedBy *User  `db:"created_by,prefix=u"`
+	CreatedBy *User  `db:"u"`
 	UserId    *int64 `db:"user_id"`
 
 	CreatedAt time.Time `db:"created_at"`
@@ -32,12 +32,28 @@ func buildSensorsQuery(params map[string]interface{}, db *sqlx.DB) *sqrl.SelectB
 		}
 	}
 
-	// TODO: join CreatedBy back in here after tests without that are all passing again
+	// Careful here - user_id is nullable but that will cause this to not return those sensors.
+	// In all cases of user oriented queries that is desired, but for an admin type lookup it might not be.
+	query = query.Join("users u ON s.user_id = u.id")
 
 	for _, k := range []string{"id", "uuid", "name", "created_at", "updated_at", "user_id"} {
 		query = query.Column(fmt.Sprintf("s.%s", k))
 	}
 
+	for _, k := range []string{"id", "uuid", "first_name", "last_name", "email", "password", "created_at", "updated_at"} {
+		query = query.Column(fmt.Sprintf("u.%s \"u.%s\"", k, k))
+	}
+
+	// might make sense to just put this in FindSensors().  It's not useful to FindSensor()
+	if v, ok := params["limit"]; ok {
+		query = query.Limit(uint64(v.(int)))
+	}
+	if v, ok := params["offset"]; ok {
+		query = query.Offset(uint64(v.(int)))
+	}
+
+	// q, v, _ := query.ToSql()
+	// fmt.Printf("\n\nSQL:\n%s\nvals:%#v\n", q, v)
 	return query
 }
 
@@ -60,41 +76,6 @@ func FindSensors(params map[string]interface{}, db *sqlx.DB) ([]*Sensor, error) 
 	}
 	return *sensors, err
 }
-
-// Look up a Sensor in the database and returns it with user joined.
-// I should delete this rather than leaving commented, but leaving it here for easy reference for now.
-// func FindSensor(params map[string]interface{}, db *sqlx.DB) (*Sensor, error) {
-// 	// TODO: Find a way to just pass in created_by sanely - maybe just manually map that to user_id if needed
-// 	// sqlx may have a good way to do that already.
-// 	t := Sensor{}
-// 	var values []interface{}
-// 	var where []string
-// 	for _, k := range []string{"id", "user_id"} {
-// 		if v, ok := params[k]; ok {
-// 			values = append(values, v)
-// 			// TODO: Deal with values from sensor OR user table
-// 			where = append(where, fmt.Sprintf("t.%s = ?", k))
-// 		}
-// 	}
-// 	selectCols := ""
-// 	for _, k := range t.queryColumns() {
-// 		selectCols += fmt.Sprintf("t.%s, ", k)
-// 	}
-// 	// TODO: improve user join (and other join in general) to
-// 	// be less duplicated
-// 	u := User{}
-// 	for _, k := range u.queryColumns() {
-// 		selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
-// 	}
-// 	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM sensors t LEFT JOIN users u on u.id = t.user_id ` +
-// 		`WHERE ` + strings.Join(where, " AND ")
-// 	query := db.Rebind(q)
-// 	err := db.Get(&t, query, values...)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &t, nil
-// }
 
 // Save the User to the database.  If User.Id() is 0
 // then an insert is performed, otherwise an update on the User matching that id.
