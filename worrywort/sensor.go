@@ -2,8 +2,8 @@ package worrywort
 
 import (
 	"fmt"
+	"github.com/elgris/sqrl"
 	"github.com/jmoiron/sqlx"
-	"strings"
 	"time"
 )
 
@@ -22,54 +22,43 @@ type Sensor struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
-// Look up a single temperature sensor
-// returns the first match, like .first() in Django
-// May change this up to just look up by id and then any other comparisons could
-// be done directly on the object
-func FindSensor(params map[string]interface{}, db *sqlx.DB) (*Sensor, error) {
-	sensors, err := FindSensors(params, db)
-	if err == nil && len(sensors) >= 1 {
-		return sensors[0], err
-	}
-	return nil, err
-}
+func buildSensorsQuery(params map[string]interface{}, db *sqlx.DB) *sqrl.SelectBuilder {
+	query := sqrl.Select().From("sensors s")
 
-func FindSensors(params map[string]interface{}, db *sqlx.DB) ([]*Sensor, error) {
-	// TODO: Find a way to just pass in created_by sanely - maybe just manually map that to user_id if needed
-	// sqlx may have a good way to do that already.
-	// TODO: Pass in limit, offset!
-	// TODO: Maybe.  Move most of this logic to a function shared by FindSensor and
-	// FIndSensors so they just need to build the query with the shared logic then
-	// use db.Get() or db.Select()... only true if desired to have single error if more than 1 result
-	sensors := []*Sensor{}
-	var values []interface{}
-	var where []string
 	for _, k := range []string{"id", "user_id", "uuid"} {
+		// TODO: return error if not ok?
 		if v, ok := params[k]; ok {
-			values = append(values, v)
-			// TODO: Deal with values from sensor OR user table
-			where = append(where, fmt.Sprintf("t.%s = ?", k))
+			query = query.Where(sqrl.Eq{fmt.Sprintf("s.%s", k): v})
 		}
 	}
 
-	selectCols := ""
-	// as in BatchesForUser, this now seems dumb
-	// queryCols := []string{"id", "name", "created_at", "updated_at", "user_id"}
-	// If I need this many places, maybe make a const
+	// TODO: join CreatedBy back in here after tests without that are all passing again
+
 	for _, k := range []string{"id", "uuid", "name", "created_at", "updated_at", "user_id"} {
-		selectCols += fmt.Sprintf("t.%s, ", k)
+		query = query.Column(fmt.Sprintf("s.%s", k))
 	}
 
-	// TODO: Can I easily dynamically add in joining and attaching the User to this without overcomplicating the code?
-	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM sensors t WHERE ` + strings.Join(where, " AND ")
-	query := db.Rebind(q)
-	err := db.Select(&sensors, query, values...)
+	return query
+}
 
-	if err != nil {
-		return nil, err
+// Look up a single temperature sensor
+// returns the first match, like .first() in Django
+func FindSensor(params map[string]interface{}, db *sqlx.DB) (*Sensor, error) {
+	sensor := new(Sensor)
+	query, values, err := buildSensorsQuery(params, db).ToSql()
+	if err == nil {
+		err = db.Get(sensor, db.Rebind(query), values...)
 	}
+	return sensor, err
+}
 
-	return sensors, nil
+func FindSensors(params map[string]interface{}, db *sqlx.DB) ([]*Sensor, error) {
+	sensors := new([]*Sensor)
+	query, values, err := buildSensorsQuery(params, db).ToSql()
+	if err == nil {
+		err = db.Select(sensors, db.Rebind(query), values...)
+	}
+	return *sensors, err
 }
 
 // Look up a Sensor in the database and returns it with user joined.
