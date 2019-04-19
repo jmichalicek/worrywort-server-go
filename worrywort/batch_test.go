@@ -83,7 +83,7 @@ func TestSaveFermentor(t *testing.T) {
 	})
 }
 
-func TestFindSensor(t *testing.T) {
+func TestFindSensorFuncs(t *testing.T) {
 	db, err := setUpTestDb()
 	if err != nil {
 		t.Fatalf("Got error setting up database: %s", err)
@@ -96,22 +96,90 @@ func TestFindSensor(t *testing.T) {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
+	u2 := User{Email: "user2@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u2.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
 	sensor := Sensor{Name: "Test Sensor", UserId: u.Id, CreatedBy: &u}
 	if err := sensor.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
-	params := make(map[string]interface{})
-	params["user_id"] = *u.Id
-	params["id"] = *sensor.Id
-	foundSensor, err := FindSensor(params, db)
-	if err != nil {
+	sensor2 := Sensor{Name: "Test Sensor 2", UserId: u.Id, CreatedBy: &u}
+	if err := sensor2.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
-	// Have to be careful with this. if we do want all pointer to match up, then there is an issue here
-	// because cmp dereferences nested pointers nicely.
-	if foundSensor == nil || !cmp.Equal(*foundSensor, sensor) {
-		t.Fatalf(cmp.Diff(*foundSensor, sensor))
+	sensor3 := Sensor{Name: "Test Sensor 3", UserId: u2.Id, CreatedBy: &u2}
+	if err := sensor3.Save(db); err != nil {
+		t.Fatalf("%v", err)
 	}
+
+	t.Run("FindSensor()", func(t *testing.T) {
+		var testmatrix = []struct {
+			name     string
+			inputs   map[string]interface{}
+			expected *Sensor
+		}{
+			// basic filters
+			// This is ok for now, but really don't want to write one test per potential filter as those grow
+			// will at least add user uuid probably.
+			{"by id", map[string]interface{}{"id": *sensor.Id}, &sensor},
+			{"by uuid", map[string]interface{}{"uuid": sensor.Uuid}, &sensor},
+			// pagination
+			// TODO: test multiple filters?
+			// TODO: test errors - ie. something which could return multiple? Something which does not exist
+		}
+
+		for _, tm := range testmatrix {
+			t.Run(tm.name, func(t *testing.T) {
+				foundSensor, err := FindSensor(tm.inputs, db)
+				if err != nil {
+					t.Fatalf("Unexpected error: %v", err)
+				}
+				// Have to be careful with this. if we do want all pointer to match up, then there is an issue here
+				// because cmp dereferences nested pointers nicely.
+				if foundSensor == nil || !cmp.Equal(foundSensor, tm.expected) {
+					t.Errorf("Got: - | Expected: +\n%s", cmp.Diff(foundSensor, tm.expected))
+				}
+			})
+		}
+	})
+
+	t.Run("FindSensors()", func(t *testing.T) {
+		var testmatrix = []struct {
+			name     string
+			inputs   map[string]interface{}
+			expected []*Sensor
+		}{
+			// basic filters
+			// This is ok for now, but really don't want to write one test per potential filter as those grow
+			// will at least add user uuid probably.
+			{"No Params", map[string]interface{}{}, []*Sensor{&sensor, &sensor2, &sensor3}},
+			{"by id", map[string]interface{}{"id": *sensor.Id}, []*Sensor{&sensor}},
+			{"by uuid", map[string]interface{}{"uuid": sensor2.Uuid}, []*Sensor{&sensor2}},
+			{"by user_id", map[string]interface{}{"user_id": *u.Id}, []*Sensor{&sensor, &sensor2}},
+			// pagination
+			{"Paginated no offset", map[string]interface{}{"limit": 1}, []*Sensor{&sensor}},
+			{"Paginated with offset", map[string]interface{}{"offset": 1}, []*Sensor{&sensor2, &sensor3}},
+		}
+
+		for _, tm := range testmatrix {
+			t.Run(tm.name, func(t *testing.T) {
+				foundSensors, err := FindSensors(tm.inputs, db)
+				if err != nil {
+					t.Fatalf("Unexpected error: %v", err)
+				}
+				// Have to be careful with this. if we do want all pointer to match up, then there is an issue here
+				// because cmp dereferences nested pointers nicely.
+				if !cmp.Equal(foundSensors, tm.expected) {
+					t.Errorf("Got: - | Expected: +\n%s", cmp.Diff(foundSensors, tm.expected))
+				}
+			})
+		}
+
+	})
+
 }
 
 func TestSaveSensor(t *testing.T) {
