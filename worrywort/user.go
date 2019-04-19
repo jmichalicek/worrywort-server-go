@@ -35,7 +35,7 @@ type User struct {
 
 func (u User) queryColumns() []string {
 	// TODO: Way to dynamically build this using the `db` tag and reflection/introspection
-	return []string{"id", "first_name", "last_name", "email", "password", "created_at", "updated_at"}
+	return []string{"id", "uuid", "first_name", "last_name", "email", "password", "created_at", "updated_at"}
 }
 
 // SetUserPassword hashes the given password and returns a new user with the password set to the bcrypt hashed value

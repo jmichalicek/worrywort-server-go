@@ -2,8 +2,8 @@ package worrywort
 
 import (
 	"fmt"
+	"github.com/elgris/sqrl"
 	"github.com/jmoiron/sqlx"
-	"strings"
 	"time"
 )
 
@@ -15,97 +15,67 @@ type Sensor struct {
 	Id        *int64 `db:"id"`
 	Uuid      string `db:"uuid"`
 	Name      string `db:"name"`
-	CreatedBy *User  `db:"created_by,prefix=u"`
+	CreatedBy *User  `db:"u"`
 	UserId    *int64 `db:"user_id"`
 
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
-// Look up a single temperature sensor
-// returns the first match, like .first() in Django
-// May change this up to just look up by id and then any other comparisons could
-// be done directly on the object
-func FindSensor(params map[string]interface{}, db *sqlx.DB) (*Sensor, error) {
-	sensors, err := FindSensors(params, db)
-	if err == nil && len(sensors) >= 1 {
-		return sensors[0], err
-	}
-	return nil, err
-}
+func buildSensorsQuery(params map[string]interface{}, db *sqlx.DB) *sqrl.SelectBuilder {
+	query := sqrl.Select().From("sensors s")
 
-func FindSensors(params map[string]interface{}, db *sqlx.DB) ([]*Sensor, error) {
-	// TODO: Find a way to just pass in created_by sanely - maybe just manually map that to user_id if needed
-	// sqlx may have a good way to do that already.
-	// TODO: Pass in limit, offset!
-	// TODO: Maybe.  Move most of this logic to a function shared by FindSensor and
-	// FIndSensors so they just need to build the query with the shared logic then
-	// use db.Get() or db.Select()... only true if desired to have single error if more than 1 result
-	sensors := []*Sensor{}
-	var values []interface{}
-	var where []string
 	for _, k := range []string{"id", "user_id", "uuid"} {
+		// TODO: return error if not ok?
 		if v, ok := params[k]; ok {
-			values = append(values, v)
-			// TODO: Deal with values from sensor OR user table
-			where = append(where, fmt.Sprintf("t.%s = ?", k))
+			query = query.Where(sqrl.Eq{fmt.Sprintf("s.%s", k): v})
 		}
 	}
 
-	selectCols := ""
-	// as in BatchesForUser, this now seems dumb
-	// queryCols := []string{"id", "name", "created_at", "updated_at", "user_id"}
-	// If I need this many places, maybe make a const
+	// Careful here - user_id is nullable but that will cause this to not return those sensors.
+	// In all cases of user oriented queries that is desired, but for an admin type lookup it might not be.
+	query = query.Join("users u ON s.user_id = u.id")
+
 	for _, k := range []string{"id", "uuid", "name", "created_at", "updated_at", "user_id"} {
-		selectCols += fmt.Sprintf("t.%s, ", k)
+		query = query.Column(fmt.Sprintf("s.%s", k))
 	}
 
-	// TODO: Can I easily dynamically add in joining and attaching the User to this without overcomplicating the code?
-	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM sensors t WHERE ` + strings.Join(where, " AND ")
-	query := db.Rebind(q)
-	err := db.Select(&sensors, query, values...)
-
-	if err != nil {
-		return nil, err
+	for _, k := range []string{"id", "uuid", "first_name", "last_name", "email", "password", "created_at", "updated_at"} {
+		query = query.Column(fmt.Sprintf("u.%s \"u.%s\"", k, k))
 	}
 
-	return sensors, nil
+	// might make sense to just put this in FindSensors().  It's not useful to FindSensor()
+	if v, ok := params["limit"]; ok {
+		query = query.Limit(uint64(v.(int)))
+	}
+	if v, ok := params["offset"]; ok {
+		query = query.Offset(uint64(v.(int)))
+	}
+
+	// q, v, _ := query.ToSql()
+	// fmt.Printf("\n\nSQL:\n%s\nvals:%#v\n", q, v)
+	return query
 }
 
-// Look up a Sensor in the database and returns it with user joined.
-// I should delete this rather than leaving commented, but leaving it here for easy reference for now.
-// func FindSensor(params map[string]interface{}, db *sqlx.DB) (*Sensor, error) {
-// 	// TODO: Find a way to just pass in created_by sanely - maybe just manually map that to user_id if needed
-// 	// sqlx may have a good way to do that already.
-// 	t := Sensor{}
-// 	var values []interface{}
-// 	var where []string
-// 	for _, k := range []string{"id", "user_id"} {
-// 		if v, ok := params[k]; ok {
-// 			values = append(values, v)
-// 			// TODO: Deal with values from sensor OR user table
-// 			where = append(where, fmt.Sprintf("t.%s = ?", k))
-// 		}
-// 	}
-// 	selectCols := ""
-// 	for _, k := range t.queryColumns() {
-// 		selectCols += fmt.Sprintf("t.%s, ", k)
-// 	}
-// 	// TODO: improve user join (and other join in general) to
-// 	// be less duplicated
-// 	u := User{}
-// 	for _, k := range u.queryColumns() {
-// 		selectCols += fmt.Sprintf("u.%s \"created_by.%s\", ", k, k)
-// 	}
-// 	q := `SELECT ` + strings.Trim(selectCols, ", ") + ` FROM sensors t LEFT JOIN users u on u.id = t.user_id ` +
-// 		`WHERE ` + strings.Join(where, " AND ")
-// 	query := db.Rebind(q)
-// 	err := db.Get(&t, query, values...)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &t, nil
-// }
+// Look up a single temperature sensor
+// returns the first match, like .first() in Django
+func FindSensor(params map[string]interface{}, db *sqlx.DB) (*Sensor, error) {
+	sensor := new(Sensor)
+	query, values, err := buildSensorsQuery(params, db).ToSql()
+	if err == nil {
+		err = db.Get(sensor, db.Rebind(query), values...)
+	}
+	return sensor, err
+}
+
+func FindSensors(params map[string]interface{}, db *sqlx.DB) ([]*Sensor, error) {
+	sensors := new([]*Sensor)
+	query, values, err := buildSensorsQuery(params, db).ToSql()
+	if err == nil {
+		err = db.Select(sensors, db.Rebind(query), values...)
+	}
+	return *sensors, err
+}
 
 // Save the User to the database.  If User.Id() is 0
 // then an insert is performed, otherwise an update on the User matching that id.
