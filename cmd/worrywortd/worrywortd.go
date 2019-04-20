@@ -21,7 +21,9 @@ var schema *graphql.Schema
 // which closes over the db needed to look up the user
 func newTokenAuthLookup(db *sqlx.DB) func(token string) (worrywort.User, error) {
 	return func(token string) (worrywort.User, error) {
-		return worrywort.LookupUserByToken(token, db)
+		// TODO: return the token? That could be more useful in many places than just the user.
+		t, err := worrywort.AuthenticateUserByToken(token, db)
+		return t.User, err
 	}
 }
 
@@ -52,7 +54,7 @@ func main() {
 	schema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
 
 	tokenAuthHandler := authMiddleware.NewTokenAuthHandler(newTokenAuthLookup(db))
-	authRequiredHandler := authMiddleware.NewLoginRequiredHandler()
+	// authRequiredHandler := authMiddleware.NewLoginRequiredHandler()
 
 	// Does this need a Schema pointer?
 	// can we do non-relay
@@ -64,8 +66,10 @@ func main() {
 	ctx = context.WithValue(ctx, "db", db)
 	// can add logging similarly
 
-	http.Handle("/graphql", AddContext(ctx, tokenAuthHandler(authRequiredHandler(&relay.Handler{Schema: schema}))))
-	// http.Handle("/graphql", AddContext(ctx, tokenAuthHandler(&relay.Handler{Schema: schema})))
+	// TODO: need to manually handle CORS?
+	// https://github.com/graph-gophers/graphql-go/issues/74#issuecomment-289098639
+	// http.Handle("/graphql", AddContext(ctx, tokenAuthHandler(authRequiredHandler(&relay.Handler{Schema: schema}))))
+	http.Handle("/graphql", AddContext(ctx, tokenAuthHandler(&relay.Handler{Schema: schema})))
 	uri, uriSet := os.LookupEnv("WORRYWORTD_HOST")
 	if !uriSet {
 		uri = ":8080"

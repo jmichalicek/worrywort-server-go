@@ -2,6 +2,7 @@ package authMiddleware
 
 import (
 	"context"
+	"github.com/google/go-cmp/cmp"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"net/http"
 	"net/http/httptest"
@@ -54,17 +55,17 @@ func TestTokenMiddleware(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/", nil)
 		req.Header.Set("Authorization", "token 12345")
 		ctx := req.Context()
-		ctx = context.WithValue(ctx, DefaultUserKey, u)
+		ctx = context.WithValue(ctx, DefaultUserKey, &u)
 		req = req.WithContext(ctx)
 
 		// Handler which errors is wrong user is in context
 		handler := tokenAuthHandler(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 			ctx := req.Context()
-			ctxUser, ok := ctx.Value("user").(worrywort.User)
+			ctxUser, ok := ctx.Value("user").(*worrywort.User)
 			if !ok {
 				t.Errorf("Error getting user %v as worrywort.User", ctxUser)
 			}
-			if u != ctxUser {
+			if !cmp.Equal(&u, ctxUser) {
 				t.Errorf("Got %v but expected %v", ctxUser, u)
 			}
 			rw.WriteHeader(http.StatusOK)

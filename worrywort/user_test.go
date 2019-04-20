@@ -2,6 +2,7 @@ package worrywort
 
 import (
 	"database/sql"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -106,8 +107,8 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 			actual, err := LookupUserByToken(tokenStr, db)
 			expected := User{}
 
-			if err != InvalidTokenError {
-				t.Errorf("\nExpected error: %v\nGot: %v", InvalidTokenError, err)
+			if err != ErrInvalidToken {
+				t.Errorf("\nExpected error: %v\nGot: %v", ErrInvalidToken, err)
 			}
 
 			if actual != expected {
@@ -121,14 +122,57 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 			actual, err := LookupUserByToken(tokenStr, db)
 			expected := User{}
 
-			if err != InvalidTokenError {
-				t.Errorf("\nExpected error: %v\nGot: %v", InvalidTokenError, err)
+			if err != ErrInvalidToken {
+				t.Errorf("\nExpected error: %v\nGot: %v", ErrInvalidToken, err)
 			}
 
 			if actual != expected {
 				t.Errorf("\nExpected: %v\ngot: %v", expected, actual)
 			}
 		})
+
+		// TODO: MOVE THESE?  Technically auth token tests now?
+		t.Run("TestAuthenticateUserByToken", func(t *testing.T) {
+			tokenKey := "secret"
+			token := NewToken(tokenKey, user, TOKEN_SCOPE_ALL)
+			token.Save(db)
+			tokenId := token.Id
+
+			t.Run("Test valid token string returns AuthToken and no error", func(t *testing.T) {
+				tokenStr := tokenId + ":" + tokenKey
+				expected := token
+				expected.fromString = ""
+				tok, err := AuthenticateUserByToken(tokenStr, db)
+
+				if err != nil {
+					t.Errorf("AuthenticateUserByToken() returned error %v", err)
+				}
+				cmpOpts := []cmp.Option{
+					cmp.AllowUnexported(AuthToken{}),
+				}
+				if !cmp.Equal(expected, tok, cmpOpts...) {
+					t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(expected, tok, cmpOpts...))
+				}
+			})
+
+			t.Run("Test invalid token with valid token id", func(t *testing.T) {
+				tokenStr := token.Id + ":tokenstr"
+				tok, err := LookupUserByToken(tokenStr, db)
+				if err != ErrInvalidToken {
+					t.Errorf("\nExpected error: %s\nGot: %s\nUser: %s", ErrInvalidToken, err, spew.Sdump(tok))
+				}
+			})
+
+			t.Run("Test invalid token id", func(t *testing.T) {
+				badTokenId, err := uuid.NewRandom()
+				tokenStr := badTokenId.String() + ":tokenstr"
+				tok, err := LookupUserByToken(tokenStr, db)
+				if err != ErrInvalidToken {
+					t.Errorf("\nExpected error: %s\nGot: %s\nToken: %s", ErrInvalidToken, err, spew.Sdump(tok))
+				}
+			})
+		})
+		// END NEW AUTH TOKEN TESTS
 	})
 
 	t.Run("TestAuthenticateLogin", func(t *testing.T) {
@@ -143,26 +187,18 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 			}
 		})
 
-		t.Run("Test valid username and password mistmatch returns error and empty User{}", func(t *testing.T) {
-			u, err := AuthenticateLogin(user.Email, "a", db)
+		t.Run("Test valid username and password mismatch returns error", func(t *testing.T) {
+			_, err := AuthenticateLogin(user.Email, "a", db)
 			if err != bcrypt.ErrMismatchedHashAndPassword {
 				t.Errorf("Expected error: %v\nGot: %v", bcrypt.ErrMismatchedHashAndPassword, err)
-			}
-
-			if u != nil {
-				t.Errorf("Expected: %v\ngot: %v", nil, u)
 			}
 		})
 
 		// TODO: test mismatched email
-		t.Run("Test invalid username/email and returns error and User{}", func(t *testing.T) {
-			u, err := AuthenticateLogin("nomatch@example.com", password, db)
-			if err != UserNotFoundError {
-				t.Errorf("Expected: %v\nGot: %v", UserNotFoundError, err)
-			}
-
-			if u != nil {
-				t.Errorf("Expected: %v\ngot: %v", nil, u)
+		t.Run("Test invalid username/email and returns error", func(t *testing.T) {
+			_, err := AuthenticateLogin("nomatch@example.com", password, db)
+			if err != ErrUserNotFound {
+				t.Errorf("Expected: %v\nGot: %v", ErrUserNotFound, err)
 			}
 		})
 	})

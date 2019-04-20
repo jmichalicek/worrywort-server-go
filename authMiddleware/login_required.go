@@ -1,7 +1,6 @@
 package authMiddleware
 
 import (
-	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"net/http"
 )
 
@@ -13,7 +12,9 @@ func NewLoginRequiredHandler() func(http.Handler) http.Handler {
 			u, _ := UserFromContext(ctx)
 			// only update context if user is not already populated.
 			// what if it was ok, but user is an empty User{}?
-			if (worrywort.User{}) == u {
+			// nil user means that user has not been able to be authenticated yet. This will generally be
+			// the last middleware to run
+			if u == nil {
 				// http.StatusUnauthorized == 403
 				http.Error(rw, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 				return

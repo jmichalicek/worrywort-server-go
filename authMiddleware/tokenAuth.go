@@ -10,6 +10,8 @@ import (
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"net/http"
 	"strings"
+	// "log"
+	// "github.com/davecgh/go-spew/spew"
 )
 
 // TODO:  tests for this middleware like at https://medium.com/@PurdonKyle/unit-testing-golang-http-middleware-c7727ca896ea
@@ -19,12 +21,13 @@ const DefaultUserKey string = "user"
 var UserNotInContextError = errors.New("Could not get worrywort.User from context")
 
 // Type safe function to get user from context
-func UserFromContext(ctx context.Context) (worrywort.User, error) {
+func UserFromContext(ctx context.Context) (*worrywort.User, error) {
 	// May return *worrywort.User so that I can return nil
-	u, ok := ctx.Value(DefaultUserKey).(worrywort.User)
+	u, ok := ctx.Value(DefaultUserKey).(*worrywort.User)
+	// log.Printf("IN USER_FROM_CONT, U IS %S", spew.Sdump(u))
 	if !ok {
 		// can this differentiate between missing key and invalid value?
-		return worrywort.User{}, UserNotInContextError
+		return nil, UserNotInContextError
 	}
 	return u, nil
 }
@@ -53,8 +56,7 @@ func NewTokenAuthHandler(lookupFn func(string) (worrywort.User, error)) func(htt
 			ctx := req.Context()
 			u, _ := UserFromContext(ctx)
 			// only update context if user is not already populated.
-			// what if it was ok, but user is an empty User{}?
-			if (worrywort.User{}) == u {
+			if u == nil {
 				ctx = newContextWithUser(ctx, req, lookupFn)
 			}
 			next.ServeHTTP(rw, req.WithContext(ctx))

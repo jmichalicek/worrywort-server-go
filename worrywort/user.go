@@ -17,7 +17,7 @@ import (
 // good info on cost here https://security.stackexchange.com/a/83382
 const DefaultPasswordHashCost int = 13
 
-var UserNotFoundError error = errors.New("User not found")
+var ErrUserNotFound error = errors.New("User not found")
 
 type User struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
@@ -113,33 +113,18 @@ func UpdateUser(db *sqlx.DB, u *User) error {
 // TODO: de-duplicate as much of this as possible from LookupUser() - make that take args like the rest of the Find*
 // functions and look up that way.
 func AuthenticateLogin(username, password string, db *sqlx.DB) (*User, error) {
-	u := new(User)
-	u.Id = nil
-
 	u, err := FindUser(map[string]interface{}{"email": username}, db)
-	// query := db.Rebind(
-	// 	"SELECT id, uuid, email, first_name, last_name, created_at, updated_at, password FROM users WHERE email = ?")
-	// err := db.Get(u, query, username)
-	// I believe due to postgres having user_id be not null, our id is always a pointer to 0 after this
-	// if the user was not found, which throws things off.
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, UserNotFoundError
-		} else {
-			return nil, err
-		}
+	if err == sql.ErrNoRows {
+		err = ErrUserNotFound
+	} else if err == nil {
+		err = bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
 	}
-
-	pwdErr := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
-	if pwdErr != nil {
-		return nil, pwdErr
-	}
-
-	return u, nil
+	return u, err
 }
 
 // Uses a token as passed in authentication headers by a user to look them up
 func LookupUserByToken(tokenStr string, db *sqlx.DB) (User, error) {
+	// TODO: return the found token as well?
 	// TODO: Is there a good way to abstract this so that token data could optionally
 	// be stored in redis while other data is in postgres?  If two separate lookups
 	// are done even for db then it is easy.
@@ -148,40 +133,42 @@ func LookupUserByToken(tokenStr string, db *sqlx.DB) (User, error) {
 	// for explicitness that token is passed in has 2 parts
 	tokenParts := strings.SplitN(tokenStr, ":", 2)
 	if len(tokenParts) != 2 {
-		return User{}, TokenFormatError
+		return User{}, ErrBadTokenFormat
 	}
 
 	tokenId := tokenParts[0]
 	tokenSecret := tokenParts[1]
 	token := AuthToken{}
+	// TODO: sqrl?
 	query := db.Rebind(
 		`SELECT t.id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, u.id "user.id", u.uuid "user.uuid",
 			u.first_name "user.first_name", u.last_name "user.last_name", u.email "user.email", u.created_at "user.created_at",
 			u.updated_at "user.updated_at", u.password "user.password" FROM user_authtokens t
-			LEFT JOIN users u ON t.user_id = u.id
+			JOIN users u ON t.user_id = u.id
 			WHERE t.id = ? AND (t.expires_at IS NULL OR t.expires_at > ?)`)
 	err := db.Get(&token, query, tokenId, time.Now())
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return User{}, InvalidTokenError
+			return User{}, ErrInvalidToken
 		}
 		return User{}, err
 	}
 
 	if token == (AuthToken{}) {
-		return User{}, InvalidTokenError
+		return User{}, ErrInvalidToken
 	}
 
 	// could do this in the sql, but it keeps the hashing code all closer together
 	if !token.Compare(tokenSecret) {
-		return User{}, InvalidTokenError
+		return User{}, ErrInvalidToken
 	}
 
 	return token.User, nil
 }
 
 func FindUser(params map[string]interface{}, db *sqlx.DB) (*User, error) {
+	// TODO: use sqrl
 	user := User{}
 	var values []interface{}
 	var where []string
