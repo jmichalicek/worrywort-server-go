@@ -13,7 +13,7 @@ import (
 // going too far for now, so keep it simple.
 type Sensor struct {
 	Id        *int64 `db:"id"`
-	Uuid      string `db:"uuid"`
+	UUID      string `db:"uuid"`
 	Name      string `db:"name"`
 	CreatedBy *User  `db:"u"`
 	UserId    *int64 `db:"user_id"`
@@ -100,7 +100,7 @@ func InsertSensor(db *sqlx.DB, t *Sensor) error {
 	if err == nil {
 		// TODO: Can I just assign these directly now in Scan()?
 		t.Id = sensorId
-		t.Uuid = *_uuid
+		t.UUID = *_uuid
 		t.CreatedAt = createdAt
 		t.UpdatedAt = updatedAt
 	}

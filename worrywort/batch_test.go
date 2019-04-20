@@ -125,7 +125,7 @@ func TestFindSensorFuncs(t *testing.T) {
 			// This is ok for now, but really don't want to write one test per potential filter as those grow
 			// will at least add user uuid probably.
 			{"by id", map[string]interface{}{"id": *sensor.Id}, &sensor},
-			{"by uuid", map[string]interface{}{"uuid": sensor.Uuid}, &sensor},
+			{"by uuid", map[string]interface{}{"uuid": sensor.UUID}, &sensor},
 			// pagination
 			// TODO: test multiple filters?
 			// TODO: test errors - ie. something which could return multiple? Something which does not exist
@@ -157,7 +157,7 @@ func TestFindSensorFuncs(t *testing.T) {
 			// will at least add user uuid probably.
 			{"No Params", map[string]interface{}{}, []*Sensor{&sensor, &sensor2, &sensor3}},
 			{"by id", map[string]interface{}{"id": *sensor.Id}, []*Sensor{&sensor}},
-			{"by uuid", map[string]interface{}{"uuid": sensor2.Uuid}, []*Sensor{&sensor2}},
+			{"by uuid", map[string]interface{}{"uuid": sensor2.UUID}, []*Sensor{&sensor2}},
 			{"by user_id", map[string]interface{}{"user_id": *u.Id}, []*Sensor{&sensor, &sensor2}},
 			// pagination
 			{"Paginated no offset", map[string]interface{}{"limit": 1}, []*Sensor{&sensor}},
@@ -490,7 +490,7 @@ func TestFindBatches(t *testing.T) {
 		// will at least add user uuid probably.
 		{"Unfiltered", map[string]interface{}{}, []*Batch{&b, &b2, &u2batch}},
 		{"By batch.Id", map[string]interface{}{"id": *b.Id}, []*Batch{&b}},
-		{"By batch.Uuid", map[string]interface{}{"uuid": b.Uuid}, []*Batch{&b}},
+		{"By batch.UUID", map[string]interface{}{"uuid": b.UUID}, []*Batch{&b}},
 		{"By batch.user_id", map[string]interface{}{"user_id": *u2.Id}, []*Batch{&u2batch}},
 		// pagination
 		{"Paginated no offset", map[string]interface{}{"limit": 1}, []*Batch{&b}},
@@ -551,8 +551,8 @@ func TestBatch(t *testing.T) {
 			t.Errorf("Save() on new batch did not set CreatedAt")
 		}
 
-		if b.Uuid == "" {
-			t.Errorf("Save() on new batch did not set Uuid")
+		if b.UUID == "" {
+			t.Errorf("Save() on new batch did not set UUID")
 		}
 
 		batchArgs := make(map[string]interface{})
@@ -856,9 +856,9 @@ func TestFindTemperatureMeasurements(t *testing.T) {
 		{"Unfiltered", map[string]interface{}{}, []*TemperatureMeasurement{&m1, &m2, &m3}},
 		{"By m1.Id", map[string]interface{}{"id": m1.Id}, []*TemperatureMeasurement{&m1}},
 		{"By sensor_Id", map[string]interface{}{"sensor_id": *s1.Id}, []*TemperatureMeasurement{&m1, &m2}},
-		{"By sensor_uuid", map[string]interface{}{"sensor_uuid": s1.Uuid}, []*TemperatureMeasurement{&m1, &m2}},
+		{"By sensor_uuid", map[string]interface{}{"sensor_uuid": s1.UUID}, []*TemperatureMeasurement{&m1, &m2}},
 		{"By m3.UserId", map[string]interface{}{"user_id": *u2.Id}, []*TemperatureMeasurement{&m3}},
-		{"By batch_uuid with active sensor association", map[string]interface{}{"batch_uuid": b.Uuid}, []*TemperatureMeasurement{&m2}},
+		{"By batch_uuid with active sensor association", map[string]interface{}{"batch_uuid": b.UUID}, []*TemperatureMeasurement{&m2}},
 		// todo: add a batch_uuid test validating if the measurement is AFTER the disassociation
 		// pagination
 		{"Paginated no offset", map[string]interface{}{"limit": 1}, []*TemperatureMeasurement{&m1}},

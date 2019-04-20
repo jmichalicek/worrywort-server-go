@@ -35,7 +35,7 @@ var TypeError error = errors.New("Invalid type specified")
 
 type Batch struct {
 	Id                *int64         `db:"id"`
-	Uuid              string         `db:"uuid"`
+	UUID              string         `db:"uuid"`
 	CreatedBy         *User          `db:"created_by,prefix=u"` // TODO: think I will change this to User
 	UserId            *int64         `db:"user_id"`
 	Name              string         `db:"name"`
@@ -163,7 +163,7 @@ func InsertBatch(db *sqlx.DB, b *Batch) error {
 	var updatedAt time.Time
 	var createdAt time.Time
 	batchId := new(int64)
-	batchUuid := new(string)
+	batchUUID := new(string)
 
 	// TODO: use sqrl
 	query := db.Rebind(`INSERT INTO batches (user_id, name, brew_notes, tasting_notes, brewed_date, bottled_date,
@@ -174,7 +174,7 @@ func InsertBatch(db *sqlx.DB, b *Batch) error {
 	err := db.QueryRow(
 		query, b.UserId, b.Name, b.BrewNotes, b.TastingNotes, b.BrewedDate, b.BottledDate,
 		b.VolumeBoiled, b.VolumeInFermentor, b.VolumeUnits, b.OriginalGravity, b.FinalGravity, b.RecipeURL,
-		b.MaxTemperature, b.MinTemperature, b.AverageTemperature).Scan(batchId, &createdAt, &updatedAt, batchUuid)
+		b.MaxTemperature, b.MinTemperature, b.AverageTemperature).Scan(batchId, &createdAt, &updatedAt, batchUUID)
 
 	if err == nil {
 		// TODO: double check to verify we get utc updated_at and created_at both this way and if just using "NOW()"
@@ -182,7 +182,7 @@ func InsertBatch(db *sqlx.DB, b *Batch) error {
 		b.Id = batchId
 		b.CreatedAt = createdAt
 		b.UpdatedAt = updatedAt
-		b.Uuid = *batchUuid
+		b.UUID = *batchUUID
 	}
 	return err
 }

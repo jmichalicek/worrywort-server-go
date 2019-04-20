@@ -20,7 +20,7 @@ func (r *sensorResolver) ID() graphql.ID {
 		log.Printf("sensor resolver with nil id: %s", spew.Sdump(r))
 		return graphql.ID("")
 	}
-	return graphql.ID(r.s.Uuid)
+	return graphql.ID(r.s.UUID)
 }
 func (r *sensorResolver) CreatedAt() string { return dateString(r.s.CreatedAt) }
 func (r *sensorResolver) UpdatedAt() string { return dateString(r.s.UpdatedAt) }
