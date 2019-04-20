@@ -170,6 +170,9 @@ func (r *Resolver) CreateBatch(ctx context.Context, args *struct {
 	Input *createBatchInput
 }) (*createBatchPayload, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
+	if u == nil {
+		return nil, ErrUserNotAuthenticated
+	}
 
 	var inputPtr *createBatchInput = args.Input
 	var input createBatchInput = *inputPtr

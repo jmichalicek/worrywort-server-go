@@ -21,7 +21,7 @@ var ErrServerError = errors.New("Unexpected server error.")
 
 // This also could be handled in middleware, but then I would need two separate
 // schemas and routes - one for authenticated stuff, one for
-var NOT_AUTHTENTICATED_ERROR = errors.New("User must be authenticated")
+var ErrUserNotAuthenticated = errors.New("User must be authenticated")
 
 // Takes a time.Time and returns nil if the time is zero or pointer to the time string formatted as RFC3339
 func nullableDateString(dt time.Time) *string {
@@ -68,7 +68,11 @@ func (r *Resolver) CurrentUser(ctx context.Context) (*userResolver, error) {
 	// or just write a separate function for that here instead of using it from authMiddleware.
 	// TODO: should check errors
 	u, _ := authMiddleware.UserFromContext(ctx)
-	ur := userResolver{u: &u}
+	if u == nil {
+		return nil, ErrUserNotAuthenticated
+	}
+	// log.Printf("User is: %s", spew.Sdump(u))
+	ur := userResolver{u: u}
 	return &ur, nil
 }
 
@@ -77,6 +81,9 @@ func (r *Resolver) CurrentUser(ctx context.Context) (*userResolver, error) {
 func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*batchResolver, error) {
 	// TODO: panic on error, no user, etc.
 	u, _ := authMiddleware.UserFromContext(ctx)
+	if u == nil {
+		return nil, ErrUserNotAuthenticated
+	}
 	var err error
 	batchArgs := make(map[string]interface{})
 	// TODO: Or if batch is publicly readable by anyone?
@@ -108,6 +115,9 @@ func (r *Resolver) Batches(ctx context.Context, args struct {
 	After *string
 }) (*batchConnection, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
+	if u == nil {
+		return nil, ErrUserNotAuthenticated
+	}
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
 		// TODO: logging with stack info?
@@ -166,6 +176,9 @@ func (r *Resolver) BatchSensorAssociations(ctx context.Context, args struct {
 	SensorId *string
 }) (*batchSensorAssociationConnection, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
+	if u == nil {
+		return nil, ErrUserNotAuthenticated
+	}
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
 		// TODO: logging with stack info?
@@ -236,6 +249,9 @@ func (r *Resolver) Fermentor(ctx context.Context, args struct{ ID graphql.ID }) 
 
 func (r *Resolver) Sensor(ctx context.Context, args struct{ ID graphql.ID }) (*sensorResolver, error) {
 	user, _ := authMiddleware.UserFromContext(ctx)
+	if user == nil {
+		return nil, ErrUserNotAuthenticated
+	}
 	var resolved *sensorResolver
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
@@ -246,7 +262,9 @@ func (r *Resolver) Sensor(ctx context.Context, args struct{ ID graphql.ID }) (*s
 
 	sensor, err := worrywort.FindSensor(map[string]interface{}{"uuid": string(args.ID), "user_id": *user.Id}, db)
 	if err != nil {
-		log.Printf("%v", err)
+		if err != sql.ErrNoRows {
+			log.Printf("%v", err)
+		}
 		return nil, nil // maybe error should be returned
 	} else if sensor != nil && sensor.Uuid != "" {
 		// TODO: check for Uuid is a hack because I need to rework FindSensor to return nil
@@ -263,6 +281,9 @@ func (r *Resolver) Sensors(ctx context.Context, args struct {
 	After *string
 }) (*sensorConnection, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
+	if u == nil {
+		return nil, ErrUserNotAuthenticated
+	}
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
 		// TODO: logging with stack info?
@@ -332,6 +353,9 @@ func (r *Resolver) Sensors(ctx context.Context, args struct {
 // Returns a single resolved TemperatureMeasurement by ID, owned by the authenticated user
 func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureMeasurementResolver, error) {
 	authUser, _ := authMiddleware.UserFromContext(ctx)
+	if authUser == nil {
+		return nil, ErrUserNotAuthenticated
+	}
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
 		// TODO: logging with stack info?
@@ -341,7 +365,7 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 	var resolved *temperatureMeasurementResolver
 	measurementId := string(args.ID)
 	measurement, err := worrywort.FindTemperatureMeasurement(
-		map[string]interface{}{"id": measurementId, "user_id": authUser.Id}, db)
+		map[string]interface{}{"id": measurementId, "user_id": *authUser.Id}, db)
 	if err != nil {
 		log.Printf("%v", err)
 	} else if measurement != nil {
@@ -357,6 +381,9 @@ func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
 	BatchId  *string
 }) (*temperatureMeasurementConnection, error) {
 	authUser, _ := authMiddleware.UserFromContext(ctx)
+	if authUser == nil {
+		return nil, ErrUserNotAuthenticated
+	}
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
 		// TODO: logging with stack info?
@@ -364,7 +391,7 @@ func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
 		return nil, ErrServerError
 	}
 
-	queryparams := map[string]interface{}{"user_id": authUser.Id}
+	queryparams := map[string]interface{}{"user_id": *authUser.Id}
 	offset := 0 // TODO: implement correct offset in return values.
 
 	if args.After != nil && *args.After != "" {
@@ -452,8 +479,17 @@ func (c createTemperatureMeasurementPayload) TemperatureMeasurement() *temperatu
 func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struct {
 	Input *createTemperatureMeasurementInput
 }) (*createTemperatureMeasurementPayload, error) {
-	// TODO: use db from context rather than r.Db for consistency throughout API
 	u, _ := authMiddleware.UserFromContext(ctx)
+	if u == nil {
+		return nil, ErrUserNotAuthenticated
+	}
+
+	db, ok := ctx.Value("db").(*sqlx.DB)
+	if !ok {
+		// TODO: logging with stack info?
+		log.Printf("No database in context")
+		return nil, ErrServerError
+	}
 
 	var inputPtr *createTemperatureMeasurementInput = args.Input
 	// TODO: make sure input was not nil. Technically the schema does this for us
@@ -469,7 +505,7 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 	}
 
 	sensorId, err := strconv.ParseInt(string(input.SensorId), 10, 32)
-	sensorPtr, err := worrywort.FindSensor(map[string]interface{}{"id": sensorId, "user_id": u.Id}, r.db)
+	sensorPtr, err := worrywort.FindSensor(map[string]interface{}{"id": sensorId, "user_id": u.Id}, db)
 	if err != nil {
 		// TODO: Probably need a friendlier error here or for our payload to have a shopify style userErrors
 		// and then not ever return nil from this either way...maybe
@@ -490,8 +526,8 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 	}
 
 	t := worrywort.TemperatureMeasurement{Sensor: sensorPtr, SensorId: sensorPtr.Id,
-		Temperature: input.Temperature, Units: unitType, RecordedAt: recordedAt, CreatedBy: &u, UserId: u.Id}
-	if err := t.Save(r.db); err != nil {
+		Temperature: input.Temperature, Units: unitType, RecordedAt: recordedAt, CreatedBy: u, UserId: u.Id}
+	if err := t.Save(db); err != nil {
 		log.Printf("Failed to save TemperatureMeasurement: %v\n", err)
 		return nil, err
 	}

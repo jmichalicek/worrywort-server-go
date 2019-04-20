@@ -2,18 +2,20 @@ package worrywort
 
 import (
 	"crypto/sha512"
+	"database/sql"
 	"encoding/base64"
 	"errors"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"strings"
 	"time"
 	// "log"
 )
 
-var InvalidTokenError error = errors.New("Invalid token. Not found.")
+var ErrInvalidToken error = errors.New("Invalid token. Not found.")
 
-var TokenFormatError = errors.New("Token should be formatted as `tokenId:secret` but was not")
+var ErrBadTokenFormat = errors.New("Token should be formatted as `tokenId:secret` but was not")
 
 // TODO: Possibly move authToken stuff to its own package so that scope stuff will be
 // authToken.READ_ALL, etc.
@@ -100,4 +102,37 @@ func GenerateTokenForUser(user User, scope AuthTokenScopeType) (AuthToken, error
 	// not sure there's much point to this, but it makes it nicer looking
 	tokenb64 := base64.URLEncoding.EncodeToString([]byte(token.String()))
 	return NewToken(tokenb64, user, scope), nil
+}
+
+func AuthenticateUserByToken(tokenStr string, db *sqlx.DB) (AuthToken, error) {
+	// TODO: Is there a good way to abstract this so that token data could optionally
+	// be stored in redis while other data is in postgres?  If two separate lookups
+	// are done even for db then it is easy.
+
+	// TODO: Considering making this take token id and actual token as separate params
+	// for explicitness that token is passed in has 2 parts
+	token := AuthToken{}
+	tokenParts := strings.SplitN(tokenStr, ":", 2)
+	if len(tokenParts) != 2 {
+		return token, ErrBadTokenFormat
+	}
+
+	tokenId := tokenParts[0]
+	tokenSecret := tokenParts[1]
+	// TODO: sqrl
+	query := db.Rebind(
+		`SELECT t.id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, u.id "user.id", u.uuid "user.uuid",
+			u.first_name "user.first_name", u.last_name "user.last_name", u.email "user.email", u.created_at "user.created_at",
+			u.updated_at "user.updated_at", u.password "user.password" FROM user_authtokens t
+			JOIN users u ON t.user_id = u.id
+			WHERE t.id = ? AND (t.expires_at IS NULL OR t.expires_at > ?)`)
+	err := db.Get(&token, query, tokenId, time.Now())
+	if err == sql.ErrNoRows {
+		err = ErrInvalidToken
+	}
+	if !token.Compare(tokenSecret) {
+		err = ErrInvalidToken
+	}
+
+	return token, err
 }

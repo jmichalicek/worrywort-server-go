@@ -9,8 +9,10 @@ import (
 	txdb "github.com/DATA-DOG/go-txdb"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/uuid"
 	"github.com/graph-gophers/graphql-go"
+	graphqlErrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/graphqlApi"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
@@ -22,6 +24,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	// "log"
 )
 
 const DefaultUserKey string = "user"
@@ -197,8 +200,6 @@ func TestCurrentUserQuery(t *testing.T) {
 
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, "db", db)
-	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
-
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
 	query := `
 		query currentUser {
@@ -209,24 +210,45 @@ func TestCurrentUserQuery(t *testing.T) {
 		}
 	`
 	operationName := ""
-	result := worrywortSchema.Exec(ctx, query, operationName, nil)
 
-	var expected interface{}
-	err = json.Unmarshal([]byte(fmt.Sprintf(`{"currentUser": {"__typename": "User", "id": "%s"}}`, u.Uuid)), &expected)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
+	t.Run("Authenticated", func(t *testing.T) {
+		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
+		result := worrywortSchema.Exec(ctx, query, operationName, nil)
+		var expected interface{}
+		err = json.Unmarshal([]byte(fmt.Sprintf(`{"currentUser": {"__typename": "User", "id": "%s"}}`, u.Uuid)), &expected)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
 
-	var actual interface{}
-	err = json.Unmarshal(result.Data, &actual)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
+		var actual interface{}
+		err = json.Unmarshal(result.Data, &actual)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
 
-	if !cmp.Equal(expected, actual) {
-		t.Errorf("Expected: - | Got +\n%s", cmp.Diff(expected, actual))
-	}
+		if !cmp.Equal(expected, actual) {
+			t.Errorf("Expected: - | Got +\n%s", cmp.Diff(expected, actual))
+		}
+	})
 
+	t.Run("Unauthenticated", func(t *testing.T) {
+		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
+		result := worrywortSchema.Exec(ctx, query, operationName, nil)
+		var expected interface{}
+		err = json.Unmarshal([]byte(`{"currentUser": null}`), &expected)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+
+		var actual interface{}
+		err = json.Unmarshal(result.Data, &actual)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		if !cmp.Equal(expected, actual) {
+			t.Errorf("Expected: - | Got +\n%s", cmp.Diff(expected, actual))
+		}
+	})
 }
 
 func TestBatchQuery(t *testing.T) {
@@ -250,7 +272,8 @@ func TestBatchQuery(t *testing.T) {
 
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, "db", db)
-	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+	// TODO: use my middleware here to add the user to the context?
+	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
 
 	// TODO: Can this become global to these tests?
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
@@ -327,6 +350,27 @@ func TestBatchQuery(t *testing.T) {
 		}
 	})
 
+	t.Run("Unauthenticated batch() returns null", func(t *testing.T) {
+		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
+		variables := map[string]interface{}{
+			"id": b.Uuid,
+		}
+		query := `
+			query getBatch($id: ID!) {
+				batch(id: $id) {
+					id
+				}
+			}
+		`
+		operationName := ""
+		result := worrywortSchema.Exec(ctx, query, operationName, variables)
+
+		expected := `{"batch":null}`
+		if expected != string(result.Data) {
+			t.Errorf("Expected: %s\nGot: %s", expected, result.Data)
+		}
+	})
+
 	// TODO: Id's in the `expected` here will change once I start properly base64 encoding and maybe
 	// adding type info
 	// TODO: again, maybe make structs for the responses
@@ -380,7 +424,7 @@ func TestBatchQuery(t *testing.T) {
 				}`
 			operationName := ""
 			ctx := context.Background()
-			ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+			ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
 			ctx = context.WithValue(ctx, "db", db)
 			resultData := worrywortSchema.Exec(ctx, query, operationName, qt.Variables)
 			var result interface{}
@@ -395,7 +439,6 @@ func TestBatchQuery(t *testing.T) {
 	}
 
 	t.Run("Test batches() query when not authenticated", func(t *testing.T) {
-		// TODO: This WILL start returning a 403 once I correct how auth works
 		query := `
 			query getBatches {
 				batches {
@@ -419,7 +462,7 @@ func TestBatchQuery(t *testing.T) {
 		err := json.Unmarshal(
 			[]byte(
 				fmt.Sprintf(
-					`{"batches": {"__typename":"BatchConnection","edges": []}}`)), &expected)
+					`{"batches": null}`)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -461,40 +504,46 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 
 	// TODO: Can this become global to these tests?
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
-	t.Run("Test measurement is created with valid data", func(t *testing.T) {
-		variables := map[string]interface{}{
-			"input": map[string]interface{}{
-				"sensorId":    strconv.Itoa(int(*sensor.Id)),
-				"units":       "FAHRENHEIT",
-				"temperature": 70.0,
-				"recordedAt":  "2018-10-14T15:26:00+00:00",
-			},
-		}
-		query := `
-			mutation addMeasurement($input: CreateTemperatureMeasurementInput!) {
-				createTemperatureMeasurement(input: $input) {
+	variables := map[string]interface{}{
+		"input": map[string]interface{}{
+			"sensorId":    strconv.Itoa(int(*sensor.Id)),
+			"units":       "FAHRENHEIT",
+			"temperature": 70.0,
+			"recordedAt":  "2018-10-14T15:26:00+00:00",
+		},
+	}
+	query := `
+		mutation addMeasurement($input: CreateTemperatureMeasurementInput!) {
+			createTemperatureMeasurement(input: $input) {
+				__typename
+				temperatureMeasurement {
 					__typename
-					temperatureMeasurement {
-						__typename
-						id
-					}
+					id
 				}
-			}`
+			}
+		}`
+	operationName := ""
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "db", db)
 
-		operationName := ""
-		ctx := context.Background()
-		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
-		ctx = context.WithValue(ctx, "db", db)
+	cleanMeasurements := func() {
+		q := `DELETE FROM temperature_measurements;`
+		q = db.Rebind(q)
+		_, err := db.Exec(q)
+		if err != nil {
+			panic(err)
+		}
+	}
+	defer cleanMeasurements()
+	t.Run("Test measurement is created with valid data", func(t *testing.T) {
+		defer cleanMeasurements()
+		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
 		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
 
 		// Some structs so that the json can be unmarshalled
-		type tm struct {
-			Typename string `json:"__typename"`
-			Id       string `json:"id"`
-		}
 		type createTemperatureMeasurementPayload struct {
 			Typename               string `json:"__typename"`
-			TemperatureMeasurement tm     `json:"temperatureMeasurement"`
+			TemperatureMeasurement node   `json:"temperatureMeasurement"`
 		}
 
 		type createTemperatureMeasurement struct {
@@ -517,20 +566,45 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 
 		// Look up the object in the db to be sure it was created
 		var measurementId string = result.CreateTemperatureMeasurement.TemperatureMeasurement.Id
-		// TODO: implement FindTemperatureMeasurement
-		// measurement, err := worrywort.FindTemperatureMeasurement(db,
-		// 	map[string]interface{}{"user_id": u.Id, "id": measurementId})
-		measurement := &worrywort.TemperatureMeasurement{}
-
-		selectCols := fmt.Sprintf("tm.user_id, tm.sensor_id")
-		q := `SELECT tm.temperature, tm.units,  ` + strings.Trim(selectCols, ", ") + ` from temperature_measurements tm WHERE tm.id = ? AND tm.user_id = ? AND tm.sensor_id = ?`
-		query = db.Rebind(q)
-		err = db.Get(measurement, query, measurementId, u.Id, sensor.Id)
-
+		measurement, err := worrywort.FindTemperatureMeasurement(
+			map[string]interface{}{"user_id": *u.Id, "id": measurementId}, db)
 		if err == sql.ErrNoRows {
 			t.Error("Measurement was not saved to the database. Query returned no results.")
 		} else if err != nil {
 			t.Errorf("%v", err)
+		}
+		if measurement == nil {
+			t.Errorf("Measurement lookup returned nil")
+		}
+	})
+
+	t.Run("Unauthenticated", func(t *testing.T) {
+		defer cleanMeasurements()
+		// cleanMeasurements()
+		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
+		result := worrywortSchema.Exec(ctx, query, operationName, variables)
+		var expected interface{}
+		err = json.Unmarshal([]byte(`{"createTemperatureMeasurement": null}`), &expected)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+
+		var actual interface{}
+		err = json.Unmarshal(result.Data, &actual)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		if !cmp.Equal(expected, actual) {
+			t.Errorf("Expected: - | Got +\n%s", cmp.Diff(expected, actual))
+		}
+
+		// Make sure that it really was not created
+		tm, err := worrywort.FindTemperatureMeasurements(map[string]interface{}{"user_id": u.Id}, db)
+		if err != nil {
+			t.Errorf("Unexpected error: %s", err)
+		}
+		if len(tm) != 0 {
+			t.Errorf("Expected no results but got: %s", spew.Sdump(tm))
 		}
 
 	})
@@ -552,7 +626,7 @@ func TestSensorQuery(t *testing.T) {
 
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, "db", db)
-	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
 
 	u2 := worrywort.User{Email: "user2@example.com", FirstName: "Justin", LastName: "M"}
 	err = u2.Save(db)
@@ -704,7 +778,7 @@ func TestSensorQuery(t *testing.T) {
 					}`
 				operationName := ""
 				ctx := context.Background()
-				ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+				ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
 				ctx = context.WithValue(ctx, "db", db)
 				resultData := worrywortSchema.Exec(ctx, query, operationName, tm.variables)
 
@@ -722,47 +796,55 @@ func TestSensorQuery(t *testing.T) {
 			})
 		}
 
-	})
+		t.Run("Unauthenticated", func(t *testing.T) {
+			query := `
+				query getSensors($first: Int $after: String) {
+					sensors(first: $first after: $after) {
+						__typename
+						pageInfo {hasNextPage hasPreviousPage}
+						edges {
+							cursor
+							__typename
+							node {
+								__typename
+								id
+							}
+						}
+					}
+				}`
+			operationName := ""
+			ctx := context.Background()
+			ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
+			ctx = context.WithValue(ctx, "db", db)
+			result := worrywortSchema.Exec(ctx, query, operationName, nil)
 
-	// TODO: remove this
-	// t.Run("Test sensors() query returns the users sensors", func(t *testing.T) {
-	// 	query := `
-	// 		query getSensors {
-	// 			sensors {
-	// 				__typename
-	// 				edges {
-	// 					__typename
-	// 					node {
-	// 						__typename
-	// 						id
-	// 					}
-	// 				}
-	// 			}
-	// 		}
-	// 	`
-	// 	operationName := ""
-	// 	result := worrywortSchema.Exec(ctx, query, operationName, nil)
-	// 	var expected interface{}
-	// 	err := json.Unmarshal(
-	// 		[]byte(
-	// 			fmt.Sprintf(
-	// 				`{"sensors": {"__typename":"SensorConnection","edges": [{"__typename": "SensorEdge","node": {"__typename":"Sensor","id":"%s"}},{"__typename": "SensorEdge","node": {"__typename":"Sensor","id":"%s"}}]}}`,
-	// 				sensor1.Uuid, sensor2.Uuid)), &expected)
-	// 	if err != nil {
-	// 		t.Fatalf("%v", err)
-	// 	}
-	//
-	// 	var actual interface{}
-	// 	err = json.Unmarshal(result.Data, &actual)
-	// 	if err != nil {
-	// 		t.Fatalf("%v", err)
-	// 	}
-	//
-	// 	if !cmp.Equal(expected, actual) {
-	// 		t.Errorf("Expected: - | Got +\n%s", cmp.Diff(expected, actual))
-	// 		// t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
-	// 	}
-	// })
+			// TODO: Make this error checking reusable
+			e := graphqlErrors.QueryError{Message: "User must be authenticated"}
+			expectedErrors := []*graphqlErrors.QueryError{&e}
+			cmpOpts := []cmp.Option{
+				cmpopts.IgnoreFields(e, "ResolverError", "Path", "Extensions", "Rule", "Locations"),
+			}
+			if !cmp.Equal(expectedErrors, result.Errors, cmpOpts...) {
+				t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(expectedErrors, result.Errors, cmpOpts...))
+			}
+			// End error checking
+			var expected interface{}
+			err = json.Unmarshal([]byte(`{"sensors": null}`), &expected)
+			if err != nil {
+				t.Fatalf("%v", err)
+			}
+
+			var actual interface{}
+			err = json.Unmarshal(result.Data, &actual)
+			if err != nil {
+				t.Fatalf("%v", err)
+			}
+			if !cmp.Equal(expected, actual) {
+				t.Errorf("Expected: - | Got +\n%s", cmp.Diff(expected, actual))
+			}
+
+		})
+	})
 }
 
 func TestCreateBatchMutation(t *testing.T) {
@@ -799,7 +881,7 @@ func TestCreateBatchMutation(t *testing.T) {
 
 		operationName := ""
 		ctx := context.Background()
-		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
 		ctx = context.WithValue(ctx, "db", db)
 		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
 
@@ -845,6 +927,56 @@ func TestCreateBatchMutation(t *testing.T) {
 		}
 		// TODO: Really should maybe make sure all properties were inserted
 	})
+
+	t.Run("Unauthenticated", func(t *testing.T) {
+		variables := map[string]interface{}{
+			"input": map[string]interface{}{
+				"name":     "Test Batch",
+				"brewedAt": "2018-10-14T15:26:00+00:00",
+			},
+		}
+		query := `
+			mutation addBatch($input: CreateBatchInput!) {
+				createBatch(input: $input) {
+					__typename
+					batch {
+						__typename
+						id
+					}
+				}
+			}`
+		operationName := ""
+		ctx := context.Background()
+		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
+		ctx = context.WithValue(ctx, "db", db)
+		result := worrywortSchema.Exec(ctx, query, operationName, variables)
+
+		// TODO: Make this error checking reusable
+		e := graphqlErrors.QueryError{Message: "User must be authenticated"}
+		expectedErrors := []*graphqlErrors.QueryError{&e}
+		cmpOpts := []cmp.Option{
+			cmpopts.IgnoreFields(e, "ResolverError", "Path", "Extensions", "Rule", "Locations"),
+		}
+		if !cmp.Equal(expectedErrors, result.Errors, cmpOpts...) {
+			t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(expectedErrors, result.Errors, cmpOpts...))
+		}
+		// End error checking
+		var expected interface{}
+		err = json.Unmarshal([]byte(`{"createBatch": null}`), &expected)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+
+		var actual interface{}
+		err = json.Unmarshal(result.Data, &actual)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		if !cmp.Equal(expected, actual) {
+			t.Errorf("Expected: - | Got +\n%s", cmp.Diff(expected, actual))
+		}
+
+	})
 }
 
 func TestAssociateSensorToBatchMutation(t *testing.T) {
@@ -860,15 +992,9 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 			}
 		}`
 
-	// Structs for marshalling json to so that actual values can easily be checked and used
-	type payloadAssoc struct {
-		Typename string `json:"__typename"`
-		Id       string `json:"id"`
-	}
-
 	type payload struct {
-		Typename string        `json:"__typename"`
-		Assoc    *payloadAssoc `json:"BatchSensorAssociation"`
+		Typename string `json:"__typename"`
+		Assoc    *node  `json:"BatchSensorAssociation"`
 	}
 
 	type createAssoc struct {
@@ -915,7 +1041,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
 	operationName := ""
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
 	ctx = context.WithValue(ctx, "db", db)
 
 	cleanAssociations := func() {
@@ -1085,6 +1211,32 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 			t.Errorf("Expected query error `Specified Batch does not exist.`, Got: %v", resultData.Errors)
 		}
 	})
+
+	t.Run("Unauthenticated", func(t *testing.T) {
+		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
+		defer cleanAssociations()
+		variables := map[string]interface{}{
+			"input": map[string]interface{}{
+				"batchId":     batch.Uuid,
+				"sensorId":    strconv.Itoa(int(*sensor2.Id)),
+				"description": "It is associated",
+			},
+		}
+
+		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
+		var result createAssoc
+		err = json.Unmarshal(resultData.Data, &result)
+		if err != nil {
+			t.Fatalf("%v: %v", result, resultData)
+		}
+		if result.Pl.Assoc != nil {
+			t.Errorf("Expected null payload in response, got: %v", resultData.Data)
+		}
+
+		if resultData.Errors[0].Message != "User must be authenticated" {
+			t.Errorf("Expected query error `User must be authenticated`, Got: %v", resultData.Errors)
+		}
+	})
 }
 
 func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
@@ -1163,7 +1315,6 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 
 	operationName := ""
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
 	ctx = context.WithValue(ctx, "db", db)
 
 	// TODO: may want to reset after each test
@@ -1176,7 +1327,9 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	// 	}
 	// }
 
+	// TODOL make a test table
 	t.Run("Update with description and disassociatedAt", func(t *testing.T) {
+		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
 				"id":              assoc1.Id,
@@ -1223,6 +1376,7 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	})
 
 	t.Run("Update with blank description and null disassociatedAt", func(t *testing.T) {
+		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
 				"id":              assoc1.Id,
@@ -1269,6 +1423,7 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	})
 
 	t.Run("Batch not owned by user", func(t *testing.T) {
+		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
 				"id":              assoc2.Id,
@@ -1294,6 +1449,7 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	})
 
 	t.Run("Sensor not owned by user", func(t *testing.T) {
+		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
 				"id":              assoc3.Id,
@@ -1315,6 +1471,32 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 
 		if resultData.Errors[0].Message != "BatchSensorAssociation does not exist." {
 			t.Errorf("Expected query error `BatchSensorAssociation does not exist.`, Got: %v", resultData.Errors)
+		}
+	})
+
+	t.Run("Unauthenticated", func(t *testing.T) {
+		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
+		variables := map[string]interface{}{
+			"input": map[string]interface{}{
+				"id":              assoc3.Id,
+				"description":     "It is associated",
+				"associatedAt":    "2019-01-01T12:01:01Z",
+				"disassociatedAt": "2019-01-01T12:02:01Z",
+			},
+		}
+
+		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
+		var result createAssoc
+		err = json.Unmarshal(resultData.Data, &result)
+		if err != nil {
+			t.Fatalf("%v: %v", result, resultData)
+		}
+		if result.Pl.Assoc != nil {
+			t.Errorf("Expected null payload in response, got: %v", resultData.Data)
+		}
+
+		if resultData.Errors[0].Message != "User must be authenticated" {
+			t.Errorf("Expected query error `User must be authenticated`, Got: %v", resultData.Errors)
 		}
 	})
 }
@@ -1421,6 +1603,18 @@ func TestBatchSensorAssociationsQuery(t *testing.T) {
 	}
 
 	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	query := strings.Trim(`
+			query getBatchSensorAssociations($first: Int $after: String $batchId: ID $sensorId: ID) {
+				batchSensorAssociations(first: $first after: $after batchId: $batchId sensorId: $sensorId) {
+					__typename pageInfo {hasPreviousPage hasNextPage}
+					edges {
+						__typename cursor node { __typename id }
+					}
+				}
+			}`, " ")
+	operationName := ""
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "db", db)
 	for _, qt := range testargs {
 		t.Run(qt.Name, func(t *testing.T) {
 			var expected interface{}
@@ -1428,20 +1622,7 @@ func TestBatchSensorAssociationsQuery(t *testing.T) {
 			if err != nil {
 				t.Errorf("%s", err)
 			}
-
-			query := strings.Trim(`
-					query getBatchSensorAssociations($first: Int $after: String $batchId: ID $sensorId: ID) {
-						batchSensorAssociations(first: $first after: $after batchId: $batchId sensorId: $sensorId) {
-							__typename pageInfo {hasPreviousPage hasNextPage}
-							edges {
-								__typename cursor node { __typename id }
-							}
-						}
-					}`, " ")
-			operationName := ""
-			ctx := context.Background()
-			ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
-			ctx = context.WithValue(ctx, "db", db)
+			ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
 			resultData := worrywortSchema.Exec(ctx, query, operationName, qt.Variables)
 			var result interface{}
 			err = json.Unmarshal(resultData.Data, &result)
@@ -1453,6 +1634,25 @@ func TestBatchSensorAssociationsQuery(t *testing.T) {
 			}
 		})
 	}
+	t.Run("Unauthenticated", func(t *testing.T) {
+		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
+		resultData := worrywortSchema.Exec(ctx, query, operationName, nil)
+		var result interface{}
+		err = json.Unmarshal(resultData.Data, &result)
+		if err != nil {
+			t.Fatalf("%v: %v", result, resultData)
+		}
+
+		var expected interface{}
+		err = json.Unmarshal([]byte(`{"batchSensorAssociations": null}`), &expected)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		if !cmp.Equal(expected, result) {
+			t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(expected, result))
+		}
+
+	})
 }
 
 func TestTemperatureMeasurementsQuery(t *testing.T) {
@@ -1632,7 +1832,7 @@ func TestTemperatureMeasurementsQuery(t *testing.T) {
 					}`, " ")
 			operationName := ""
 			ctx := context.Background()
-			ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+			ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
 			ctx = context.WithValue(ctx, "db", db)
 			resultData := worrywortSchema.Exec(ctx, query, operationName, tm.variables)
 

@@ -15,3 +15,5 @@ INSERT INTO fermentors (id, user_id, name, description, volume, volume_units, fe
 
 INSERT INTO sensors (id, user_id, name, description, updated_at)
   VALUES (1, 1, 'Seed Sensor 1', 'Initial sensor from dev seed', now()) ON CONFLICT DO NOTHING;
+
+-- add some measurements and associations
