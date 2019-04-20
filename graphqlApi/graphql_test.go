@@ -26,6 +26,32 @@ import (
 
 const DefaultUserKey string = "user"
 
+// Helper structs for deserializing responses, etc.
+type node struct {
+	Typename string `json:"__typename"`
+	Id       string `json:"id"`
+}
+
+type edge struct {
+	Typename string `json:"__typename"`
+	Cursor   string `json:"cursor"`
+	Node     node   `json:"Node"`
+}
+
+type pageInfo struct {
+	HasNextPage     bool `json:"hasNextPage"`
+	HasPreviousPage bool `json:"hasPreviousPage"`
+}
+
+type connection struct {
+	Typename string   `json:"__typename"`
+	PageInfo pageInfo `json:"pageInfo"`
+	Edges    []edge   `json:"Edges"`
+}
+
+var encodedOffset1 string = base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursorP(1)))
+var encodedOffset2 string = base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursorP(2)))
+
 func TestMain(m *testing.M) {
 	dbUser, _ := os.LookupEnv("DATABASE_USER")
 	dbPassword, _ := os.LookupEnv("DATABASE_PASSWORD")
@@ -604,44 +630,139 @@ func TestSensorQuery(t *testing.T) {
 		}
 	})
 
-	t.Run("Test sensors() query returns the users sensors", func(t *testing.T) {
-		query := `
-			query getSensors {
-				sensors {
-					__typename
-					edges {
-						__typename
-						node {
+	t.Run("Sensors()", func(t *testing.T) {
+		type sensorsResponse struct {
+			SensorConnection connection `json:"sensors"`
+		}
+
+		var testmatrix = []struct {
+			name      string
+			variables map[string]interface{}
+			expected  sensorsResponse
+		}{
+			// basic filters
+			// This is ok for now, but really don't want to write one test per potential filter as those grow
+			// will at least add user uuid probably.
+			{"Unfiltered", map[string]interface{}{},
+				sensorsResponse{
+					connection{
+						Typename: "SensorConnection",
+						PageInfo: pageInfo{false, false},
+						Edges: []edge{
+							edge{Typename: "SensorEdge", Cursor: encodedOffset1,
+								Node: node{Typename: "Sensor", Id: sensor1.Uuid}},
+							edge{Typename: "SensorEdge", Cursor: encodedOffset2,
+								Node: node{Typename: "Sensor", Id: sensor2.Uuid},
+							},
+						},
+					},
+				},
+			},
+			// Pagination tests
+			{"sensors(first: 1)", map[string]interface{}{"first": 1},
+				sensorsResponse{
+					connection{
+						Typename: "SensorConnection",
+						PageInfo: pageInfo{HasNextPage: true, HasPreviousPage: false},
+						Edges: []edge{
+							edge{Typename: "SensorEdge", Cursor: encodedOffset1,
+								Node: node{Typename: "Sensor", Id: sensor1.Uuid}},
+						},
+					},
+				},
+			},
+			{"sensors(after: <encodedOffset1>)", map[string]interface{}{"after": encodedOffset1},
+				sensorsResponse{
+					connection{
+						Typename: "SensorConnection",
+						PageInfo: pageInfo{false, false},
+						Edges: []edge{
+							edge{Typename: "SensorEdge", Cursor: encodedOffset2,
+								Node: node{Typename: "Sensor", Id: sensor2.Uuid}},
+						},
+					},
+				},
+			},
+		}
+
+		for _, tm := range testmatrix {
+			t.Run(tm.name, func(t *testing.T) {
+				query := `
+					query getSensors($first: Int $after: String) {
+						sensors(first: $first after: $after) {
 							__typename
-							id
+							pageInfo {hasNextPage hasPreviousPage}
+							edges {
+								cursor
+								__typename
+								node {
+									__typename
+									id
+								}
+							}
 						}
-					}
+					}`
+				operationName := ""
+				ctx := context.Background()
+				ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, u)
+				ctx = context.WithValue(ctx, "db", db)
+				resultData := worrywortSchema.Exec(ctx, query, operationName, tm.variables)
+
+				var result sensorsResponse
+				if err = json.Unmarshal(resultData.Data, &result); err != nil {
+					t.Fatalf("Error: %s for result %v", err, result)
 				}
-			}
-		`
-		operationName := ""
-		result := worrywortSchema.Exec(ctx, query, operationName, nil)
-		var expected interface{}
-		err := json.Unmarshal(
-			[]byte(
-				fmt.Sprintf(
-					`{"sensors": {"__typename":"SensorConnection","edges": [{"__typename": "SensorEdge","node": {"__typename":"Sensor","id":"%s"}},{"__typename": "SensorEdge","node": {"__typename":"Sensor","id":"%s"}}]}}`,
-					sensor1.Uuid, sensor2.Uuid)), &expected)
-		if err != nil {
-			t.Fatalf("%v", err)
+
+				if err != nil {
+					t.Fatalf("%v: %v", result, resultData)
+				}
+				if !cmp.Equal(tm.expected, result) {
+					t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(tm.expected, result))
+				}
+			})
 		}
 
-		var actual interface{}
-		err = json.Unmarshal(result.Data, &actual)
-		if err != nil {
-			t.Fatalf("%v", err)
-		}
-
-		if !cmp.Equal(expected, actual) {
-			t.Errorf("Expected: - | Got +\n%s", cmp.Diff(expected, actual))
-			// t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
-		}
 	})
+
+	// TODO: remove this
+	// t.Run("Test sensors() query returns the users sensors", func(t *testing.T) {
+	// 	query := `
+	// 		query getSensors {
+	// 			sensors {
+	// 				__typename
+	// 				edges {
+	// 					__typename
+	// 					node {
+	// 						__typename
+	// 						id
+	// 					}
+	// 				}
+	// 			}
+	// 		}
+	// 	`
+	// 	operationName := ""
+	// 	result := worrywortSchema.Exec(ctx, query, operationName, nil)
+	// 	var expected interface{}
+	// 	err := json.Unmarshal(
+	// 		[]byte(
+	// 			fmt.Sprintf(
+	// 				`{"sensors": {"__typename":"SensorConnection","edges": [{"__typename": "SensorEdge","node": {"__typename":"Sensor","id":"%s"}},{"__typename": "SensorEdge","node": {"__typename":"Sensor","id":"%s"}}]}}`,
+	// 				sensor1.Uuid, sensor2.Uuid)), &expected)
+	// 	if err != nil {
+	// 		t.Fatalf("%v", err)
+	// 	}
+	//
+	// 	var actual interface{}
+	// 	err = json.Unmarshal(result.Data, &actual)
+	// 	if err != nil {
+	// 		t.Fatalf("%v", err)
+	// 	}
+	//
+	// 	if !cmp.Equal(expected, actual) {
+	// 		t.Errorf("Expected: - | Got +\n%s", cmp.Diff(expected, actual))
+	// 		// t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
+	// 	}
+	// })
 }
 
 func TestCreateBatchMutation(t *testing.T) {
@@ -1419,8 +1540,6 @@ func TestTemperatureMeasurementsQuery(t *testing.T) {
 		TemperatureMeasurements temperatureMeasurementsConnection `json:"temperatureMeasurements"`
 	}
 
-	encodedOffset1 := base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursorP(1)))
-	encodedOffset2 := base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursorP(2)))
 	var testmatrix = []struct {
 		name      string
 		variables map[string]interface{}
