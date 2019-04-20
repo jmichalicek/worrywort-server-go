@@ -20,7 +20,7 @@ type batchResolver struct {
 
 func (r *batchResolver) ID() graphql.ID {
 	if r.b != nil {
-		return graphql.ID(r.b.Uuid)
+		return graphql.ID(r.b.UUID)
 	} else {
 		log.Printf("Resolved batch with no id: %v", spew.Sdump(r))
 		return graphql.ID("")

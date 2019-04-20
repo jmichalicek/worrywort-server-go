@@ -266,8 +266,8 @@ func (r *Resolver) Sensor(ctx context.Context, args struct{ ID graphql.ID }) (*s
 			log.Printf("%v", err)
 		}
 		return nil, nil // maybe error should be returned
-	} else if sensor != nil && sensor.Uuid != "" {
-		// TODO: check for Uuid is a hack because I need to rework FindSensor to return nil
+	} else if sensor != nil && sensor.UUID != "" {
+		// TODO: check for UUID is a hack because I need to rework FindSensor to return nil
 		// if it did not find a sensor
 		resolved = &sensorResolver{s: sensor}
 	} else {

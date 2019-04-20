@@ -215,7 +215,7 @@ func TestCurrentUserQuery(t *testing.T) {
 		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
 		result := worrywortSchema.Exec(ctx, query, operationName, nil)
 		var expected interface{}
-		err = json.Unmarshal([]byte(fmt.Sprintf(`{"currentUser": {"__typename": "User", "id": "%s"}}`, u.Uuid)), &expected)
+		err = json.Unmarshal([]byte(fmt.Sprintf(`{"currentUser": {"__typename": "User", "id": "%s"}}`, u.UUID)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -298,7 +298,7 @@ func TestBatchQuery(t *testing.T) {
 
 	t.Run("Test query for batch(id: ID!) which exists returns the batch", func(t *testing.T) {
 		variables := map[string]interface{}{
-			"id": b.Uuid,
+			"id": b.UUID,
 		}
 		query := `
 			query getBatch($id: ID!) {
@@ -312,7 +312,7 @@ func TestBatchQuery(t *testing.T) {
 		result := worrywortSchema.Exec(ctx, query, operationName, variables)
 
 		var expected interface{}
-		err := json.Unmarshal([]byte(fmt.Sprintf(`{"batch": {"__typename": "Batch", "id": "%s"}}`, b.Uuid)), &expected)
+		err := json.Unmarshal([]byte(fmt.Sprintf(`{"batch": {"__typename": "Batch", "id": "%s"}}`, b.UUID)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -330,9 +330,9 @@ func TestBatchQuery(t *testing.T) {
 	})
 
 	t.Run("Test query for batch(id: ID!) which does not exist returns null", func(t *testing.T) {
-		badUuid := uuid.New().String()
+		badUUID := uuid.New().String()
 		variables := map[string]interface{}{
-			"id": badUuid,
+			"id": badUUID,
 		}
 		query := `
 			query getBatch($id: ID!) {
@@ -353,7 +353,7 @@ func TestBatchQuery(t *testing.T) {
 	t.Run("Unauthenticated batch() returns null", func(t *testing.T) {
 		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
 		variables := map[string]interface{}{
-			"id": b.Uuid,
+			"id": b.UUID,
 		}
 		query := `
 			query getBatch($id: ID!) {
@@ -393,15 +393,15 @@ func TestBatchQuery(t *testing.T) {
 		{
 			Name:      "Batches()",
 			Variables: map[string]interface{}{},
-			Expected:  []byte(fmt.Sprintf(response_2, after0cursor, b.Uuid, after1cursor, b2.Uuid))},
+			Expected:  []byte(fmt.Sprintf(response_2, after0cursor, b.UUID, after1cursor, b2.UUID))},
 		{
 			Name:      "Batches(first: 1)",
 			Variables: map[string]interface{}{"first": 1},
-			Expected:  []byte(fmt.Sprintf(response_1, "true", "false", after0cursor, b.Uuid))},
+			Expected:  []byte(fmt.Sprintf(response_1, "true", "false", after0cursor, b.UUID))},
 		{
 			Name:      "Batches(after: FIRST_CURSOR)",
 			Variables: map[string]interface{}{"after": after0cursor},
-			Expected:  []byte(fmt.Sprintf(response_1, "false", "false", after1cursor, b2.Uuid))},
+			Expected:  []byte(fmt.Sprintf(response_1, "false", "false", after1cursor, b2.UUID))},
 	}
 
 	for _, qt := range testargs {
@@ -652,7 +652,7 @@ func TestSensorQuery(t *testing.T) {
 
 	t.Run("Test query for sensor(id: ID!) which exists returns the sensor", func(t *testing.T) {
 		variables := map[string]interface{}{
-			"id": sensor1.Uuid,
+			"id": sensor1.UUID,
 		}
 		query := `
 			query getSensor($id: ID!) {
@@ -666,7 +666,7 @@ func TestSensorQuery(t *testing.T) {
 		result := worrywortSchema.Exec(ctx, query, operationName, variables)
 
 		var expected interface{}
-		err := json.Unmarshal([]byte(fmt.Sprintf(`{"sensor": {"__typename": "Sensor", "id": "%s"}}`, sensor1.Uuid)), &expected)
+		err := json.Unmarshal([]byte(fmt.Sprintf(`{"sensor": {"__typename": "Sensor", "id": "%s"}}`, sensor1.UUID)), &expected)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
@@ -724,9 +724,9 @@ func TestSensorQuery(t *testing.T) {
 						PageInfo: pageInfo{false, false},
 						Edges: []edge{
 							edge{Typename: "SensorEdge", Cursor: encodedOffset1,
-								Node: node{Typename: "Sensor", Id: sensor1.Uuid}},
+								Node: node{Typename: "Sensor", Id: sensor1.UUID}},
 							edge{Typename: "SensorEdge", Cursor: encodedOffset2,
-								Node: node{Typename: "Sensor", Id: sensor2.Uuid},
+								Node: node{Typename: "Sensor", Id: sensor2.UUID},
 							},
 						},
 					},
@@ -740,7 +740,7 @@ func TestSensorQuery(t *testing.T) {
 						PageInfo: pageInfo{HasNextPage: true, HasPreviousPage: false},
 						Edges: []edge{
 							edge{Typename: "SensorEdge", Cursor: encodedOffset1,
-								Node: node{Typename: "Sensor", Id: sensor1.Uuid}},
+								Node: node{Typename: "Sensor", Id: sensor1.UUID}},
 						},
 					},
 				},
@@ -752,7 +752,7 @@ func TestSensorQuery(t *testing.T) {
 						PageInfo: pageInfo{false, false},
 						Edges: []edge{
 							edge{Typename: "SensorEdge", Cursor: encodedOffset2,
-								Node: node{Typename: "Sensor", Id: sensor2.Uuid}},
+								Node: node{Typename: "Sensor", Id: sensor2.UUID}},
 						},
 					},
 				},
@@ -1057,7 +1057,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":     batch.Uuid,
+				"batchId":     batch.UUID,
 				"sensorId":    strconv.Itoa(int(*sensor.Id)),
 				"description": "It is associated",
 			},
@@ -1105,7 +1105,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		}
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":     batch.Uuid,
+				"batchId":     batch.UUID,
 				"sensorId":    strconv.Itoa(int(*sensor.Id)),
 				"description": "It is associated",
 			},
@@ -1141,7 +1141,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":     batch.Uuid,
+				"batchId":     batch.UUID,
 				"sensorId":    strconv.Itoa(int(*sensor.Id)),
 				"description": "It is associated",
 			},
@@ -1166,7 +1166,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":     batch2.Uuid,
+				"batchId":     batch2.UUID,
 				"sensorId":    strconv.Itoa(int(*sensor.Id)),
 				"description": "It is associated",
 			},
@@ -1191,7 +1191,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":     batch.Uuid,
+				"batchId":     batch.UUID,
 				"sensorId":    strconv.Itoa(int(*sensor2.Id)),
 				"description": "It is associated",
 			},
@@ -1217,7 +1217,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
-				"batchId":     batch.Uuid,
+				"batchId":     batch.UUID,
 				"sensorId":    strconv.Itoa(int(*sensor2.Id)),
 				"description": "It is associated",
 			},
@@ -1580,7 +1580,7 @@ func TestBatchSensorAssociationsQuery(t *testing.T) {
 				assoc2cursor, assoc2.Id))},
 		{
 			Name:      "BatchSensorAssociation(batchId: BATCH_1_ID)",
-			Variables: map[string]interface{}{"batchId": batch.Uuid},
+			Variables: map[string]interface{}{"batchId": batch.UUID},
 			Expected: []byte(fmt.Sprintf(
 				`{"batchSensorAssociations": {
 				  "__typename":"BatchSensorAssociationConnection",
@@ -1591,7 +1591,7 @@ func TestBatchSensorAssociationsQuery(t *testing.T) {
 				assoc1cursor, assoc1.Id))},
 		{
 			Name:      "BatchSensorAssociation(sensorId: SENSOR2_ID)",
-			Variables: map[string]interface{}{"sensorId": sensor2.Uuid},
+			Variables: map[string]interface{}{"sensorId": sensor2.UUID},
 			Expected: []byte(fmt.Sprintf(
 				`{"batchSensorAssociations": {
 				  "__typename":"BatchSensorAssociationConnection",
@@ -1763,7 +1763,7 @@ func TestTemperatureMeasurementsQuery(t *testing.T) {
 				},
 			},
 		},
-		{"temperatureMeasurements(batchId: <batch1>)", map[string]interface{}{"batchId": b.Uuid},
+		{"temperatureMeasurements(batchId: <batch1>)", map[string]interface{}{"batchId": b.UUID},
 			tmResponse{
 				temperatureMeasurementsConnection{
 					Typename: "TemperatureMeasurementConnection",
@@ -1775,7 +1775,7 @@ func TestTemperatureMeasurementsQuery(t *testing.T) {
 				},
 			},
 		},
-		{"temperatureMeasurements(sensorId: <s1.Uuid>)", map[string]interface{}{"sensorId": s1.Uuid},
+		{"temperatureMeasurements(sensorId: <s1.UUID>)", map[string]interface{}{"sensorId": s1.UUID},
 			tmResponse{
 				temperatureMeasurementsConnection{
 					Typename: "TemperatureMeasurementConnection",

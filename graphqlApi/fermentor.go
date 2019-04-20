@@ -16,7 +16,7 @@ type fermentorResolver struct {
 
 func (r *fermentorResolver) ID() graphql.ID {
 	if r.f != nil {
-		return graphql.ID(r.f.Uuid)
+		return graphql.ID(r.f.UUID)
 	} else {
 		log.Printf("Nil Id on fermentor: %v", spew.Sdump(r))
 		return graphql.ID("")

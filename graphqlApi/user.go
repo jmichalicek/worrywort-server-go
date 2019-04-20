@@ -16,7 +16,7 @@ func (r *userResolver) ID() graphql.ID {
 		log.Printf("user resolver with nil user: %s", spew.Sdump(r))
 		return graphql.ID("")
 	} else {
-		return graphql.ID(r.u.Uuid)
+		return graphql.ID(r.u.UUID)
 	}
 }
 func (r *userResolver) FirstName() string { return r.u.FirstName }
