@@ -24,6 +24,7 @@ type Sensor struct {
 
 func buildSensorsQuery(params map[string]interface{}, db *sqlx.DB) *sqrl.SelectBuilder {
 	query := sqrl.Select().From("sensors s")
+	fmt.Printf("\nGOT ARGS: %#v\n\n", params)
 
 	for _, k := range []string{"id", "user_id", "uuid"} {
 		// TODO: return error if not ok?

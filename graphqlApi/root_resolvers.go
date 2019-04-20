@@ -262,7 +262,7 @@ func (r *Resolver) Sensors(ctx context.Context, args struct {
 	First *int
 	After *string
 }) (*sensorConnection, error) {
-	authUser, _ := authMiddleware.UserFromContext(ctx)
+	u, _ := authMiddleware.UserFromContext(ctx)
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
 		// TODO: logging with stack info?
@@ -270,24 +270,63 @@ func (r *Resolver) Sensors(ctx context.Context, args struct {
 		return nil, ErrServerError
 	}
 
+	// TODO: Can I de-duplicate some of this and put it in a reusable function?
+	var offset int
+	queryparams := map[string]interface{}{"user_id": u.Id}
+
+	if args.After != nil && *args.After != "" {
+		if cursorData, err := DecodeCursor(*args.After); err == nil && cursorData.Offset != nil {
+			offset = *cursorData.Offset
+			queryparams["offset"] = *cursorData.Offset
+		}
+	}
+
+	if args.First != nil {
+		queryparams["limit"] = *args.First + 1 // +1 to easily see if there are more
+	}
+
 	// Now get the temperature sensors, build out the info
-	sensors, err := worrywort.FindSensors(map[string]interface{}{"user_id": authUser.Id}, db)
+	sensors, err := worrywort.FindSensors(queryparams, db)
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("%v", err)
 		return nil, err
 	}
-	edges := []*sensorEdge{}
-	for index, _ := range sensors {
-		sensorResolver := sensorResolver{s: sensors[index]}
-		// should base64 encode this cursor, but whatever for now
-		edge := &sensorEdge{Node: &sensorResolver, Cursor: string(sensorResolver.ID())}
-		edges = append(edges, edge)
-	}
+
 	hasNextPage := false
 	hasPreviousPage := false
+	edges := []*sensorEdge{}
+
+	for i, s := range sensors {
+		if args.First == nil || i < *args.First {
+			cursorval := offset + i + 1
+			c, err := MakeOffsetCursor(cursorval)
+			if err != nil {
+				log.Printf("%s", err)
+				return nil, ErrServerError
+			}
+			sensorResolver := sensorResolver{s: s}
+			edge := &sensorEdge{Node: &sensorResolver, Cursor: c}
+			edges = append(edges, edge)
+		} else {
+			// had one more than was actually requested, there is a next page
+			hasNextPage = true
+		}
+	}
 	return &sensorConnection{
 		PageInfo: &pageInfo{HasNextPage: hasNextPage, HasPreviousPage: hasPreviousPage},
 		Edges:    &edges}, nil
+
+	// for index, _ := range sensors {
+	// 	sensorResolver := sensorResolver{s: sensors[index]}
+	// 	// should base64 encode this cursor, but whatever for now
+	// 	edge := &sensorEdge{Node: &sensorResolver, Cursor: string(sensorResolver.ID())}
+	// 	edges = append(edges, edge)
+	// }
+	// hasNextPage := false
+	// hasPreviousPage := false
+	// return &sensorConnection{
+	// 	PageInfo: &pageInfo{HasNextPage: hasNextPage, HasPreviousPage: hasPreviousPage},
+	// 	Edges:    &edges}, nil
 }
 
 // Returns a single resolved TemperatureMeasurement by ID, owned by the authenticated user
