@@ -31,7 +31,7 @@ const (
 // a map[string]interface{}
 // This could be its own error type with field name, field value, and an Error() which
 // formats nicely...
-var TypeError error = errors.New("Invalid type specified")
+var ErrInvalidType error = errors.New("Invalid type specified")
 
 type Batch struct {
 	Id                *int64         `db:"id"`

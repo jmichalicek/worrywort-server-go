@@ -18,7 +18,7 @@ import (
 // Eventually this will be configurable.
 const DefaultUserKey string = "user"
 
-var UserNotInContextError = errors.New("Could not get worrywort.User from context")
+var ErrUserNotInContext = errors.New("Could not get worrywort.User from context")
 
 // Type safe function to get user from context
 func UserFromContext(ctx context.Context) (*worrywort.User, error) {
@@ -27,7 +27,7 @@ func UserFromContext(ctx context.Context) (*worrywort.User, error) {
 	// log.Printf("IN USER_FROM_CONT, U IS %S", spew.Sdump(u))
 	if !ok {
 		// can this differentiate between missing key and invalid value?
-		return nil, UserNotInContextError
+		return nil, ErrUserNotInContext
 	}
 	return u, nil
 }
