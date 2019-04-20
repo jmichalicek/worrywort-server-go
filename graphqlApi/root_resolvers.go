@@ -17,7 +17,7 @@ import (
 )
 
 // log.SetFlags(log.LstdFlags | log.Lshortfile)
-var SERVER_ERROR = errors.New("Unexpected server error.")
+var ErrServerError = errors.New("Unexpected server error.")
 
 // This also could be handled in middleware, but then I would need two separate
 // schemas and routes - one for authenticated stuff, one for
@@ -112,7 +112,7 @@ func (r *Resolver) Batches(ctx context.Context, args struct {
 	if !ok {
 		// TODO: logging with stack info?
 		log.Printf("No database in context")
-		return nil, SERVER_ERROR
+		return nil, ErrServerError
 	}
 
 	queryparams := map[string]interface{}{"user_id": u.Id}
@@ -146,7 +146,7 @@ func (r *Resolver) Batches(ctx context.Context, args struct {
 			c, err := MakeOffsetCursor(cursorval)
 			if err != nil {
 				log.Printf("%s", err)
-				return nil, SERVER_ERROR
+				return nil, ErrServerError
 			}
 			edge := &batchEdge{Node: &resolvedBatch, Cursor: c}
 			edges = append(edges, edge)
@@ -170,7 +170,7 @@ func (r *Resolver) BatchSensorAssociations(ctx context.Context, args struct {
 	if !ok {
 		// TODO: logging with stack info?
 		log.Printf("No database in context")
-		return nil, SERVER_ERROR
+		return nil, ErrServerError
 	}
 	var offset int
 	queryparams := map[string]interface{}{"user_id": u.Id}
@@ -214,7 +214,7 @@ func (r *Resolver) BatchSensorAssociations(ctx context.Context, args struct {
 			c, err := MakeOffsetCursor(cursorval)
 			if err != nil {
 				log.Printf("%s", err)
-				return nil, SERVER_ERROR
+				return nil, ErrServerError
 			}
 			edge := &batchSensorAssociationEdge{Node: &resolved, Cursor: c}
 			edges = append(edges, edge)
@@ -241,7 +241,7 @@ func (r *Resolver) Sensor(ctx context.Context, args struct{ ID graphql.ID }) (*s
 	if !ok {
 		// TODO: logging with stack info?
 		log.Printf("No database in context")
-		return nil, SERVER_ERROR
+		return nil, ErrServerError
 	}
 
 	sensor, err := worrywort.FindSensor(map[string]interface{}{"uuid": string(args.ID), "user_id": *user.Id}, db)
@@ -267,7 +267,7 @@ func (r *Resolver) Sensors(ctx context.Context, args struct {
 	if !ok {
 		// TODO: logging with stack info?
 		log.Printf("No database in context: %s", spew.Sdump(ctx))
-		return nil, SERVER_ERROR
+		return nil, ErrServerError
 	}
 
 	// Now get the temperature sensors, build out the info
@@ -297,7 +297,7 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 	if !ok {
 		// TODO: logging with stack info?
 		log.Printf("No database in context")
-		return nil, SERVER_ERROR
+		return nil, ErrServerError
 	}
 	var resolved *temperatureMeasurementResolver
 	measurementId := string(args.ID)
@@ -322,7 +322,7 @@ func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
 	if !ok {
 		// TODO: logging with stack info?
 		log.Printf("No database in context")
-		return nil, SERVER_ERROR
+		return nil, ErrServerError
 	}
 
 	queryparams := map[string]interface{}{"user_id": authUser.Id}
@@ -375,7 +375,7 @@ func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
 			c, err := MakeOffsetCursor(cursorval)
 			if err != nil {
 				log.Printf("%s", err)
-				return nil, SERVER_ERROR
+				return nil, ErrServerError
 			}
 			edge := &temperatureMeasurementEdge{Node: &resolved, Cursor: c}
 			edges = append(edges, edge)

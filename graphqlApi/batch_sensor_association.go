@@ -123,7 +123,7 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
 		log.Printf("No database in context")
-		return nil, SERVER_ERROR
+		return nil, ErrServerError
 	}
 
 	var inputPtr *associateSensorToBatchInput = args.Input
@@ -159,7 +159,7 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("%v", err)
-		return nil, SERVER_ERROR
+		return nil, ErrServerError
 	} else if err == nil {
 		// if we did not get any error back, that's actually an error. Wanted sql.ErrNoRows
 		return nil, errors.New("Sensor already associated to Batch.")
@@ -191,7 +191,7 @@ func (r *Resolver) UpdatebatchSensorAssociation(ctx context.Context, args *struc
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
 		log.Printf("No database in context")
-		return nil, SERVER_ERROR
+		return nil, ErrServerError
 	}
 
 	var inputPtr *updateBatchSensorAssociationInput = args.Input

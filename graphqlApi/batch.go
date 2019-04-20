@@ -96,7 +96,7 @@ func (r *batchResolver) CreatedBy(ctx context.Context) (*userResolver, error) {
 	db, ok := ctx.Value("db").(*sqlx.DB)
 	if !ok {
 		log.Printf("No database in context")
-		return nil, SERVER_ERROR
+		return nil, ErrServerError
 	}
 	resolved := new(userResolver)
 	user, err := worrywort.FindUser(map[string]interface{}{"id": *r.b.UserId}, db)
