@@ -2,7 +2,7 @@ package graphqlApi
 
 import (
 	"context"
-	// "fmt"
+	"fmt"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
@@ -22,6 +22,31 @@ var ErrServerError = errors.New("Unexpected server error.")
 // This also could be handled in middleware, but then I would need two separate
 // schemas and routes - one for authenticated stuff, one for
 var ErrUserNotAuthenticated = errors.New("User must be authenticated")
+
+type DateTime struct {
+	time.Time
+}
+
+func (_ DateTime) ImplementsGraphQLType(name string) bool {
+	return name == "DateTime"
+}
+
+func (t *DateTime) UnmarshalGraphQL(input interface{}) error {
+	switch input := input.(type) {
+	case time.Time:
+		t.Time = input
+		return nil
+	case string:
+		var err error
+		t.Time, err = time.Parse(time.RFC3339, input)
+		return err
+	case int:
+		t.Time = time.Unix(int64(input), 0)
+		return nil
+	default:
+		return fmt.Errorf("wrong type")
+	}
+}
 
 // Takes a time.Time and returns nil if the time is zero or pointer to the time string formatted as RFC3339
 func nullableDateString(dt time.Time) *string {

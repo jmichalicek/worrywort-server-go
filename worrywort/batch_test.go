@@ -19,8 +19,9 @@ func addMinutes(d time.Time, increment int) time.Time {
 // Make a standard, generic batch for testing
 // optionally attach the user
 func makeTestBatch(u *User, attachUser bool) Batch {
+	bottledDate := addMinutes(time.Now(), -10)
 	b := Batch{Name: "Testing", BrewedDate: addMinutes(time.Now(), -60),
-		BottledDate: addMinutes(time.Now(), -10), VolumeBoiled: 5, VolumeInFermentor: 4.5, VolumeUnits: GALLON,
+		BottledDate: &bottledDate, VolumeBoiled: 5, VolumeInFermentor: 4.5, VolumeUnits: GALLON,
 		OriginalGravity: 1.060, FinalGravity: 1.020, UserId: u.Id, BrewNotes: "Brew notes", TastingNotes: "Taste notes",
 		RecipeURL: "http://example.org/beer"}
 	if attachUser {
@@ -259,7 +260,7 @@ func TestTemperatureMeasurementModel(t *testing.T) {
 	// dealt with by go-cmp
 	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
 	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
-	batch := Batch{UserId: u.Id, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
+	batch := Batch{UserId: u.Id, BrewedDate: brewedDate, BottledDate: &bottledDate, VolumeBoiled: 5,
 		VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
 		CreatedAt: createdAt, UpdatedAt: updatedAt, BrewNotes: "Brew Notes", TastingNotes: "Taste Notes",
 		RecipeURL: "http://example.org/beer"}
@@ -409,7 +410,7 @@ func TestFindBatch(t *testing.T) {
 	// is nanosecond, so we round these for easy comparison
 	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
 	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
-	b := Batch{UserId: u.Id, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5, VolumeInFermentor: 4.5,
+	b := Batch{UserId: u.Id, BrewedDate: brewedDate, BottledDate: &bottledDate, VolumeBoiled: 5, VolumeInFermentor: 4.5,
 		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedAt: createdAt, UpdatedAt: updatedAt,
 		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
 	err = b.Save(db)
@@ -454,7 +455,7 @@ func TestFindBatches(t *testing.T) {
 	// is nanosecond, so we round these for easy comparison
 	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
 	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
-	b := Batch{Name: "Testing", UserId: u.Id, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
+	b := Batch{Name: "Testing", UserId: u.Id, BrewedDate: brewedDate, BottledDate: &bottledDate, VolumeBoiled: 5,
 		VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedAt: createdAt,
 		UpdatedAt: updatedAt, BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
 	err = b.Save(db)
@@ -464,7 +465,7 @@ func TestFindBatches(t *testing.T) {
 
 	b2 := Batch{Name: "Testing 2", UserId: u.Id, BrewedDate: time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond), VolumeBoiled: 5, VolumeInFermentor: 4.5,
 		VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, CreatedAt: createdAt, UpdatedAt: updatedAt,
-		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer", BottledDate: time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond)}
+		BrewNotes: "Brew Notes", TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer", BottledDate: &bottledDate}
 	err = b2.Save(db)
 	if err != nil {
 		t.Fatalf("Unexpected error saving batch: %s", err)
@@ -473,7 +474,7 @@ func TestFindBatches(t *testing.T) {
 	u2batch := Batch{Name: "Testing 2", UserId: u2.Id, BrewedDate: time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond),
 		VolumeBoiled: 5, VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
 		CreatedAt: createdAt, UpdatedAt: updatedAt, BrewNotes: "Brew Notes", TastingNotes: "Taste Notes",
-		RecipeURL: "http://example.org/beer", BottledDate: time.Now().Add(time.Duration(5) * time.Minute).Round(time.Microsecond)}
+		RecipeURL: "http://example.org/beer", BottledDate: &bottledDate}
 
 	err = u2batch.Save(db)
 	if err != nil {
@@ -531,8 +532,9 @@ func TestBatch(t *testing.T) {
 	t.Run("Save() new batch", func(t *testing.T) {
 		// TODO: FindBatch() will start joining the user and populating, at which point this also needs
 		// CreatedBy: &u set.
+		bottledDate := time.Date(2019, time.January, 24, 12, 0, 0, 0, time.UTC)
 		b := Batch{Name: "Testing", BrewedDate: time.Date(2019, time.January, 01, 12, 0, 0, 0, time.UTC),
-			BottledDate: time.Date(2019, time.January, 24, 12, 0, 0, 0, time.UTC), VolumeBoiled: 5, VolumeInFermentor: 4.5,
+			BottledDate: &bottledDate, VolumeBoiled: 5, VolumeInFermentor: 4.5,
 			VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, UserId: u.Id, BrewNotes: "Brew notes",
 			TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer"}
 
@@ -570,8 +572,9 @@ func TestBatch(t *testing.T) {
 	t.Run("uSave() update existing batch", func(t *testing.T) {
 		// TODO: FindBatch() will start joining the user and populating, at which point this also needs
 		// CreatedBy: &u set.
+		bottledDate := time.Date(2019, time.January, 24, 12, 0, 0, 0, time.UTC)
 		b := Batch{Name: "Testing", BrewedDate: time.Date(2019, time.January, 01, 12, 0, 0, 0, time.UTC),
-			BottledDate: time.Date(2019, time.January, 24, 12, 0, 0, 0, time.UTC), VolumeBoiled: 5, VolumeInFermentor: 4.5,
+			BottledDate: &bottledDate, VolumeBoiled: 5, VolumeInFermentor: 4.5,
 			VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, UserId: u.Id, BrewNotes: "Brew notes",
 			TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer"}
 		// b := &_b
@@ -629,7 +632,7 @@ func TestBatchSensorAssociations(t *testing.T) {
 
 	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
 	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
-	batch := Batch{Name: "Testing", UserId: u.Id, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
+	batch := Batch{Name: "Testing", UserId: u.Id, BrewedDate: brewedDate, BottledDate: &bottledDate, VolumeBoiled: 5,
 		VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, BrewNotes: "Brew Notes",
 		TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
 	if err := batch.Save(db); err != nil {
@@ -723,14 +726,14 @@ func TestFindBatchSensorAssociations(t *testing.T) {
 
 	brewedDate := time.Now().Add(time.Duration(1) * time.Minute).Round(time.Microsecond)
 	bottledDate := brewedDate.Add(time.Duration(10) * time.Minute).Round(time.Microsecond)
-	batch := Batch{Name: "Testing", UserId: u.Id, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
+	batch := Batch{Name: "Testing", UserId: u.Id, BrewedDate: brewedDate, BottledDate: &bottledDate, VolumeBoiled: 5,
 		VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, BrewNotes: "Brew Notes",
 		TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
 	if err := batch.Save(db); err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	batch2 := Batch{Name: "Testing2", UserId: u.Id, BrewedDate: brewedDate, BottledDate: bottledDate, VolumeBoiled: 5,
+	batch2 := Batch{Name: "Testing2", UserId: u.Id, BrewedDate: brewedDate, BottledDate: &bottledDate, VolumeBoiled: 5,
 		VolumeInFermentor: 4.5, VolumeUnits: GALLON, OriginalGravity: 1.060, FinalGravity: 1.020, BrewNotes: "Brew Notes",
 		TastingNotes: "Taste Notes", RecipeURL: "http://example.org/beer"}
 	if err := batch2.Save(db); err != nil {

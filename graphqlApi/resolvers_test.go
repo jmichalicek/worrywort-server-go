@@ -38,7 +38,8 @@ func addMinutes(d time.Time, increment int) time.Time {
 // Make a standard, generic batch for testing
 // optionally attach the user
 func makeTestBatch(u worrywort.User, attachUser bool) worrywort.Batch {
-	b := worrywort.Batch{Name: "Testing", BrewedDate: addMinutes(time.Now(), 1), BottledDate: addMinutes(time.Now(), 10),
+	bottledDate := addMinutes(time.Now(), 10)
+	b := worrywort.Batch{Name: "Testing", BrewedDate: addMinutes(time.Now(), 1), BottledDate: &bottledDate,
 		VolumeBoiled: 5, VolumeInFermentor: 4.5, VolumeUnits: worrywort.GALLON, OriginalGravity: 1.060, FinalGravity: 1.020,
 		UserId: u.Id, BrewNotes: "Brew notes", TastingNotes: "Taste notes", RecipeURL: "http://example.org/beer",
 		UUID: uuid.New().String()}
@@ -95,17 +96,18 @@ func TestUserResolver(t *testing.T) {
 	})
 
 	t.Run("CreatedAt()", func(t *testing.T) {
-		var dt string = r.CreatedAt()
-		expected := u.CreatedAt.Format(time.RFC3339)
-		if dt != expected {
+		// TODO: Would like to test that these come out as rfc3339 strings...
+		var dt DateTime = r.CreatedAt()
+		expected := u.CreatedAt
+		if dt != (DateTime{expected}) {
 			t.Errorf("Expected: %v, got: %v", expected, dt)
 		}
 	})
 
 	t.Run("UpdatedAt()", func(t *testing.T) {
-		var dt string = r.UpdatedAt()
-		expected := u.UpdatedAt.Format(time.RFC3339)
-		if dt != expected {
+		var dt DateTime = r.UpdatedAt()
+		expected := u.UpdatedAt
+		if dt != (DateTime{expected}) {
 			t.Errorf("Expected: %v, got %v", expected, dt)
 		}
 	})
@@ -129,7 +131,7 @@ func TestBatchResolver(t *testing.T) {
 	brewed.Id = &bId
 	unbrewed := makeTestBatch(u, true)
 	unbrewed.BrewedDate = time.Time{}
-	unbrewed.BottledDate = time.Time{}
+	unbrewed.BottledDate = nil
 
 	br := batchResolver{b: &brewed}
 	unbr := batchResolver{b: &unbrewed}
@@ -167,8 +169,8 @@ func TestBatchResolver(t *testing.T) {
 	})
 
 	t.Run("BrewedDate()", func(t *testing.T) {
-		var dt *string = br.BrewedDate()
-		expected := brewed.BrewedDate.Format(time.RFC3339)
+		var dt *DateTime = br.BrewedDate()
+		expected := DateTime{brewed.BrewedDate}
 		if *dt != expected {
 			t.Errorf("Expected: %v, got: %v", expected, dt)
 		}
@@ -180,8 +182,8 @@ func TestBatchResolver(t *testing.T) {
 	})
 
 	t.Run("BottledDate()", func(t *testing.T) {
-		var dt *string = br.BottledDate()
-		expected := brewed.BottledDate.Format(time.RFC3339)
+		var dt *DateTime = br.BottledDate()
+		expected := DateTime{*brewed.BottledDate}
 		if *dt != expected {
 			t.Errorf("Expected: %v, got: %v", expected, dt)
 		}
@@ -193,17 +195,17 @@ func TestBatchResolver(t *testing.T) {
 	})
 
 	t.Run("CreatedAt()", func(t *testing.T) {
-		var dt string = br.CreatedAt()
-		expected := brewed.CreatedAt.Format(time.RFC3339)
-		if dt != expected {
+		var dt DateTime = br.CreatedAt()
+		expected := brewed.CreatedAt //.Format(time.RFC3339)
+		if dt.Time != expected {
 			t.Errorf("Expected: %v, got: %v", expected, dt)
 		}
 	})
 
 	t.Run("UpdatedAt()", func(t *testing.T) {
-		var dt string = br.UpdatedAt()
-		expected := brewed.UpdatedAt.Format(time.RFC3339)
-		if dt != expected {
+		var dt DateTime = br.UpdatedAt()
+		expected := brewed.UpdatedAt //.Format(time.RFC3339)
+		if dt.Time != expected {
 			t.Errorf("Expected: %v, got %v", expected, dt)
 		}
 	})
@@ -335,16 +337,16 @@ func TestFermentorResolver(t *testing.T) {
 	})
 
 	t.Run("CreatedAt()", func(t *testing.T) {
-		var dt string = r.CreatedAt()
-		expected := f.CreatedAt.Format(time.RFC3339)
+		var dt DateTime = r.CreatedAt()
+		expected := DateTime{f.CreatedAt}
 		if dt != expected {
 			t.Errorf("Expected: %v, got: %v", expected, dt)
 		}
 	})
 
 	t.Run("UpdatedAt()", func(t *testing.T) {
-		var dt string = r.UpdatedAt()
-		expected := f.UpdatedAt.Format(time.RFC3339)
+		var dt DateTime = r.UpdatedAt()
+		expected := DateTime{f.UpdatedAt}
 		if dt != expected {
 			t.Errorf("Expected: %v, got %v", expected, dt)
 		}
@@ -401,16 +403,16 @@ func TestSensorResolver(t *testing.T) {
 	})
 
 	t.Run("CreatedAt()", func(t *testing.T) {
-		var dt string = r.CreatedAt()
-		expected := sensor.CreatedAt.Format(time.RFC3339)
+		var dt DateTime = r.CreatedAt()
+		expected := DateTime{sensor.CreatedAt}
 		if dt != expected {
 			t.Errorf("Expected: %v, got: %v", expected, dt)
 		}
 	})
 
 	t.Run("UpdatedAt()", func(t *testing.T) {
-		var dt string = r.UpdatedAt()
-		expected := sensor.UpdatedAt.Format(time.RFC3339)
+		var dt DateTime = r.UpdatedAt()
+		expected := DateTime{sensor.UpdatedAt}
 		if dt != expected {
 			t.Errorf("Expected: %v, got %v", expected, dt)
 		}
@@ -490,16 +492,16 @@ func TestTemperatureMeasurementResolver(t *testing.T) {
 	})
 
 	t.Run("CreatedAt()", func(t *testing.T) {
-		var dt string = resolver.CreatedAt()
-		expected := measurement.CreatedAt.Format(time.RFC3339)
+		var dt DateTime = resolver.CreatedAt()
+		expected := DateTime{measurement.CreatedAt}
 		if dt != expected {
 			t.Errorf("\nExpected: %v\ngot: %v", expected, dt)
 		}
 	})
 
 	t.Run("UpdatedAt()", func(t *testing.T) {
-		var dt string = resolver.UpdatedAt()
-		expected := measurement.UpdatedAt.Format(time.RFC3339)
+		var dt DateTime = resolver.UpdatedAt()
+		expected := DateTime{measurement.UpdatedAt}
 		if dt != expected {
 			t.Errorf("\nExpected: %v\ngot %v", expected, dt)
 		}
@@ -634,7 +636,7 @@ func TestBatchSensorAssociationResolver(t *testing.T) {
 
 	t.Run("AssociatedAt()", func(t *testing.T) {
 		a := resolver.AssociatedAt()
-		expected := dateString(association.AssociatedAt)
+		expected := DateTime{association.AssociatedAt}
 		if a != expected {
 			t.Errorf("\nExpected: %s\nGot: %v", expected, a)
 		}
@@ -649,7 +651,7 @@ func TestBatchSensorAssociationResolver(t *testing.T) {
 		n := time.Now()
 		association.DisassociatedAt = &n
 		d = resolver.DisassociatedAt()
-		expected := n.Format(time.RFC3339)
+		expected := DateTime{*association.DisassociatedAt}
 		if *d != expected {
 			t.Errorf("\nExpected: %s\nGot: %s", expected, *d)
 		}

@@ -23,9 +23,9 @@ func (r *temperatureMeasurementResolver) ID() graphql.ID {
 	}
 	return graphql.ID(r.m.Id)
 }
-func (r *temperatureMeasurementResolver) CreatedAt() string                    { return dateString(r.m.CreatedAt) }
-func (r *temperatureMeasurementResolver) UpdatedAt() string                    { return dateString(r.m.UpdatedAt) }
-func (r *temperatureMeasurementResolver) RecordedAt() string                   { return dateString(r.m.RecordedAt) }
+func (r *temperatureMeasurementResolver) CreatedAt() DateTime                  { return DateTime{r.m.CreatedAt} }
+func (r *temperatureMeasurementResolver) UpdatedAt() DateTime                  { return DateTime{r.m.UpdatedAt} }
+func (r *temperatureMeasurementResolver) RecordedAt() DateTime                 { return DateTime{r.m.RecordedAt} }
 func (r *temperatureMeasurementResolver) Temperature() float64                 { return r.m.Temperature }
 func (r *temperatureMeasurementResolver) Units() worrywort.TemperatureUnitType { return r.m.Units }
 func (r *temperatureMeasurementResolver) Batch(ctx context.Context) *batchResolver {

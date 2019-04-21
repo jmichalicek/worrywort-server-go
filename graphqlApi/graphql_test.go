@@ -87,8 +87,9 @@ func setUpTestDb() (*sqlx.DB, error) {
 // Make a standard, generic batch for testing
 // optionally attach the user
 func makeTestBatch(u worrywort.User, attachUser bool) worrywort.Batch {
+	bottledDate := addMinutes(time.Now(), 10)
 	b := worrywort.Batch{Name: "Testing", BrewedDate: addMinutes(time.Now(), 1),
-		BottledDate: addMinutes(time.Now(), 10), VolumeBoiled: 5, VolumeInFermentor: 4.5, VolumeUnits: worrywort.GALLON,
+		BottledDate: &bottledDate, VolumeBoiled: 5, VolumeInFermentor: 4.5, VolumeUnits: worrywort.GALLON,
 		OriginalGravity: 1.060, FinalGravity: 1.020, UserId: u.Id, BrewNotes: "Brew notes", TastingNotes: "Taste notes",
 		RecipeURL: "http://example.org/beer"}
 	if attachUser {

@@ -24,8 +24,8 @@ type associateSensorToBatchInput struct {
 type updateBatchSensorAssociationInput struct {
 	ID              string
 	Description     *string
-	AssociatedAt    string
-	DisassociatedAt *string
+	AssociatedAt    DateTime
+	DisassociatedAt *DateTime
 }
 
 type batchSensorAssociationResolver struct {
@@ -49,15 +49,15 @@ func (b *batchSensorAssociationResolver) Sensor() *sensorResolver {
 	return &sensorResolver{s: b.assoc.Sensor}
 }
 func (b *batchSensorAssociationResolver) Description() *string { return &b.assoc.Description }
-func (b *batchSensorAssociationResolver) AssociatedAt() string {
-	return dateString(b.assoc.AssociatedAt)
+func (b *batchSensorAssociationResolver) AssociatedAt() DateTime {
+	return DateTime{b.assoc.AssociatedAt}
 }
 
-func (b *batchSensorAssociationResolver) DisassociatedAt() *string {
+func (b *batchSensorAssociationResolver) DisassociatedAt() *DateTime {
 	if b.assoc.DisassociatedAt != nil {
 		// nullableDateString
-		d := nullableDateString(*(b.assoc.DisassociatedAt))
-		return d
+		d := DateTime{*b.assoc.DisassociatedAt}
+		return &d
 	}
 	return nil
 }
@@ -132,8 +132,6 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 	var inputPtr *associateSensorToBatchInput = args.Input
 	var input associateSensorToBatchInput = *inputPtr
 
-	// log.Printf("\n\n\nUSER IS %s\n\n\n", spew.Sdump(u))
-
 	batchPtr, err := worrywort.FindBatch(map[string]interface{}{"user_id": *u.Id, "uuid": input.BatchId}, db)
 	if err != nil || batchPtr == nil {
 		if err != sql.ErrNoRows {
@@ -207,21 +205,9 @@ func (r *Resolver) UpdatebatchSensorAssociation(ctx context.Context, args *struc
 
 	var disassociatedAt *time.Time = nil
 	if input.DisassociatedAt != nil {
-		d, err := time.Parse(time.RFC3339, *(input.DisassociatedAt))
-		if err != nil {
-			// TODO: See what the actual error types are and try to return friendlier errors which are not golang specific messaging
-			return nil, err
-		} else {
-			disassociatedAt = &d
-		}
+		disassociatedAt = &input.DisassociatedAt.Time
 	}
-
-	associatedAt, err := time.Parse(time.RFC3339, input.AssociatedAt)
-	if err != nil {
-		// TODO: See what the actual error types are and try to return friendlier errors which are not golang specific messaging
-		return nil, err
-	}
-
+	associatedAt := input.AssociatedAt.Time
 	association, err := worrywort.FindBatchSensorAssociation(
 		map[string]interface{}{"id": string(input.ID), "user_id": u.Id}, db)
 
