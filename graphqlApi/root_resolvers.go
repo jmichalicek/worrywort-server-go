@@ -23,19 +23,6 @@ var ErrServerError = errors.New("Unexpected server error.")
 // schemas and routes - one for authenticated stuff, one for
 var ErrUserNotAuthenticated = errors.New("User must be authenticated")
 
-// Takes a time.Time and returns nil if the time is zero or pointer to the time string formatted as RFC3339
-func nullableDateString(dt time.Time) *string {
-	if dt.IsZero() {
-		return nil
-	}
-	dtString := dt.Format(time.RFC3339)
-	return &dtString
-}
-
-func dateString(dt time.Time) string {
-	return dt.Format(time.RFC3339)
-}
-
 // move these somewhere central
 type pageInfo struct {
 	HasNextPage     bool
