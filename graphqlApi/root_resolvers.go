@@ -463,6 +463,10 @@ type createTemperatureMeasurementInput struct {
 	Units       string // it seems this graphql server cannot handle mapping enum to struct inputs
 }
 
+type createSensorInput struct {
+	Name string
+}
+
 // Mutation Payloads
 type createTemperatureMeasurementPayload struct {
 	t *temperatureMeasurementResolver
@@ -470,6 +474,14 @@ type createTemperatureMeasurementPayload struct {
 
 func (c createTemperatureMeasurementPayload) TemperatureMeasurement() *temperatureMeasurementResolver {
 	return c.t
+}
+
+type createSensorPayload struct {
+	s *sensorResolver
+}
+
+func (c createSensorPayload) Sensor() *sensorResolver {
+	return c.s
 }
 
 // Mutations
@@ -533,6 +545,36 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 	}
 	tr := temperatureMeasurementResolver{m: &t}
 	result := createTemperatureMeasurementPayload{t: &tr}
+	return &result, nil
+}
+
+func (r *Resolver) CreateSensor(ctx context.Context, args *struct {
+	Input *createSensorInput
+}) (*createSensorPayload, error) {
+	u, _ := authMiddleware.UserFromContext(ctx)
+	if u == nil {
+		return nil, ErrUserNotAuthenticated
+	}
+
+	db, ok := ctx.Value("db").(*sqlx.DB)
+	if !ok {
+		// TODO: logging with stack info?
+		log.Printf("No database in context")
+		return nil, ErrServerError
+	}
+
+	var inputPtr *createSensorInput = args.Input
+	// TODO: make sure input was not nil. Technically the schema does this for us
+	// but might be safer to handle here, too, or at least have a test case for it.
+	var input createSensorInput = *inputPtr
+
+	s := worrywort.Sensor{Name: input.Name, CreatedBy: u, UserId: u.Id}
+	if err := s.Save(db); err != nil {
+		log.Printf("Failed to save Sensor: %v\n", err)
+		return nil, err
+	}
+	sr := sensorResolver{s: &s}
+	result := createSensorPayload{s: &sr}
 	return &result, nil
 }
 

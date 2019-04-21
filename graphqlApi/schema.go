@@ -30,14 +30,14 @@ var Schema = `
 	}
 
 	type Mutation {
-		# Currently broken because I made the whole /graphql endpoint require a token for now
+		associateSensorToBatch(input: AssociateSensorToBatchInput!): AssociateSensorToBatchPayload
 		login(username: String!, password: String!): AuthToken
 		# Might remove createTemperatureMeasurement in favor of having those created via more IoT Friendly
 		# system such as mqtt.  Then system can look at relationships to attach to batch, fermenter, etc.
 		# but will definitely need an updateTemperatureMeasurement() to edit - ie. attach to a batch later, etc.
 		createTemperatureMeasurement(input: CreateTemperatureMeasurementInput!): CreateTemperatureMeasurementPayload
 		createBatch(input: CreateBatchInput!): CreateBatchPayload
-		associateSensorToBatch(input: AssociateSensorToBatchInput!): AssociateSensorToBatchPayload
+		createSensor(input: CreateSensorInput!): CreateSensorPayload
 		updateBatchSensorAssociation(input: UpdateBatchSensorAssociationInput!): UpdateBatchSensorAssociationPayload
 	}
 
@@ -120,6 +120,10 @@ var Schema = `
 		batch: Batch
 	}
 
+	type CreateSensorPayload {
+		sensor: Sensor
+	}
+
 	type CreateTemperatureMeasurementPayload {
 		temperatureMeasurement: TemperatureMeasurement
 	}
@@ -191,7 +195,7 @@ var Schema = `
 
 	# Input data to create a Batch
 	input CreateBatchInput {
-		# A name for the Bath
+		# A name for the Batch
 		name: String!
 		# The date and time the batch was brewed
 		brewedAt: DateTime!
@@ -206,6 +210,12 @@ var Schema = `
 		// AverageTemperature *float64  not even sure this should be on the model...
 		recipeURL: String
 		tastingNotes: String
+	}
+
+	# Input data to create a sensor
+	input CreateSensorInput {
+		# A useful name for the sensor
+		name: String!
 	}
 
 	# Input data to create a TemperatureMeasurement
