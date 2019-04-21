@@ -18,6 +18,7 @@ services:
   worrywortd:
     image: worrywort-server:dev
     command: /bin/bash
+    user: developer
     stdin_open: true
     tty: true
     depends_on:

@@ -19,7 +19,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"golang.org/x/crypto/bcrypt"
 	"os"
-	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -459,23 +458,14 @@ func TestBatchQuery(t *testing.T) {
 		ctx2 = context.WithValue(ctx2, "db", db)
 		result := worrywortSchema.Exec(ctx2, query, operationName, nil)
 
-		var expected interface{}
-		err := json.Unmarshal(
-			[]byte(
-				fmt.Sprintf(
-					`{"batches": null}`)), &expected)
-		if err != nil {
-			t.Fatalf("%v", err)
-		}
-
 		var actual interface{}
 		err = json.Unmarshal(result.Data, &actual)
 		if err != nil {
 			t.Fatalf("%v", err)
 		}
 
-		if !reflect.DeepEqual(expected, actual) {
-			t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
+		if actual != nil {
+			t.Fatalf("Expected nil, Got: +\n%s", spew.Sdump(actual))
 		}
 	})
 }
@@ -829,21 +819,14 @@ func TestSensorQuery(t *testing.T) {
 				t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(expectedErrors, result.Errors, cmpOpts...))
 			}
 			// End error checking
-			var expected interface{}
-			err = json.Unmarshal([]byte(`{"sensors": null}`), &expected)
-			if err != nil {
-				t.Fatalf("%v", err)
-			}
-
 			var actual interface{}
 			err = json.Unmarshal(result.Data, &actual)
 			if err != nil {
 				t.Fatalf("%v", err)
 			}
-			if !cmp.Equal(expected, actual) {
-				t.Errorf("Expected: - | Got +\n%s", cmp.Diff(expected, actual))
+			if actual != nil {
+				t.Errorf("Expected nil, Got: %s", spew.Sdump(actual))
 			}
-
 		})
 	})
 }
@@ -1643,14 +1626,8 @@ func TestBatchSensorAssociationsQuery(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%v: %v", result, resultData)
 		}
-
-		var expected interface{}
-		err = json.Unmarshal([]byte(`{"batchSensorAssociations": null}`), &expected)
-		if err != nil {
-			t.Fatalf("%v", err)
-		}
-		if !cmp.Equal(expected, result) {
-			t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(expected, result))
+		if result != nil {
+			t.Errorf("Expected nil, Got: %s", spew.Sdump(result))
 		}
 
 	})
