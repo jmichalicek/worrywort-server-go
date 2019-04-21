@@ -11,23 +11,25 @@ import (
 // A single recorded temperature measurement from a temperatureSensor
 // This may get some tweaking to play nicely with data stored in Postgres or Influxdb
 type TemperatureMeasurement struct {
-	Id          string              `db:"id"` // use a uuid
-	Temperature float64             `db:"temperature"`
-	Units       TemperatureUnitType `db:"units"`
-	RecordedAt  time.Time           `db:"recorded_at"` // when the measurement was recorded
+	Id          string              `db:"id" json:"id"` // use a uuid
+	Temperature float64             `db:"temperature" json:"temperature"`
+	Units       TemperatureUnitType `db:"units" json:"units"`
+	RecordedAt  time.Time           `db:"recorded_at" json:"recorded_at"` // when the measurement was recorded
 	// I could leave batch public and set it... it doesn't have to exist on the table.
 	// but I think forcing use of Batch() enforces consistency
+	// TODO: consider making an FK to batch again because that would allow having a measurement tied to a batch
+	// but NOT a sensor such as manually inputting a measurement.
 	batch    *Batch
-	Sensor   *Sensor `db:"sensor,prefix=ts"`
-	SensorId *int64  `db:"sensor_id"`
+	Sensor   *Sensor `db:"sensor,prefix=ts" json:"-"`
+	SensorId *int64  `db:"sensor_id" json:"sensor_id"`
 
 	// not sure createdBy is a useful name in this case vs just `user` but its consistent
-	CreatedBy *User  `db:"created_by,prefix=u"`
-	UserId    *int64 `db:"user_id"`
+	CreatedBy *User  `db:"created_by,prefix=u" json:"-"` // may want this eventually...
+	UserId    *int64 `db:"user_id" json:"user_id"`
 
 	// when the record was created
-	CreatedAt time.Time `db:"created_at"`
-	UpdatedAt time.Time `db:"updated_at"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
 
 func (tm *TemperatureMeasurement) Batch(db *sqlx.DB) (*Batch, error) {
