@@ -870,15 +870,9 @@ func TestCreateBatchMutation(t *testing.T) {
 		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
 
 		// Some structs so that the json can be unmarshalled.
-		// Unsure why I am doing it this way here and not the same interface{} unmarshall as before.
-		type payloadBatch struct {
-			Typename string `json:"__typename"`
-			Id       string `json:"id"`
-		}
-
 		type cbPayload struct {
-			Typename string       `json:"__typename"`
-			Batch    payloadBatch `json:"batch"`
+			Typename string `json:"__typename"`
+			Batch    node   `json:"batch"`
 		}
 
 		type createBatch struct {
@@ -1827,4 +1821,110 @@ func TestTemperatureMeasurementsQuery(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCreateSensorMutation(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = u.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	// Some structs so that the json can be unmarshalled.
+	type payload struct {
+		Typename string `json:"__typename"`
+		Sensor   node   `json:"sensor"`
+	}
+
+	type createSensor struct {
+		CreateSensor *payload `json:"createSensor"`
+	}
+
+	variables := map[string]interface{}{
+		"input": map[string]interface{}{
+			"name": "My Sensor",
+		},
+	}
+	query := `
+		mutation addSensor($input: CreateSensorInput!) {
+			createSensor(input: $input) {
+				__typename
+				sensor {
+					__typename
+					id
+				}
+			}
+		}`
+
+	operationName := ""
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "db", db)
+
+	t.Run("Test sensor is created with valid data", func(t *testing.T) {
+		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
+		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
+		var result createSensor
+		err = json.Unmarshal(resultData.Data, &result)
+		if err != nil {
+			t.Fatalf("%v: %v", result, resultData)
+		}
+
+		// Test the returned graphql types
+		if result.CreateSensor.Typename != "CreateSensorPayload" {
+			t.Errorf("createBatch returned unexpected type: %s", result.CreateSensor.Typename)
+		}
+
+		if result.CreateSensor.Sensor.Typename != "Sensor" {
+			t.Errorf("createSensor returned unexpected type for Sensor: %s", result.CreateSensor.Sensor.Typename)
+		}
+
+		// Look up the object in the db to be sure it was created
+		var sensorId string = result.CreateSensor.Sensor.Id
+		sensor, err := worrywort.FindSensor(map[string]interface{}{"user_id": *u.Id, "uuid": sensorId}, db)
+
+		if err == sql.ErrNoRows {
+			t.Error("Sensor was not saved to the database. Query returned no results.")
+		} else if err != nil {
+			t.Errorf("Error: %v and Sensor: %v", err, sensor)
+		}
+		// TODO: Really should maybe make sure all properties were inserted
+	})
+
+	t.Run("Unauthenticated", func(t *testing.T) {
+		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
+		result := worrywortSchema.Exec(ctx, query, operationName, variables)
+
+		// TODO: Make this error checking reusable
+		e := graphqlErrors.QueryError{Message: "User must be authenticated"}
+		expectedErrors := []*graphqlErrors.QueryError{&e}
+		cmpOpts := []cmp.Option{
+			cmpopts.IgnoreFields(e, "ResolverError", "Path", "Extensions", "Rule", "Locations"),
+		}
+		if !cmp.Equal(expectedErrors, result.Errors, cmpOpts...) {
+			t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(expectedErrors, result.Errors, cmpOpts...))
+		}
+		// End error checking
+		var expected interface{}
+		err = json.Unmarshal([]byte(`{"createSensor": null}`), &expected)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+
+		var actual interface{}
+		err = json.Unmarshal(result.Data, &actual)
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		if !cmp.Equal(expected, actual) {
+			t.Errorf("Expected: - | Got +\n%s", cmp.Diff(expected, actual))
+		}
+
+	})
 }
