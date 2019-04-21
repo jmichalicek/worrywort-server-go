@@ -42,7 +42,7 @@ type Batch struct {
 	BrewNotes         string         `db:"brew_notes"`
 	TastingNotes      string         `db:"tasting_notes"`
 	BrewedDate        time.Time      `db:"brewed_date"`
-	BottledDate       time.Time      `db:"bottled_date"`
+	BottledDate       *time.Time     `db:"bottled_date"`
 	VolumeBoiled      float64        `db:"volume_boiled"` // sql nullfloats?
 	VolumeInFermentor float64        `db:"volume_in_fermentor"`
 	VolumeUnits       VolumeUnitType `db:"volume_units"`
@@ -88,7 +88,7 @@ func (b Batch) StrictEqual(other Batch) bool {
 		b.RecipeURL == other.RecipeURL && b.CreatedBy.Id == other.CreatedBy.Id &&
 		b.MaxTemperature == other.MaxTemperature && b.MinTemperature == other.MinTemperature &&
 		b.AverageTemperature == other.AverageTemperature &&
-		b.BrewedDate.Equal(other.BrewedDate) && b.BottledDate.Equal(other.BottledDate) &&
+		b.BrewedDate.Equal(other.BrewedDate) && ((b.BottledDate == nil && other.BottledDate == nil) || (*b.BottledDate).Equal(*other.BottledDate)) &&
 		b.CreatedAt.Equal(other.CreatedAt) //&& b.UpdatedAt().Equal(other.UpdatedAt())
 }
 

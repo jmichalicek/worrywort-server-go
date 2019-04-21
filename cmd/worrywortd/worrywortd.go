@@ -13,17 +13,18 @@ import (
 	"log"
 	"net/http"
 	"os"
+	// "github.com/davecgh/go-spew/spew"
 )
 
 var schema *graphql.Schema
 
 // Returns a function for looking up a user by token for authMiddleware.NewTokenAuthHandler()
 // which closes over the db needed to look up the user
-func newTokenAuthLookup(db *sqlx.DB) func(token string) (worrywort.User, error) {
-	return func(token string) (worrywort.User, error) {
+func newTokenAuthLookup(db *sqlx.DB) func(token string) (*worrywort.User, error) {
+	return func(token string) (*worrywort.User, error) {
 		// TODO: return the token? That could be more useful in many places than just the user.
 		t, err := worrywort.AuthenticateUserByToken(token, db)
-		return t.User, err
+		return &t.User, err
 	}
 }
 

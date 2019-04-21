@@ -22,8 +22,8 @@ func (r *sensorResolver) ID() graphql.ID {
 	}
 	return graphql.ID(r.s.UUID)
 }
-func (r *sensorResolver) CreatedAt() string { return dateString(r.s.CreatedAt) }
-func (r *sensorResolver) UpdatedAt() string { return dateString(r.s.UpdatedAt) }
+func (r *sensorResolver) CreatedAt() DateTime { return DateTime{r.s.CreatedAt} }
+func (r *sensorResolver) UpdatedAt() DateTime { return DateTime{r.s.UpdatedAt} }
 
 func (r *sensorResolver) CreatedBy(ctx context.Context) *userResolver {
 	resolved := new(userResolver)

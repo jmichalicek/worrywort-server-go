@@ -22,8 +22,8 @@ func (r *fermentorResolver) ID() graphql.ID {
 		return graphql.ID("")
 	}
 }
-func (r *fermentorResolver) CreatedAt() string { return dateString(r.f.CreatedAt) }
-func (r *fermentorResolver) UpdatedAt() string { return dateString(r.f.UpdatedAt) }
+func (r *fermentorResolver) CreatedAt() DateTime { return DateTime{r.f.CreatedAt} }
+func (r *fermentorResolver) UpdatedAt() DateTime { return DateTime{r.f.UpdatedAt} }
 func (r *fermentorResolver) CreatedBy(ctx context.Context) *userResolver {
 	var resolved *userResolver
 	// Not sure these parens are necessary, but vs code complains without them

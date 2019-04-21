@@ -51,6 +51,9 @@ var Schema = `
 		CELSIUS
 	}
 
+	# RFC3339 formatted DateTime
+	scalar DateTime
+
 	type AuthToken {
 		id: ID!
 		token: String!
@@ -62,16 +65,16 @@ var Schema = `
 		name: String!
 		brewNotes: String!
 		tastingNotes: String!
-		brewedDate: String
-		bottledDate: String
+		brewedDate: DateTime
+		bottledDate: DateTime
 		volumeBoiled: Float
 		volumeInFermentor: Float
 		volumeUnits: VolumeUnit!
 		originalGravity: Float
 		finalGravity: Float
 		recipeURL: String!
-		createdAt: String!
-		updatedAt: String!
+		createdAt: DateTime!
+		updatedAt: DateTime!
 		createdBy: User
 	}
 
@@ -87,10 +90,10 @@ var Schema = `
 
 	type BatchSensorAssociation {
 		# datetime
-		associatedAt: String!
+		associatedAt: DateTime!
 		batch: Batch!
 		description: String
-		disassociatedAt: String
+		disassociatedAt: DateTime
 		id: ID!
 		sensor: Sensor!
 	}
@@ -133,7 +136,7 @@ var Schema = `
 		# The units the temperature is recorded in
 		units: TemperatureUnit!
 		# The date and time the temperature was taken by the sensor
-		recordedAt: String!
+		recordedAt: DateTime!
 		# The batch being monitored, if this was actively monitoring a batch
 		batch: Batch
 		# The Sensor which took the measurement
@@ -177,8 +180,8 @@ var Schema = `
 		firstName: String!
 		lastName: String!
 		email: String!
-		createdAt: String!
-		updatedAt: String!
+		createdAt: DateTime!
+		updatedAt: DateTime!
 	}
 
 	type UserError {
@@ -191,8 +194,8 @@ var Schema = `
 		# A name for the Bath
 		name: String!
 		# The date and time the batch was brewed
-		brewedAt: String!
-		bottledAt: String
+		brewedAt: DateTime!
+		bottledAt: DateTime
 		volumeBoiled: Float
 		volumeInFermentor: Float
 		volumeUnits: String
@@ -210,7 +213,7 @@ var Schema = `
 		# The temperature taken
 		temperature: Float!
 		# The date and time the temperature was recorded by the sensor
-		recordedAt: String!
+		recordedAt: DateTime!
 		# The id of the Sensor which took the measurement
 		sensorId: ID!
 		# The units the temperature was taken in
@@ -226,10 +229,10 @@ var Schema = `
 
 	# Update a batchSensorAssociation to match the given input
 	input UpdateBatchSensorAssociationInput {
-		associatedAt: String!
+		associatedAt: DateTime!
 		id: ID!
 		description: String
-		disassociatedAt: String
+		disassociatedAt: DateTime
 	}
 	`
 

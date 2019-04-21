@@ -24,7 +24,6 @@ var ErrUserNotInContext = errors.New("Could not get worrywort.User from context"
 func UserFromContext(ctx context.Context) (*worrywort.User, error) {
 	// May return *worrywort.User so that I can return nil
 	u, ok := ctx.Value(DefaultUserKey).(*worrywort.User)
-	// log.Printf("IN USER_FROM_CONT, U IS %S", spew.Sdump(u))
 	if !ok {
 		// can this differentiate between missing key and invalid value?
 		return nil, ErrUserNotInContext
@@ -32,7 +31,7 @@ func UserFromContext(ctx context.Context) (*worrywort.User, error) {
 	return u, nil
 }
 
-func newContextWithUser(ctx context.Context, req *http.Request, lookupFn func(string) (worrywort.User, error)) context.Context {
+func newContextWithUser(ctx context.Context, req *http.Request, lookupFn func(string) (*worrywort.User, error)) context.Context {
 	authHeader := req.Header.Get("Authorization")
 	headerParts := strings.Fields(authHeader)
 	if len(headerParts) > 1 {
@@ -50,7 +49,7 @@ func newContextWithUser(ctx context.Context, req *http.Request, lookupFn func(st
 // This is really overkill - the injected function could just live here since this is not really intended
 // to be a generic, reusable thing.  This does make testing easier, though, since I can inject a function which
 // just returns what I need and not mock out a db connection.
-func NewTokenAuthHandler(lookupFn func(string) (worrywort.User, error)) func(http.Handler) http.Handler {
+func NewTokenAuthHandler(lookupFn func(string) (*worrywort.User, error)) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 			ctx := req.Context()

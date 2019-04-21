@@ -19,8 +19,8 @@ func (r *userResolver) ID() graphql.ID {
 		return graphql.ID(r.u.UUID)
 	}
 }
-func (r *userResolver) FirstName() string { return r.u.FirstName }
-func (r *userResolver) LastName() string  { return r.u.LastName }
-func (r *userResolver) Email() string     { return r.u.Email }
-func (r *userResolver) CreatedAt() string { return dateString(r.u.CreatedAt) }
-func (r *userResolver) UpdatedAt() string { return dateString(r.u.UpdatedAt) }
+func (r *userResolver) FirstName() string   { return r.u.FirstName }
+func (r *userResolver) LastName() string    { return r.u.LastName }
+func (r *userResolver) Email() string       { return r.u.Email }
+func (r *userResolver) CreatedAt() DateTime { return DateTime{r.u.CreatedAt} }
+func (r *userResolver) UpdatedAt() DateTime { return DateTime{r.u.UpdatedAt} }

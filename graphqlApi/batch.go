@@ -30,12 +30,21 @@ func (r *batchResolver) ID() graphql.ID {
 func (r *batchResolver) Name() string         { return r.b.Name }
 func (r *batchResolver) BrewNotes() string    { return r.b.BrewNotes }
 func (r *batchResolver) TastingNotes() string { return r.b.TastingNotes }
-
-// TODO: I should make an actual DateTime type which can be null or a valid datetime string
-func (r *batchResolver) BrewedDate() *string {
-	return nullableDateString(r.b.BrewedDate)
+func (r *batchResolver) BrewedDate() *DateTime {
+	// TODO: this should also be a *time.Time on the model I think..
+	if r.b.BrewedDate.IsZero() {
+		return nil
+	}
+	return &DateTime{r.b.BrewedDate}
 }
-func (r *batchResolver) BottledDate() *string { return nullableDateString(r.b.BottledDate) }
+
+func (r *batchResolver) BottledDate() *DateTime {
+	if r.b.BottledDate == nil {
+		return nil
+	}
+	return &DateTime{*r.b.BottledDate}
+}
+
 func (r *batchResolver) VolumeBoiled() *float64 {
 	// TODO: I do not like this.  Maybe switch the data type to sql.NullFloat64?
 	vol := r.b.VolumeBoiled
@@ -76,9 +85,9 @@ func (r *batchResolver) FinalGravity() *float64 {
 	return &fg
 }
 
-func (r *batchResolver) RecipeURL() string { return r.b.RecipeURL } // this could even return a parsed URL object...
-func (r *batchResolver) CreatedAt() string { return dateString(r.b.CreatedAt) }
-func (r *batchResolver) UpdatedAt() string { return dateString(r.b.UpdatedAt) }
+func (r *batchResolver) RecipeURL() string   { return r.b.RecipeURL } // this could even return a parsed URL object...
+func (r *batchResolver) CreatedAt() DateTime { return DateTime{r.b.CreatedAt} }
+func (r *batchResolver) UpdatedAt() DateTime { return DateTime{r.b.UpdatedAt} }
 
 // TODO: Make this return an actual nil if there is no createdBy, such as for a deleted user?
 func (r *batchResolver) CreatedBy(ctx context.Context) (*userResolver, error) {
@@ -143,8 +152,8 @@ func (r *batchConnection) EDGES() *[]*batchEdge { return r.Edges }
 type createBatchInput struct {
 	Name              string
 	BrewNotes         *string
-	BrewedAt          string  //time.Time
-	BottledAt         *string //time.Time
+	BrewedAt          DateTime  //time.Time
+	BottledAt         *DateTime //time.Time
 	VolumeBoiled      *float64
 	VolumeInFermentor *float64
 	VolumeUnits       *string // VolumeUnitType - can graphql-go map this?
@@ -179,26 +188,16 @@ func (r *Resolver) CreateBatch(ctx context.Context, args *struct {
 
 	// for actual iso 8601, use "2006-01-02T15:04:05-0700"
 	// TODO: test parsing both
-	brewedAt, err := time.Parse(time.RFC3339, input.BrewedAt)
-	if err != nil {
-		// TODO: See what the actual error types are and try to return friendlier errors which are not golang specific messaging
-		return nil, err
-	}
-
+	brewedAt := input.BrewedAt.Time
 	var bottledAt time.Time
 	if input.BottledAt != nil {
-		bottledAt, err = time.Parse(time.RFC3339, *(input.BottledAt))
-		if err != nil {
-			// TODO: See what the actual error types are and try to return friendlier errors which are not golang specific messaging
-			return nil, err
-		}
+		bottledAt = input.BottledAt.Time
 	}
 
 	// TODO: Handle all of the optional inputs which could come in as null here but should be empty string when saved
 	// or could come in as an empty string but should be saved to db as null or nullint, etc.
-	batch := worrywort.Batch{UserId: u.Id, Name: input.Name, BrewedDate: brewedAt, BottledDate: bottledAt}
-	err = batch.Save(r.db)
-	if err != nil {
+	batch := worrywort.Batch{UserId: u.Id, Name: input.Name, BrewedDate: brewedAt, BottledDate: &bottledAt}
+	if err := batch.Save(r.db); err != nil {
 		log.Printf("Failed to save Batch: %v\n", err)
 		return nil, err
 	}

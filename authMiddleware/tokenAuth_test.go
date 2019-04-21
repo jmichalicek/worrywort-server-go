@@ -15,7 +15,7 @@ func TestTokenMiddleware(t *testing.T) {
 	uid := int64(1)
 	expectedUser := worrywort.User{Id: &uid, Email: "jmichalicek@gmail.com", FirstName: "Justin", LastName: "Michalicek",
 		CreatedAt: time.Now(), UpdatedAt: time.Now()}
-	getUser := func(token string) (worrywort.User, error) { return expectedUser, nil }
+	getUser := func(token string) (*worrywort.User, error) { return &expectedUser, nil }
 	tokenAuthHandler := NewTokenAuthHandler(getUser)
 
 	t.Run("Valid token header with no user should set user in context", func(t *testing.T) {
@@ -24,12 +24,12 @@ func TestTokenMiddleware(t *testing.T) {
 		// Handler which errors if wrong user is in context
 		handler := tokenAuthHandler(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 			ctx := req.Context()
-			ctxUser, ok := ctx.Value("user").(worrywort.User)
+			ctxUser, ok := ctx.Value("user").(*worrywort.User)
 			if !ok {
 				t.Errorf("Error getting user %v as worrywort.User", ctxUser)
 			}
-			if expectedUser != ctxUser {
-				t.Errorf("Got %v but expected %v", ctxUser, expectedUser)
+			if !cmp.Equal(&expectedUser, ctxUser) {
+				t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(&expectedUser, ctxUser))
 			}
 			rw.WriteHeader(http.StatusOK)
 		}))
