@@ -11,6 +11,7 @@ database:
   volumes:
     - worrywort_db:/var/lib/postgresql/data
 worrywortd:
+  user: root
   # image: worrywort-server-dev  # I should just build and maintain the image separately, would speed this up.
   encrypted_env_file: codeship.env.encrypted
   depends_on:

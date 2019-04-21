@@ -2,12 +2,12 @@
 
 
 [[projects]]
-  digest = "1:1ce29acd2564c5c113c9495675f5a54526af5b7b2a999c0559f991b801b1bd89"
+  digest = "1:130f8f62c61c865b2240edaca8c14d1a77f331fb3a8d6a715e40506cfab41a66"
   name = "github.com/DATA-DOG/go-txdb"
   packages = ["."]
   pruneopts = ""
-  revision = "c3389523873340a9bdbbb51442197f86a176ad94"
-  version = "v0.1.0"
+  revision = "98b2c9b21b660ca7c8a1ceb4deed9fd5a14e5cd8"
+  version = "v0.1.2"
 
 [[projects]]
   digest = "1:0deddd908b6b4b768cfc272c16ee61e7088a60f7fe2f06c547bd3d8e1f8b8e77"
@@ -49,7 +49,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:0a0480ec5a151ec76fc5e9e6dc7e77fa325cfb789684849a8bcb8766733c428d"
+  digest = "1:91180eace75aa36c1d6194c3d2870f08d8aec37cf816bce48285e01411c64608"
   name = "github.com/graph-gophers/graphql-go"
   packages = [
     ".",
@@ -68,32 +68,33 @@
     "trace",
   ]
   pruneopts = ""
-  revision = "940d2b01f2549ee5d9e87141ea909134bf56e3a9"
+  revision = "3e8838d4614c12ab337e796548521744f921e05d"
 
 [[projects]]
   branch = "master"
-  digest = "1:f362b0ba1a617ddf4de0c10c0b4c43064ec52fd4e2f44851ec473a0d2644d23e"
+  digest = "1:77e5b0973a79680fad4df957518d6585d5ce3e7f5731661698c53df74c070603"
   name = "github.com/jmoiron/sqlx"
   packages = [
     ".",
     "reflectx",
   ]
   pruneopts = ""
-  revision = "82935fac6c1a317907c8f43ed3f7f85ea844a78b"
+  revision = "1d3423c595d749e4613fce663591b44ae539d377"
 
 [[projects]]
-  digest = "1:29145d7af4adafd72a79df5e41456ac9e232d5a28c1cd4dacf3ff008a217fc10"
+  digest = "1:364ac8e42128f8c9b7642e54b15ca43d1d808eaf99e2caf15ed7eb7351df25aa"
   name = "github.com/lib/pq"
   packages = [
     ".",
     "oid",
+    "scram",
   ]
   pruneopts = ""
-  revision = "4ded0e9383f75c197b3a2aaa6d590ac52df6fd79"
-  version = "v1.0.0"
+  revision = "51e2106eed1cea199c802d2a49e91e2491b02056"
+  version = "v1.1.0"
 
 [[projects]]
-  digest = "1:78fb99d6011c2ae6c72f3293a83951311147b12b06a5ffa43abf750c4fab6ac5"
+  digest = "1:1fc4897d3cc482d070651563c16a51489296cd9150e6d53fb7ff4d59a24334bc"
   name = "github.com/opentracing/opentracing-go"
   packages = [
     ".",
@@ -101,27 +102,19 @@
     "log",
   ]
   pruneopts = ""
-  revision = "1949ddbfd147afd4d964a9f00b24eb291e0e7c38"
-  version = "v1.0.2"
+  revision = "659c90643e714681897ec2521c60567dd21da733"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
-  digest = "1:36b1b85f11b8e2eb8577332a4002be4c6d81211976c7c7d4b0afacd1f5694641"
+  digest = "1:cebc91a148c3d35354b53496d684130b149b607a4ba4feb035a0eb591284a96a"
   name = "golang.org/x/crypto"
   packages = [
     "bcrypt",
     "blowfish",
   ]
   pruneopts = ""
-  revision = "e84da0312774c21d64ee2317962ef669b27ffb41"
-
-[[projects]]
-  branch = "master"
-  digest = "1:b001b57f383ecbebb54c3916ca6b8be129a6486d3dbf2dfc722cbb0a0b2a8679"
-  name = "golang.org/x/net"
-  packages = ["context"]
-  pruneopts = ""
-  revision = "9b4f9f5ad5197c79fd623a3638e70d8b26cef344"
+  revision = "df01cb2cc480549d72034218dd98bf97671450ac"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -134,6 +127,7 @@
     "github.com/google/go-cmp/cmp/cmpopts",
     "github.com/google/uuid",
     "github.com/graph-gophers/graphql-go",
+    "github.com/graph-gophers/graphql-go/errors",
     "github.com/graph-gophers/graphql-go/relay",
     "github.com/jmoiron/sqlx",
     "github.com/lib/pq",
