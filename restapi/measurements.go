@@ -49,13 +49,15 @@ func (t *TemperatureMeasurementRestSerializer) MarshalJSON() ([]byte, error) {
 	})
 }
 
-type MeasurementHandler struct{}
-
-func (h MeasurementHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	InsertMeasurement(w, r)
+type MeasurementHandler struct {
+	Db *sqlx.DB
 }
 
-func InsertMeasurement(w http.ResponseWriter, r *http.Request) {
+func (h *MeasurementHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.InsertMeasurement(w, r)
+}
+
+func (h *MeasurementHandler) InsertMeasurement(w http.ResponseWriter, r *http.Request) {
 	// TODO: put this log config somewhere central. really need something to encapsulate
 	// all routing for setting up graphql plus the new REST stuff, etc.
 	// Kind of started in server.go, but that really belongs elsewhere
@@ -66,13 +68,13 @@ func InsertMeasurement(w http.ResponseWriter, r *http.Request) {
 	case "POST":
 		ctx := r.Context()
 		user, _ := authMiddleware.UserFromContext(ctx)
-		db, ok := ctx.Value("db").(*sqlx.DB)
-		if !ok {
-			// TODO: logging with stack info?
-			log.Printf("No database in context")
-			http.Error(w, "Server Error", http.StatusInternalServerError)
-		}
-
+		// db, ok := ctx.Value("db").(*sqlx.DB)
+		// if !ok {
+		// 	// TODO: logging with stack info?
+		// 	log.Printf("No database in context")
+		// 	http.Error(w, "Server Error", http.StatusInternalServerError)
+		// }
+		db := h.Db
 		if err := r.ParseForm(); err != nil {
 			// fmt.Fprintf(w, "ParseForm() err: %v", err)
 			http.Error(w, fmt.Sprintf("%s", err), http.StatusBadRequest)

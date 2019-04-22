@@ -8,9 +8,9 @@ import (
 	"context"
 	"errors"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
+	"log"
 	"net/http"
 	"strings"
-	// "log"
 	// "github.com/davecgh/go-spew/spew"
 )
 
@@ -38,8 +38,15 @@ func newContextWithUser(ctx context.Context, req *http.Request, lookupFn func(st
 		if strings.ToLower(headerParts[0]) == "token" {
 			// TODO: Handle error here.  If it's no rows returned, then no big deal
 			// but anything else may need handled or logged
-			user, _ := lookupFn(headerParts[1])
-			return context.WithValue(ctx, DefaultUserKey, user)
+			user, err := lookupFn(headerParts[1])
+			if err != nil {
+				if err != worrywort.ErrInvalidToken {
+					log.Printf("%v", err)
+				}
+				return ctx
+			} else {
+				return context.WithValue(ctx, DefaultUserKey, user)
+			}
 		}
 	}
 	return ctx

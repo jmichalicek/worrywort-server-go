@@ -1,9 +1,9 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
@@ -30,12 +30,6 @@ func newTokenAuthLookup(db *sqlx.DB) func(token string) (*worrywort.User, error)
 	}
 }
 
-func AddContext(ctx context.Context, h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
 func main() {
 	// For now, force postgres
 	// TODO: write something to parse db uri?
@@ -55,28 +49,19 @@ func main() {
 	db, _ := sqlx.Connect("postgres", connectionString)
 	schema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
 
+	// could do a middleware in this style to add db to the context like I used to, but more middleware friendly.
+	// Could also do that to add a logger, etc. For now, that stuff is getting attached to each handler
 	tokenAuthHandler := authMiddleware.NewTokenAuthHandler(newTokenAuthLookup(db))
 	authRequiredHandler := authMiddleware.NewLoginRequiredHandler()
 
-	// Does this need a Schema pointer?
-	ctx := context.Background()
-	ctx = context.WithValue(ctx, "db", db)
-	// can add logging similarly
-
 	// Not really sure I needed to switch to Chi here instead of the built in stuff.
 	r := chi.NewRouter()
-	// TODO: use chi's r.Use() like this.  Need to add db to the context first, though...
-	// possibly through a variation on AddContext
-	// r.Use(tokenAuthHandler)
-	r.Handle("/graphql", AddContext(ctx, tokenAuthHandler(&relay.Handler{Schema: schema})))
-	// want to use r.Post() but I am not quite smart enough
-	r.Handle("/api/v1/measurement",
-		AddContext(ctx,
-			tokenAuthHandler(authRequiredHandler(restapi.MeasurementHandler{})),
-		),
-	)
-
-	// TODO: need to manually handle CORS?
+	r.Use(middleware.Compress(5, "text/html", "application/javascript"))
+	r.Use(middleware.Logger)
+	r.Use(tokenAuthHandler)
+	r.Handle("/graphql", &graphqlApi.Handler{Db: db, Handler: &relay.Handler{Schema: schema}})
+	r.Method("POST", "/api/v1/measurement", authRequiredHandler(&restapi.MeasurementHandler{Db: db}))
+	// TODO: need to manually handle CORS? Chi has some cors stuff, yay
 	// https://github.com/graph-gophers/graphql-go/issues/74#issuecomment-289098639
 	uri, uriSet := os.LookupEnv("WORRYWORTD_HOST")
 	if !uriSet {
