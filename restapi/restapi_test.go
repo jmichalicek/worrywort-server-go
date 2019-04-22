@@ -7,6 +7,9 @@ import (
 	txdb "github.com/DATA-DOG/go-txdb"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -134,6 +137,72 @@ func TestMeasurementSerializer(t *testing.T) {
 					t.Errorf("Expected: %s\nGot: %s\n", tm.expected, actual)
 				}
 			})
+		}
+	})
+}
+
+func TestMeasurementHandler(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	// TODO: must be a good way to shorten this setup model creation... function which takes count of
+	// users to create, etc. I suppose.
+	user := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	err = user.Save(db)
+	if err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	sensor := worrywort.Sensor{Name: "Test Sensor", UserId: user.Id}
+	if err := sensor.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	handler := MeasurementHandler{Db: db}
+
+	t.Run("GET", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "", nil)
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+		if w.Code != http.StatusMethodNotAllowed {
+			t.Errorf("/measurements page didn't return %v. Returned %v", http.StatusMethodNotAllowed, w.Code)
+		}
+	})
+
+	t.Run("POST valid", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "", nil)
+		form := url.Values{}
+		form.Add("value", "65.2")
+		form.Add("metric", "temperature")
+		form.Add("sensor_id", sensor.UUID)
+		// req.PostForm = form
+		// req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		// TODO: add user to the request context
+		// req, err := http.NewRequest("POST", url, strings.NewReader(form.Encode()))
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+		if w.Code != http.StatusCreated {
+			t.Errorf("Home page didn't return 201, returned %v", w.Code)
+		}
+	})
+
+	t.Run("POST errors", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "", nil)
+		form := url.Values{}
+		form.Add("value", "65.2")
+		form.Add("metric", "temperature")
+		form.Add("sensor_id", sensor.UUID)
+		// req.PostForm = form
+		// req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		// TODO: add user to the request context
+		// req, err := http.NewRequest("POST", url, strings.NewReader(form.Encode()))
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Home page didn't return 201, returned %v", w.Code)
 		}
 	})
 }

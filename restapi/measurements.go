@@ -82,12 +82,19 @@ func (h *MeasurementHandler) InsertMeasurement(w http.ResponseWriter, r *http.Re
 		val := r.FormValue("value")
 		units := r.FormValue("units")
 		timestamp := r.FormValue("recorded_at")
+
+		formErrors := map[string][]string{}
+		// have to change up testing for metric to fit in with the error handling nicely.
 		switch metric {
 		case "temperature":
 
 			recordedAt, err := time.Parse(time.RFC3339, timestamp)
 			if err != nil {
-				// TODO: See what the actual error types are and try to return friendlier errors which are not golang specific messaging
+				_, ok := formErrors["recorded_at"]
+				if !ok {
+					formErrors["recorded_at"] = []string{}
+				}
+				formErrors["recorded_at"] = append(formErrors["recorded_at"], "Error parsing recorded_at time")
 				http.Error(w, "Error parsing recorded_at time", http.StatusBadRequest)
 				return
 			}
@@ -105,30 +112,32 @@ func (h *MeasurementHandler) InsertMeasurement(w http.ResponseWriter, r *http.Re
 				return
 			}
 
-			unitType := temperatureUnits[units]
-			m := &worrywort.TemperatureMeasurement{
-				Temperature: float64(temperature),
-				Units:       unitType,
-				SensorId:    sensor.Id,
-				Sensor:      sensor,
-				CreatedBy:   user,
-				UserId:      user.Id,
-				RecordedAt:  recordedAt,
-			}
-			if err := m.Save(db); err != nil {
-				log.Printf("%v", err)
-				http.Error(w, "Error saving measurement", http.StatusInternalServerError)
+			if len(formErrors) == 0 {
+				unitType := temperatureUnits[units]
+				m := &worrywort.TemperatureMeasurement{
+					Temperature: float64(temperature),
+					Units:       unitType,
+					SensorId:    sensor.Id,
+					Sensor:      sensor,
+					CreatedBy:   user,
+					UserId:      user.Id,
+					RecordedAt:  recordedAt,
+				}
+				if err := m.Save(db); err != nil {
+					log.Printf("%v", err)
+					http.Error(w, "Error saving measurement", http.StatusInternalServerError)
+					return
+				}
+
+				serializer := &TemperatureMeasurementSerializer{m}
+
+				w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+				w.WriteHeader(http.StatusCreated)
+				if err := json.NewEncoder(w).Encode(serializer); err != nil {
+					panic(err)
+				}
 				return
 			}
-
-			serializer := &TemperatureMeasurementSerializer{m}
-
-			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-			w.WriteHeader(http.StatusCreated)
-			if err := json.NewEncoder(w).Encode(serializer); err != nil {
-				panic(err)
-			}
-			return
 		default:
 			http.Error(w, "Unsupported metric", http.StatusBadRequest)
 			return

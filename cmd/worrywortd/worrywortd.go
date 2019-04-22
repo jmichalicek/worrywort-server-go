@@ -55,6 +55,14 @@ func main() {
 	authRequiredHandler := authMiddleware.NewLoginRequiredHandler()
 
 	// Not really sure I needed to switch to Chi here instead of the built in stuff.
+	// TODO: Test the actual server being built here. Will maybe need some restructuring of this
+	// to have a master struct which has the router, routes, etc.
+	// See https://github.com/nerdyc/testable-golang-web-service
+	// will want something like this
+	// type Server struct {
+	//   Db *sqlx.DB
+	//   Router CHI_ROUTER_TYPE
+	// }
 	r := chi.NewRouter()
 	r.Use(middleware.Compress(5, "text/html", "application/javascript"))
 	r.Use(middleware.Logger)
