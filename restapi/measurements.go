@@ -14,16 +14,19 @@ import (
 	"time"
 )
 
+// TODO: Not sure this is how I want to organize the code, but it'll work for now.
+// doesn't feel very versioning friendly, etc. though.
+
 var temperatureUnits = map[string]worrywort.TemperatureUnitType{
 	"FAHRENHEIT": worrywort.FAHRENHEIT,
 	"CELSIUS":    worrywort.CELSIUS,
 }
 
-type TemperatureMeasurementRestSerializer struct {
+type TemperatureMeasurementSerializer struct {
 	*worrywort.TemperatureMeasurement
 }
 
-func (t *TemperatureMeasurementRestSerializer) UnitString() string {
+func (t *TemperatureMeasurementSerializer) UnitString() string {
 	for k, v := range temperatureUnits {
 		if v == t.Units {
 			return k
@@ -32,7 +35,7 @@ func (t *TemperatureMeasurementRestSerializer) UnitString() string {
 	return ""
 }
 
-func (t *TemperatureMeasurementRestSerializer) MarshalJSON() ([]byte, error) {
+func (t *TemperatureMeasurementSerializer) MarshalJSON() ([]byte, error) {
 	// type Copy TemperatureMeasurementRest
 	return json.Marshal(&struct {
 		Units    string `json:"units"`
@@ -68,15 +71,8 @@ func (h *MeasurementHandler) InsertMeasurement(w http.ResponseWriter, r *http.Re
 	case "POST":
 		ctx := r.Context()
 		user, _ := authMiddleware.UserFromContext(ctx)
-		// db, ok := ctx.Value("db").(*sqlx.DB)
-		// if !ok {
-		// 	// TODO: logging with stack info?
-		// 	log.Printf("No database in context")
-		// 	http.Error(w, "Server Error", http.StatusInternalServerError)
-		// }
 		db := h.Db
 		if err := r.ParseForm(); err != nil {
-			// fmt.Fprintf(w, "ParseForm() err: %v", err)
 			http.Error(w, fmt.Sprintf("%s", err), http.StatusBadRequest)
 			return
 		}
@@ -125,7 +121,7 @@ func (h *MeasurementHandler) InsertMeasurement(w http.ResponseWriter, r *http.Re
 				return
 			}
 
-			serializer := &TemperatureMeasurementRestSerializer{m}
+			serializer := &TemperatureMeasurementSerializer{m}
 
 			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 			w.WriteHeader(http.StatusCreated)
