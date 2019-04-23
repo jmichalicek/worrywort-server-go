@@ -1,16 +1,21 @@
 package restapi
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	txdb "github.com/DATA-DOG/go-txdb"
+	// "github.com/davecgh/go-spew/spew"
+	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
+	// "log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -173,36 +178,56 @@ func TestMeasurementHandler(t *testing.T) {
 	})
 
 	t.Run("POST valid", func(t *testing.T) {
-		req, _ := http.NewRequest("POST", "", nil)
 		form := url.Values{}
 		form.Add("value", "65.2")
 		form.Add("metric", "temperature")
 		form.Add("sensor_id", sensor.UUID)
-		// req.PostForm = form
-		// req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-		// TODO: add user to the request context
-		// req, err := http.NewRequest("POST", url, strings.NewReader(form.Encode()))
+		form.Add("units", "FAHRENHEIT")
+		form.Add("recorded_at", "2019-04-21T11:30:33.32838Z")
+
+		// TODO: something here is not working, it is not adding the values.
+		req, _ := http.NewRequest("POST", "", strings.NewReader(form.Encode()))
+		req.PostForm = form
+		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		ctx := req.Context()
+		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &user)
+		req = req.WithContext(ctx)
+
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 		if w.Code != http.StatusCreated {
 			t.Errorf("Home page didn't return 201, returned %v", w.Code)
 		}
+
+		// TODO: make sure it saved, validate the response
 	})
 
+	// t.Run("POST unauthenticated", func(t *testing.T) {
+	//
+	// })
+
 	t.Run("POST errors", func(t *testing.T) {
-		req, _ := http.NewRequest("POST", "", nil)
+		// for testing post see
+		// http://markjberger.com/testing-web-apps-in-golang/
+		// req, _ := http.NewRequest("POST", "", nil)
 		form := url.Values{}
-		form.Add("value", "65.2")
-		form.Add("metric", "temperature")
-		form.Add("sensor_id", sensor.UUID)
-		// req.PostForm = form
-		// req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		form.Add("value", "asdf")
+		form.Add("metric", "foobar")
+		form.Add("sensor_id", "")
 		// TODO: add user to the request context
-		// req, err := http.NewRequest("POST", url, strings.NewReader(form.Encode()))
+		req, _ := http.NewRequest("POST", "", strings.NewReader(form.Encode()))
+		req.PostForm = form
+		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		ctx := req.Context()
+		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &user)
+		req = req.WithContext(ctx)
+
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 		if w.Code != http.StatusBadRequest {
 			t.Errorf("Home page didn't return 201, returned %v", w.Code)
 		}
+
+		// TODO: make sure it did not save, validate the response errors
 	})
 }
