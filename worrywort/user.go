@@ -27,7 +27,7 @@ type User struct {
 	FirstName string `db:"first_name"`
 	LastName  string `db:"last_name"`
 	Email     string `db:"email"`
-	Password  string `db:"password"`
+	Password  string `db:"password" json:"-"`
 
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`

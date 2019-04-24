@@ -52,3 +52,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/elgris/sqrl"
+
+[[constraint]]
+  name = "github.com/go-chi/chi"
+  version = "4.0.2"

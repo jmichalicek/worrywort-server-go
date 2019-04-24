@@ -1,12 +1,14 @@
 package main
 
 import (
-	"context"
 	"fmt"
+	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/graphqlApi"
+	"github.com/jmichalicek/worrywort-server-go/restapi"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -28,14 +30,7 @@ func newTokenAuthLookup(db *sqlx.DB) func(token string) (*worrywort.User, error)
 	}
 }
 
-func AddContext(ctx context.Context, h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
 func main() {
-
 	// For now, force postgres
 	// TODO: write something to parse db uri?
 	// I suspect this already would and I just didn't read the docs correctly.
@@ -54,27 +49,32 @@ func main() {
 	db, _ := sqlx.Connect("postgres", connectionString)
 	schema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
 
+	// could do a middleware in this style to add db to the context like I used to, but more middleware friendly.
+	// Could also do that to add a logger, etc. For now, that stuff is getting attached to each handler
 	tokenAuthHandler := authMiddleware.NewTokenAuthHandler(newTokenAuthLookup(db))
-	// authRequiredHandler := authMiddleware.NewLoginRequiredHandler()
+	authRequiredHandler := authMiddleware.NewLoginRequiredHandler()
 
-	// Does this need a Schema pointer?
-	// can we do non-relay
-	// based on https://github.com/OscarYuen/go-graphql-starter/blob/f8ff416af2213ef93ef5f459904d6a403ab25843/server.go
-	// can I just addContext to relay.hanlder or do I need a custom handler and then I can attach db there
-	// try it.  My understanding is that this can be frowned upon... but it seems nicer than
-	// having to pass the db around through EVERY resolver I create/use
-	ctx := context.Background()
-	ctx = context.WithValue(ctx, "db", db)
-	// can add logging similarly
-
-	// TODO: need to manually handle CORS?
+	// Not really sure I needed to switch to Chi here instead of the built in stuff.
+	// TODO: Test the actual server being built here. Will maybe need some restructuring of this
+	// to have a master struct which has the router, routes, etc.
+	// See https://github.com/nerdyc/testable-golang-web-service
+	// will want something like this
+	// type Server struct {
+	//   Db *sqlx.DB
+	//   Router CHI_ROUTER_TYPE
+	// }
+	r := chi.NewRouter()
+	r.Use(middleware.Compress(5, "text/html", "application/javascript"))
+	r.Use(middleware.Logger)
+	r.Use(tokenAuthHandler)
+	r.Handle("/graphql", &graphqlApi.Handler{Db: db, Handler: &relay.Handler{Schema: schema}})
+	r.Method("POST", "/api/v1/measurement", authRequiredHandler(&restapi.MeasurementHandler{Db: db}))
+	// TODO: need to manually handle CORS? Chi has some cors stuff, yay
 	// https://github.com/graph-gophers/graphql-go/issues/74#issuecomment-289098639
-	// http.Handle("/graphql", AddContext(ctx, tokenAuthHandler(authRequiredHandler(&relay.Handler{Schema: schema}))))
-	http.Handle("/graphql", AddContext(ctx, tokenAuthHandler(&relay.Handler{Schema: schema})))
 	uri, uriSet := os.LookupEnv("WORRYWORTD_HOST")
 	if !uriSet {
 		uri = ":8080"
 	}
 	log.Printf("WorryWort now listening on %s\n", uri)
-	log.Fatal(http.ListenAndServe(uri, nil))
+	log.Fatal(http.ListenAndServe(uri, r))
 }
