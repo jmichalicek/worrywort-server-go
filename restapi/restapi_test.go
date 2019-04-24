@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	txdb "github.com/DATA-DOG/go-txdb"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	// "github.com/davecgh/go-spew/spew"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
@@ -19,6 +21,31 @@ import (
 	"testing"
 	"time"
 )
+
+// Could use the same struct as I serialize with, but this is honestly simpler for now
+type successResponse struct {
+	// {
+	//   "units": "FAHRENHEIT",
+	//   "sensor_id": "bc69f698-de5a-46fe-8847-78007aa73b05",
+	//   "user_id": "970aaedc-1bef-487f-92dc-425557fe68a3",
+	//   "id": "35d46438-0fe3-4134-86a3-3899d449ef6a",
+	//   "temperature": 65.2,
+	//   "recorded_at": "2019-04-21T18:54:33.32838Z",
+	//   "created_at": "2019-04-22T01:09:38.416851Z",
+	//   "updated_at": "2019-04-22T01:09:38.416851Z"
+	// }
+	Units       string    `json:"units"`
+	SensorId    string    `json:"sensor_id"`
+	UserId      string    `json:"user_id"`
+	Id          string    `json:"id"`
+	Temperature float64   `json:"temperature"`
+	RecordedAt  time.Time `json:"recorded_at"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type errorResponse struct {
+}
 
 func TestMain(m *testing.M) {
 	dbUser, _ := os.LookupEnv("DATABASE_USER")
@@ -170,6 +197,10 @@ func TestMeasurementHandler(t *testing.T) {
 
 	t.Run("GET", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", "", nil)
+		ctx := req.Context()
+		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &user)
+		req = req.WithContext(ctx)
+
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 		if w.Code != http.StatusMethodNotAllowed {
@@ -200,11 +231,48 @@ func TestMeasurementHandler(t *testing.T) {
 		}
 
 		// TODO: make sure it saved, validate the response
+		cmpOpts := []cmp.Option{
+			// TODO: write proper custom validators for these which make sure they at least have data
+			cmpopts.IgnoreFields(successResponse{}, "CreatedAt", "UpdatedAt", "Id"),
+		}
+		target := &successResponse{}
+		recordedAtResponse, _ := time.Parse(time.RFC3339, "2019-04-21T11:30:33.32838Z")
+		expectedResponse := &successResponse{Temperature: 65.2, SensorId: sensor.UUID, Units: "FAHRENHEIT",
+			RecordedAt: recordedAtResponse, UserId: user.UUID}
+		json.NewDecoder(w.Body).Decode(target)
+		if !cmp.Equal(expectedResponse, target, cmpOpts...) {
+			t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(expectedResponse, target, cmpOpts...))
+		}
+
+		// TODO: FindTemperatureMeasurement will eventually add the Sensor and CreatedBy onto the response for
+		// FindTemperatureMeasurement at which point this test needs a quickie update
+		expectedMeasurement := &worrywort.TemperatureMeasurement{Id: target.Id, SensorId: sensor.Id, UserId: user.Id,
+			Temperature: 65.2, Units: worrywort.FAHRENHEIT, RecordedAt: target.RecordedAt, UpdatedAt: target.UpdatedAt,
+			CreatedAt: target.CreatedAt}
+		if m, err := worrywort.FindTemperatureMeasurement(
+			map[string]interface{}{"uuid": target.Id, "sensor_id": *sensor.Id, "user_id": *user.Id}, db); err != nil {
+			t.Fatalf("Expected TemperatureMeasurement not found in database: %v", err)
+		} else {
+			cmpOpts := []cmp.Option{
+				// TODO: write proper custom validators for these which make sure they at least have data
+				// IgnoreUnexported is for `batch`
+				cmpopts.IgnoreFields(worrywort.TemperatureMeasurement{}, "Id"),
+				cmpopts.IgnoreUnexported(worrywort.TemperatureMeasurement{}),
+			}
+			if !cmp.Equal(expectedMeasurement, m, cmpOpts...) {
+				t.Errorf("Expected: - | Got: +\n%s", cmp.Diff(expectedMeasurement, m, cmpOpts...))
+			}
+		}
 	})
 
-	// t.Run("POST unauthenticated", func(t *testing.T) {
-	//
-	// })
+	t.Run("POST unauthenticated", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "", nil)
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("Home page didn't return 401, returned %v", w.Code)
+		}
+	})
 
 	t.Run("POST errors", func(t *testing.T) {
 		// for testing post see

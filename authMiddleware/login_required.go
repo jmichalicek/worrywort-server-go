@@ -2,6 +2,8 @@ package authMiddleware
 
 import (
 	"net/http"
+	// "log"
+	// "github.com/davecgh/go-spew/spew"
 )
 
 // A simple middleware to return a 403 if no authenticated user

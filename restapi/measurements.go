@@ -92,12 +92,6 @@ func (f *TemperatureMeasurementForm) Validate(values url.Values) {
 		f.RecordedAtErrors = append(f.RecordedAtErrors, "recorded_at must be a valid RFC3339 timestamp")
 	}
 
-	// var uuidErr error
-	// if _, uuidErr = uuid.Parse(sensorUUID); uuidErr != nil {
-	// 	isValid = false
-	// 	f.SensorIdErrors = append(f.SensorIdErrors, "Invalid sensor_id")
-	// }
-
 	if sensor, err := worrywort.FindSensor(map[string]interface{}{"uuid": sensorUUID, "user_id": *f.user.Id}, f.db); err == nil {
 		f.CleanedMeasurement.Sensor = sensor
 		f.CleanedMeasurement.SensorId = sensor.Id
@@ -148,60 +142,56 @@ type MeasurementHandler struct {
 }
 
 func (h *MeasurementHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.InsertMeasurement(w, r)
-}
-
-func (h *MeasurementHandler) InsertMeasurement(w http.ResponseWriter, r *http.Request) {
 	// TODO: put this log config somewhere central. really need something to encapsulate
 	// all routing for setting up graphql plus the new REST stuff, etc.
 	// Kind of started in server.go, but that really belongs elsewhere
 	log.SetFlags(log.LstdFlags | log.Llongfile)
-
-	// TODO: better error handling - send back as proper json response with all field errors, not one at a time
+	ctx := r.Context()
+	u, err := authMiddleware.UserFromContext(ctx)
+	if u == nil || err != nil {
+		// This is actually handled by some middleware before we ever get here, but playing it safe.
+		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		return
+	}
 	switch r.Method {
 	case "POST":
-		ctx := r.Context()
-		// log.Printf("IN HANDLER ctx IS %s\n", spew.Sdump(ctx))
-
-		user, _ := authMiddleware.UserFromContext(ctx)
-		db := h.Db
-		if err := r.ParseForm(); err != nil {
-			http.Error(w, fmt.Sprintf("%s", err), http.StatusBadRequest)
-			return
-		}
-
-		form := TemperatureMeasurementForm{CleanedMeasurement: &worrywort.TemperatureMeasurement{CreatedBy: user, UserId: user.Id}, db: db, user: user}
-		form.Validate(r.Form)
-		if !form.IsValid() {
-			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-			w.WriteHeader(http.StatusBadRequest)
-			if err := json.NewEncoder(w).Encode(form); err != nil {
-				panic(err)
-			}
-			return
-		}
-
-		m := form.CleanedMeasurement
-		if err := m.Save(db); err != nil {
-			log.Printf("%v", err)
-			http.Error(w, "Error saving measurement", http.StatusInternalServerError)
-			return
-		}
-		serializer := &TemperatureMeasurementSerializer{m}
-
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		w.WriteHeader(http.StatusCreated)
-		if err := json.NewEncoder(w).Encode(serializer); err != nil {
-			panic(err)
-		}
-		return
+		h.InsertMeasurement(w, r, u)
 	default:
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 	}
+
 }
 
-// Parse the form, return any errors and an unsaved instance of a TemperatureMeasurement
-// as supported metrics grow, if single endpoint is used, then this may go to having more of a django style
-// MetricForm struct to hold validation data, etc. which it returns
-func (h *MeasurementHandler) processForm(r *http.Request) {
+func (h *MeasurementHandler) InsertMeasurement(w http.ResponseWriter, r *http.Request, user *worrywort.User) {
+	db := h.Db
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, fmt.Sprintf("%s", err), http.StatusBadRequest)
+		return
+	}
+
+	form := TemperatureMeasurementForm{CleanedMeasurement: &worrywort.TemperatureMeasurement{CreatedBy: user, UserId: user.Id}, db: db, user: user}
+	form.Validate(r.Form)
+	if !form.IsValid() {
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(http.StatusBadRequest)
+		if err := json.NewEncoder(w).Encode(form); err != nil {
+			panic(err)
+		}
+		return
+	}
+
+	m := form.CleanedMeasurement
+	if err := m.Save(db); err != nil {
+		log.Printf("%v", err)
+		http.Error(w, "Error saving measurement", http.StatusInternalServerError)
+		return
+	}
+	serializer := &TemperatureMeasurementSerializer{m}
+
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(serializer); err != nil {
+		panic(err)
+	}
+	return
 }
