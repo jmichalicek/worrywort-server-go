@@ -162,6 +162,8 @@ var Schema = `
 		# Friendly name of the temperature sensor
 		name: String!
 		createdBy: User
+		createdAt: DateTime!
+		updatedAt: DateTime!
 	}
 
 	type SensorConnection {
