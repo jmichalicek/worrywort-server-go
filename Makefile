@@ -1,4 +1,10 @@
 
+worrywortd: worrywortd-gen
+	go build ./cmd/worrywortd
+
+worrywortd-gen:
+	go generate ./...
+
 # //bin/bash is windows msys make hack
 dev:
 	docker-compose run --service-ports --rm worrywortd //bin/bash

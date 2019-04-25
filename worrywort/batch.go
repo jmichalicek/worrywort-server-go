@@ -15,12 +15,16 @@ import (
 // Seems like these types should go in a different file for clarity, but not sure where
 type VolumeUnitType int64
 
+//go:generate stringer -type=VolumeUnitType
+
 const (
 	GALLON VolumeUnitType = iota
 	QUART
 )
 
 type TemperatureUnitType int64
+
+//go:generate stringer -type=TemperatureUnitType
 
 const (
 	FAHRENHEIT TemperatureUnitType = iota
