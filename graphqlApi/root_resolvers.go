@@ -98,7 +98,7 @@ func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*ba
 }
 
 func (r *Resolver) Batches(ctx context.Context, args struct {
-	First *int
+	First *int32
 	After *string
 }) (*batchConnection, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
@@ -112,6 +112,12 @@ func (r *Resolver) Batches(ctx context.Context, args struct {
 		return nil, ErrServerError
 	}
 
+	var first *int
+	if args.First != nil {
+		first = new(int)
+		*first = int(*args.First)
+	}
+
 	queryparams := map[string]interface{}{"user_id": u.Id}
 	offset := 0
 
@@ -122,8 +128,8 @@ func (r *Resolver) Batches(ctx context.Context, args struct {
 		}
 	}
 
-	if args.First != nil {
-		queryparams["limit"] = *args.First + 1 // +1 to easily see if there are more
+	if first != nil {
+		queryparams["limit"] = *first + 1 // +1 to easily see if there are more
 	}
 
 	batches, err := worrywort.FindBatches(queryparams, db)
@@ -136,7 +142,7 @@ func (r *Resolver) Batches(ctx context.Context, args struct {
 	hasPreviousPage := false
 	edges := []*batchEdge{}
 	for i, b := range batches {
-		if args.First == nil || i < *args.First {
+		if first == nil || i < *first {
 			resolvedBatch := batchResolver{b: b}
 			// TODO: maybe move this bit of addition into MakeOffsetCursor?
 			cursorval := offset + i + 1
@@ -157,7 +163,7 @@ func (r *Resolver) Batches(ctx context.Context, args struct {
 }
 
 func (r *Resolver) BatchSensorAssociations(ctx context.Context, args struct {
-	First    *int
+	First    *int32
 	After    *string
 	BatchId  *string
 	SensorId *string
@@ -182,8 +188,11 @@ func (r *Resolver) BatchSensorAssociations(ctx context.Context, args struct {
 		}
 	}
 
+	var first *int
 	if args.First != nil {
-		queryparams["limit"] = *args.First + 1 // +1 to easily see if there are more
+		first = new(int)
+		*first = int(*args.First)
+		queryparams["limit"] = *first + 1 // +1 to easily see if there are more
 	}
 
 	if args.BatchId != nil {
@@ -204,7 +213,7 @@ func (r *Resolver) BatchSensorAssociations(ctx context.Context, args struct {
 	hasPreviousPage := false
 	edges := []*batchSensorAssociationEdge{}
 	for i, assoc := range associations {
-		if args.First == nil || i < *args.First {
+		if first == nil || i < *first {
 			resolved := batchSensorAssociationResolver{assoc: assoc}
 			// TODO: Not 100% sure about this. We have current offset + current index + 1 where the extra 1
 			// is added so that the offset value in the cursor will be to start at the NEXT item, which feels odd
@@ -264,7 +273,7 @@ func (r *Resolver) Sensor(ctx context.Context, args struct{ ID graphql.ID }) (*s
 }
 
 func (r *Resolver) Sensors(ctx context.Context, args struct {
-	First *int
+	First *int32
 	After *string
 }) (*sensorConnection, error) {
 	u, _ := authMiddleware.UserFromContext(ctx)
@@ -289,8 +298,11 @@ func (r *Resolver) Sensors(ctx context.Context, args struct {
 		}
 	}
 
+	var first *int
 	if args.First != nil {
-		queryparams["limit"] = *args.First + 1 // +1 to easily see if there are more
+		first = new(int)
+		*first = int(*args.First)
+		queryparams["limit"] = *first + 1 // +1 to easily see if there are more
 	}
 
 	// Now get the temperature sensors, build out the info
@@ -305,7 +317,7 @@ func (r *Resolver) Sensors(ctx context.Context, args struct {
 	edges := []*sensorEdge{}
 
 	for i, s := range sensors {
-		if args.First == nil || i < *args.First {
+		if first == nil || i < *first {
 			cursorval := offset + i + 1
 			c, err := MakeOffsetCursor(cursorval)
 			if err != nil {
@@ -362,7 +374,7 @@ func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID g
 }
 
 func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
-	First    *int
+	First    *int32
 	After    *string
 	SensorId *string
 	BatchId  *string
@@ -388,8 +400,13 @@ func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
 		}
 	}
 
+	var first *int
 	if args.First != nil {
-		queryparams["limit"] = *args.First + 1 // +1 to easily see if there are more
+		// TODO: Need to be careful with these - they pass the tests if args.First is int rather than int32
+		// yet actual usage fails....  Make a trello card for further research
+		first = new(int)
+		*first = int(*args.First)
+		queryparams["limit"] = *first + 1 // +1 to easily see if there are more
 	}
 
 	if args.BatchId != nil {
@@ -421,7 +438,7 @@ func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
 	hasNextPage := false
 	hasPreviousPage := false
 	for i, m := range measurements {
-		if args.First == nil || i < *args.First {
+		if first == nil || i < *first {
 			resolved := temperatureMeasurementResolver{m: m}
 			// TODO: maybe move this bit of addition into MakeOffsetCursor?
 			cursorval := offset + i + 1
