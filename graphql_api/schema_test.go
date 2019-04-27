@@ -1,4 +1,4 @@
-package graphqlApi
+package graphql_api
 
 import (
 	graphql "github.com/graph-gophers/graphql-go"

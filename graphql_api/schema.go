@@ -1,4 +1,4 @@
-package graphqlApi
+package graphql_api
 
 // fermentor(id: ID!): Fermentor
 // sensor(id: ID!): Sensor

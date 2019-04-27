@@ -1,4 +1,4 @@
-package graphqlApi
+package graphql_api
 
 import (
 	"github.com/google/go-cmp/cmp"

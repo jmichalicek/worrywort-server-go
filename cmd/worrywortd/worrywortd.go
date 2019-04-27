@@ -7,7 +7,7 @@ import (
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
-	"github.com/jmichalicek/worrywort-server-go/graphqlApi"
+	"github.com/jmichalicek/worrywort-server-go/graphql_api"
 	"github.com/jmichalicek/worrywort-server-go/restapi"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
@@ -47,7 +47,7 @@ func main() {
 		dbHost, dbPort, dbUser, dbPassword, dbName)
 
 	db, _ := sqlx.Connect("postgres", connectionString)
-	schema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	schema = graphql.MustParseSchema(graphql_api.Schema, graphql_api.NewResolver(db))
 
 	// could do a middleware in this style to add db to the context like I used to, but more middleware friendly.
 	// Could also do that to add a logger, etc. For now, that stuff is getting attached to each handler
@@ -67,7 +67,7 @@ func main() {
 	r.Use(middleware.Compress(5, "text/html", "application/javascript"))
 	r.Use(middleware.Logger)
 	r.Use(tokenAuthHandler)
-	r.Handle("/graphql", &graphqlApi.Handler{Db: db, Handler: &relay.Handler{Schema: schema}})
+	r.Handle("/graphql", &graphql_api.Handler{Db: db, Handler: &relay.Handler{Schema: schema}})
 	r.Method("POST", "/api/v1/measurement", authRequiredHandler(&restapi.MeasurementHandler{Db: db}))
 	// TODO: need to manually handle CORS? Chi has some cors stuff, yay
 	// https://github.com/graph-gophers/graphql-go/issues/74#issuecomment-289098639
