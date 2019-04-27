@@ -3,11 +3,11 @@ package main
 import (
 	"fmt"
 	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
+	chimiddleware "github.com/go-chi/chi/middleware"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
-	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/graphql_api"
+	"github.com/jmichalicek/worrywort-server-go/middleware"
 	"github.com/jmichalicek/worrywort-server-go/rest_api"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
@@ -20,7 +20,7 @@ import (
 
 var schema *graphql.Schema
 
-// Returns a function for looking up a user by token for authMiddleware.NewTokenAuthHandler()
+// Returns a function for looking up a user by token for middleware.NewTokenAuthHandler()
 // which closes over the db needed to look up the user
 func newTokenAuthLookup(db *sqlx.DB) func(token string) (*worrywort.User, error) {
 	return func(token string) (*worrywort.User, error) {
@@ -51,8 +51,8 @@ func main() {
 
 	// could do a middleware in this style to add db to the context like I used to, but more middleware friendly.
 	// Could also do that to add a logger, etc. For now, that stuff is getting attached to each handler
-	tokenAuthHandler := authMiddleware.NewTokenAuthHandler(newTokenAuthLookup(db))
-	authRequiredHandler := authMiddleware.NewLoginRequiredHandler()
+	tokenAuthHandler := middleware.NewTokenAuthHandler(newTokenAuthLookup(db))
+	authRequiredHandler := middleware.NewLoginRequiredHandler()
 
 	// Not really sure I needed to switch to Chi here instead of the built in stuff.
 	// TODO: Test the actual server being built here. Will maybe need some restructuring of this
@@ -64,8 +64,8 @@ func main() {
 	//   Router CHI_ROUTER_TYPE
 	// }
 	r := chi.NewRouter()
-	r.Use(middleware.Compress(5, "text/html", "application/javascript"))
-	r.Use(middleware.Logger)
+	r.Use(chimiddleware.Compress(5, "text/html", "application/javascript"))
+	r.Use(chimiddleware.Logger)
 	r.Use(tokenAuthHandler)
 	r.Handle("/graphql", &graphql_api.Handler{Db: db, Handler: &relay.Handler{Schema: schema}})
 	r.Method("POST", "/api/v1/measurement", authRequiredHandler(&rest_api.MeasurementHandler{Db: db}))

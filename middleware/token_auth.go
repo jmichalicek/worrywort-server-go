@@ -2,7 +2,7 @@
 // tied to a user account.  This is intended for situations such as
 // server to server API requests, etc. where a login -> get jwt -> request with jwt
 // would be annoying
-package authMiddleware
+package middleware
 
 import (
 	"context"
@@ -16,6 +16,7 @@ import (
 
 // TODO:  tests for this middleware like at https://medium.com/@PurdonKyle/unit-testing-golang-http-middleware-c7727ca896ea
 // Eventually this will be configurable.
+// TODO: Now that this package is just `middleware` and not auth specific, this const feels either poorly named or misplaced.
 const DefaultUserKey string = "user"
 
 var ErrUserNotInContext = errors.New("Could not get worrywort.User from context")

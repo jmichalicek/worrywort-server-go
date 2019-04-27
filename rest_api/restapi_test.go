@@ -9,7 +9,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	// "github.com/davecgh/go-spew/spew"
-	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
+	"github.com/jmichalicek/worrywort-server-go/middleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
 	// "log"
@@ -198,7 +198,7 @@ func TestMeasurementHandler(t *testing.T) {
 	t.Run("GET", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", "", nil)
 		ctx := req.Context()
-		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &user)
+		ctx = context.WithValue(ctx, middleware.DefaultUserKey, &user)
 		req = req.WithContext(ctx)
 
 		w := httptest.NewRecorder()
@@ -221,7 +221,7 @@ func TestMeasurementHandler(t *testing.T) {
 		req.PostForm = form
 		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 		ctx := req.Context()
-		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &user)
+		ctx = context.WithValue(ctx, middleware.DefaultUserKey, &user)
 		req = req.WithContext(ctx)
 
 		w := httptest.NewRecorder()
@@ -287,7 +287,7 @@ func TestMeasurementHandler(t *testing.T) {
 		req.PostForm = form
 		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 		ctx := req.Context()
-		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &user)
+		ctx = context.WithValue(ctx, middleware.DefaultUserKey, &user)
 		req = req.WithContext(ctx)
 
 		w := httptest.NewRecorder()

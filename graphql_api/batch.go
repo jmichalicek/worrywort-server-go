@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"github.com/davecgh/go-spew/spew"
 	graphql "github.com/graph-gophers/graphql-go"
-	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
+	"github.com/jmichalicek/worrywort-server-go/middleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
 	"log"
@@ -178,7 +178,7 @@ func (c createBatchPayload) Batch() *batchResolver {
 func (r *Resolver) CreateBatch(ctx context.Context, args *struct {
 	Input *createBatchInput
 }) (*createBatchPayload, error) {
-	u, _ := authMiddleware.UserFromContext(ctx)
+	u, _ := middleware.UserFromContext(ctx)
 	if u == nil {
 		return nil, ErrUserNotAuthenticated
 	}

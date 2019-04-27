@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	// "github.com/davecgh/go-spew/spew"
-	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
+	"github.com/jmichalicek/worrywort-server-go/middleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
 	"log"
@@ -147,7 +147,7 @@ func (h *MeasurementHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Kind of started in server.go, but that really belongs elsewhere
 	log.SetFlags(log.LstdFlags | log.Llongfile)
 	ctx := r.Context()
-	u, err := authMiddleware.UserFromContext(ctx)
+	u, err := middleware.UserFromContext(ctx)
 	if u == nil || err != nil {
 		// This is actually handled by some middleware before we ever get here, but playing it safe.
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
