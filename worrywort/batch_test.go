@@ -37,7 +37,7 @@ func TestSaveFermentor(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -91,13 +91,13 @@ func TestFindSensorFuncs(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	u2 := User{Email: "user2@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u2 := User{Email: "user2@example.com", FullName: "Justin Michalicek", Username: "worrywort2"}
 	err = u2.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -190,7 +190,7 @@ func TestSaveSensor(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -247,7 +247,7 @@ func TestTemperatureMeasurementModel(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -398,7 +398,7 @@ func TestFindBatch(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -437,13 +437,13 @@ func TestFindBatches(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	u2 := User{Email: "user2@example.com", FirstName: "Justin", LastName: "M"}
+	u2 := User{Email: "user2@example.com", FullName: "Justin M", Username: "worrywort2"}
 	err = u2.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -523,7 +523,7 @@ func TestBatch(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -624,7 +624,7 @@ func TestBatchSensorAssociations(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -718,7 +718,7 @@ func TestFindBatchSensorAssociations(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -797,13 +797,13 @@ func TestFindTemperatureMeasurements(t *testing.T) {
 
 	// TODO: must be a good way to shorten this setup model creation... function which takes count of
 	// users to create, etc. I suppose.
-	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	u2 := User{Email: "user2@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u2 := User{Email: "user2@example.com", FullName: "Justin Michalicek", Username: "worrywort2"}
 	err = u2.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)

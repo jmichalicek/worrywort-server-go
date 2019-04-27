@@ -3,6 +3,7 @@
 
 -- May need to do this for generating the uuid... but may already be loaded?
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS citext;
 
 BEGIN;
 -- id for PK because I'm lazy and so used to standard ORM rules
@@ -16,17 +17,18 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS users(
   id BIGSERIAL PRIMARY KEY,
   uuid uuid DEFAULT gen_random_uuid(),
-  first_name text DEFAULT '',
-  last_name text DEFAULT '',
-  email text DEFAULT '',
+  full_name text DEFAULT '',
+  username citext DEFAULT '',
+  email citext DEFAULT '',
   password text DEFAULT '',
   is_active boolean DEFAULT FALSE,
   is_admin boolean DEFAULT FALSE,
 
   created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone
+  updated_at timestamp with time zone,
+  UNIQUE(email),
+  UNIQUE(username)
 );
-CREATE INDEX IF NOT EXISTS users_email_lower_idx ON users ((lower(email)));
 CREATE INDEX IF NOT EXISTS users_uuid_idx ON users (uuid);
 
 CREATE TABLE IF NOT EXISTS user_authtokens(

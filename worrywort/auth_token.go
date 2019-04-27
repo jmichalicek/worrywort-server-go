@@ -122,7 +122,7 @@ func AuthenticateUserByToken(tokenStr string, db *sqlx.DB) (AuthToken, error) {
 	// TODO: sqrl
 	query := db.Rebind(
 		`SELECT t.id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, u.id "user.id", u.uuid "user.uuid",
-			u.first_name "user.first_name", u.last_name "user.last_name", u.email "user.email", u.created_at "user.created_at",
+			u.full_name "user.full_name", u.username "user.username", u.email "user.email", u.created_at "user.created_at",
 			u.updated_at "user.updated_at", u.password "user.password" FROM user_authtokens t
 			JOIN users u ON t.user_id = u.id
 			WHERE t.id = ? AND (t.expires_at IS NULL OR t.expires_at > ?)`)
