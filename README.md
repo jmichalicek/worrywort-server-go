@@ -61,6 +61,7 @@ mutation logIn($username: String!, $password: String!) {
 
 ### Roadmap:
 
+* improve core worrywortd server code a bit to be more testable
 * graphql user registration flow and supporting bits
 * graphql user management - password reset, update profile stuff, etc.
 * graphql fleshed out - several things need to be able to be updated, etc.
@@ -75,3 +76,4 @@ mutation logIn($username: String!, $password: String!) {
 
 ### Maybe TODO:
 * Potential use of InfluxDb or TimescaleDB for temperature readings
+* just use db url for db connection
