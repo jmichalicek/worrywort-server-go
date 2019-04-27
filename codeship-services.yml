@@ -21,7 +21,7 @@ worrywortd:
   cached: true
   build:
     context: .
-    dockerfile: Dockerfile.dev
+    dockerfile: Dockerfile
   environment:
     DATABASE_HOST: database
     DATABASE_NAME: worrywort

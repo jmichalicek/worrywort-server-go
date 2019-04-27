@@ -2,8 +2,13 @@
 
 # WorryWort
 
-This is an experiment in rewriting the current WorryWort server Elixir/Phoenix codebase in go.
+A beer fermentation logging and alerting system
 
+This started life as an experiment in rewriting the current WorryWort server Elixir/Phoenix codebase in go, which in itself was a toy project to learn Elixir. Similar products have poppped up, but I feel this is still worthwhile.
+
+## Open Source Involvement
+
+I do not currently desire to grow a large open source community of contributors. Maintaining an open source community is very different from just maintaining code and a platform to run it. I do want the system to be open and available for use, though. I have built it and my entire career on freely available open source software. That said, if there's an obviously better way something could or should be done, let me know.
 
 # Testing/Development
 
@@ -54,16 +59,19 @@ mutation logIn($username: String!, $password: String!) {
 }
 ```
 
-### TODO:
+### Roadmap:
 
-* Auth integration with ory hydra
-  * Started but need to do it.  Make some middleware like this https://github.com/janekolszak/gin-hydra/blob/master/ginhydra.go
-  * Pluggable auth so that auth0 could be used?
-* The rest of the GraphQL types
-  * Mutations - login, put batches, put fermentor, put measurement, etc.
-  * Batches list, fermentor list, etc.
-* Custom DateTime type in the GraphQL Schema rather than String
-* DB stuff - github.com/mgutz/dat or just sqlx?
-* Actual http interface - chi or echo?
-* Password reset mutation/grapql flow and then web views somewhere, change password mutation,
-* Helper command line stuff to create user, manage initial data, etc.
+* graphql user registration flow and supporting bits
+* graphql user management - password reset, update profile stuff, etc.
+* graphql fleshed out - several things need to be able to be updated, etc.
+* graphql subscriptions for temperature readings for a batch
+* push notifications to upcoming mobile apps for sensor reading alerts
+* webhook notifications for sensor reading alerts
+* support for manual temperature readings
+* support for sensor associated with multiple batches - ambient air in a room or chamber, etc.
+* integration with tilt sensor
+* nice way of handling/distributing migrations?
+
+
+### Maybe TODO:
+* Potential use of InfluxDb or TimescaleDB for temperature readings
