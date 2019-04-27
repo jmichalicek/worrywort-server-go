@@ -111,7 +111,7 @@ func TestLoginMutation(t *testing.T) {
 	defer db.Close()
 
 	var worrywortSchema = graphql.MustParseSchema(graphql_api.Schema, graphql_api.NewResolver(db))
-	user := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	user := worrywort.User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	// This is the hash for the password `password`
 	// var hashedPassword string = "$2a$13$pPg7mwPA.VFf3W9AUZyMGO0Q2nhoh/979F/TZ8ED.iqVubLe.TDmi"
 	err = worrywort.SetUserPassword(&user, "password", bcrypt.MinCost)
@@ -163,7 +163,7 @@ func TestLoginMutation(t *testing.T) {
 		newToken := worrywort.AuthToken{}
 		query = db.Rebind(
 			`SELECT t.id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, u.id "user.id", u.uuid "user.uuid",
-				u.first_name "user.first_name", u.last_name "user.last_name", u.email "user.email",
+				u.full_name "user.full_name", u.username "user.username", u.email "user.email",
 				u.created_at "user.created_at", u.updated_at "user.updated_at", u.password "user.password"
 			 FROM user_authtokens t
 			 INNER JOIN users u ON t.user_id = u.id
@@ -192,7 +192,7 @@ func TestCurrentUserQuery(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := worrywort.User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -258,13 +258,13 @@ func TestBatchQuery(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := worrywort.User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	u2 := worrywort.User{Email: "user2@example.com", FirstName: "Justin", LastName: "M"}
+	u2 := worrywort.User{Email: "user2@example.com", FullName: "Justin D Michalicek", Username: "worrywort2"}
 	err = u2.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -477,7 +477,7 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := worrywort.User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -488,7 +488,7 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 
-	u2 := worrywort.User{Email: "user2@example.com", FirstName: "Justin", LastName: "M"}
+	u2 := worrywort.User{Email: "user2@example.com", FullName: "Justin D Michalicek", Username: "worrywort2"}
 	if err = u2.Save(db); err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
@@ -609,7 +609,7 @@ func TestSensorQuery(t *testing.T) {
 	defer db.Close()
 
 	// TODO: This whole create 2 users and setup context is done A LOT here. can it be de-duplicated?
-	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := worrywort.User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -619,7 +619,7 @@ func TestSensorQuery(t *testing.T) {
 	ctx = context.WithValue(ctx, "db", db)
 	ctx = context.WithValue(ctx, middleware.DefaultUserKey, &u)
 
-	u2 := worrywort.User{Email: "user2@example.com", FirstName: "Justin", LastName: "M"}
+	u2 := worrywort.User{Email: "user2@example.com", FullName: "Justin M", Username: "worrywort2"}
 	err = u2.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -838,7 +838,7 @@ func TestCreateBatchMutation(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := worrywort.User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -985,7 +985,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := worrywort.User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -1001,7 +1001,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 
-	u2 := worrywort.User{Email: "user2@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u2 := worrywort.User{Email: "user2@example.com", FullName: "Justin Michalicek", Username: "worrywort2"}
 	if err := u2.Save(db); err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
@@ -1251,7 +1251,7 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := worrywort.User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -1267,7 +1267,7 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 
-	u2 := worrywort.User{Email: "user2@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u2 := worrywort.User{Email: "user2@example.com", FullName: "Justin Michalicek", Username: "worrywort2"}
 	if err = u2.Save(db); err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
@@ -1486,7 +1486,7 @@ func TestBatchSensorAssociationsQuery(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := worrywort.User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -1636,13 +1636,13 @@ func TestTemperatureMeasurementsQuery(t *testing.T) {
 
 	// TODO: must be a good way to shorten this setup model creation... function which takes count of
 	// users to create, etc. I suppose.
-	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := worrywort.User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	u2 := worrywort.User{Email: "user2@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u2 := worrywort.User{Email: "user2@example.com", FullName: "Justin Michalicek", Username: "worrywort2"}
 	err = u2.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -1830,7 +1830,7 @@ func TestCreateSensorMutation(t *testing.T) {
 	}
 	defer db.Close()
 
-	u := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	u := worrywort.User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = u.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)

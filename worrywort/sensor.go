@@ -39,7 +39,7 @@ func buildSensorsQuery(params map[string]interface{}, db *sqlx.DB) *sqrl.SelectB
 		query = query.Column(fmt.Sprintf("s.%s", k))
 	}
 
-	for _, k := range []string{"id", "uuid", "first_name", "last_name", "email", "password", "created_at", "updated_at"} {
+	for _, k := range []string{"id", "uuid", "full_name", "username", "email", "password", "created_at", "updated_at"} {
 		query = query.Column(fmt.Sprintf("u.%s \"u.%s\"", k, k))
 	}
 

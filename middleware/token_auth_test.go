@@ -13,8 +13,8 @@ import (
 func TestTokenMiddleware(t *testing.T) {
 	// Handler
 	uid := int64(1)
-	expectedUser := worrywort.User{Id: &uid, Email: "jmichalicek@gmail.com", FirstName: "Justin", LastName: "Michalicek",
-		CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	expectedUser := worrywort.User{Id: &uid, Email: "jmichalicek@gmail.com", FullName: "Justin Michalicek",
+		Username: "worrywort", CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	getUser := func(token string) (*worrywort.User, error) { return &expectedUser, nil }
 	tokenAuthHandler := NewTokenAuthHandler(getUser)
 
@@ -50,7 +50,7 @@ func TestTokenMiddleware(t *testing.T) {
 		// If a user is already set, such as by a different auth middleware such as http basic or jwt
 		// then this middleware should not change that.
 		uid := int64(2)
-		u := worrywort.User{Id: &uid, Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+		u := worrywort.User{Id: &uid, Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 
 		req, _ := http.NewRequest("GET", "/", nil)
 		req.Header.Set("Authorization", "token 12345")

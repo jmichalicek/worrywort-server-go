@@ -13,7 +13,7 @@ import (
 func TestUserStruct(t *testing.T) {
 	createdAt := time.Now()
 	updatedAt := time.Now().Add(time.Hour * time.Duration(1))
-	u := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek", CreatedAt: createdAt,
+	u := User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort", CreatedAt: createdAt,
 		UpdatedAt: updatedAt}
 
 	t.Run("SetUserPassword()", func(t *testing.T) {
@@ -44,7 +44,7 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 	}
 	defer db.Close()
 
-	user := User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	user := User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	password := "password"
 	err = SetUserPassword(&user, password, bcrypt.MinCost)
 	if err != nil {

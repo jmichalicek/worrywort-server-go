@@ -61,7 +61,7 @@ mutation logIn($username: String!, $password: String!) {
 
 ### Roadmap:
 
-* improve core worrywortd server code a bit to be more testable
+#### Features
 * graphql user registration flow and supporting bits
 * graphql user management - password reset, update profile stuff, etc.
 * graphql fleshed out - several things need to be able to be updated, etc.
@@ -71,7 +71,12 @@ mutation logIn($username: String!, $password: String!) {
 * support for manual temperature readings
 * support for sensor associated with multiple batches - ambient air in a room or chamber, etc.
 * integration with tilt sensor
+
+
+#### Code
+* better/cleaner joins in sql - probably reusable functions to generate joins, column selects, etc. so that updates to columns do not need to happen in several places
 * nice way of handling/distributing migrations?
+* improve core worrywortd server code a bit to be more testable - main Server struct which has the routes, router, etc.
 
 
 ### Maybe TODO:

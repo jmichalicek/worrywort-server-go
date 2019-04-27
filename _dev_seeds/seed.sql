@@ -1,6 +1,6 @@
 /* Create a fake user with the password 'password' */
-INSERT INTO users (id, first_name, last_name, email, password, is_active, is_admin, updated_at)
-  VALUES (1, 'First', 'Last', 'user@example.org', '$2a$13$ziIoEVxTifUjLqxgQr6p/OyVlfKqdET9m/t5rDEzXmRcaJNjPCINW', 't', 'f', now())
+INSERT INTO users (id, full_name, username, email, password, is_active, is_admin, updated_at)
+  VALUES (1, 'First McLast', 'worrywort', 'user@example.org', '$2a$13$ziIoEVxTifUjLqxgQr6p/OyVlfKqdET9m/t5rDEzXmRcaJNjPCINW', 't', 'f', now())
   ON CONFLICT DO NOTHING;
 
 INSERT INTO batches (id, user_id, name, tasting_notes, brewed_date, bottled_date, volume_boiled, volume_in_fermentor, volume_units, original_gravity, final_gravity, updated_at)

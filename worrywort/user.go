@@ -22,12 +22,12 @@ var ErrUserNotFound error = errors.New("User not found")
 type User struct {
 	// really could use email as the pk for the db, but fudging it because I've been trained by ORMs
 	// TODO: Considering having a separate username from the email
-	Id        *int64 `db:"id"`
-	UUID      string `db:"uuid"`
-	FirstName string `db:"first_name"`
-	LastName  string `db:"last_name"`
-	Email     string `db:"email"`
-	Password  string `db:"password" json:"-"`
+	Id       *int64 `db:"id"`
+	UUID     string `db:"uuid"`
+	FullName string `db:"full_name"`
+	Username string `db:"username"`
+	Email    string `db:"email"`
+	Password string `db:"password" json:"-"`
 
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
@@ -35,7 +35,7 @@ type User struct {
 
 func (u User) queryColumns() []string {
 	// TODO: Way to dynamically build this using the `db` tag and reflection/introspection
-	return []string{"id", "uuid", "first_name", "last_name", "email", "password", "created_at", "updated_at"}
+	return []string{"id", "uuid", "full_name", "username", "email", "password", "created_at", "updated_at"}
 }
 
 // SetUserPassword hashes the given password and returns a new user with the password set to the bcrypt hashed value
@@ -73,11 +73,11 @@ func InsertUser(db *sqlx.DB, u *User) error {
 	userId := new(int64)
 	guid := new(string)
 
-	query := db.Rebind(`INSERT INTO users (email, first_name, last_name, password, created_at, updated_at)
+	query := db.Rebind(`INSERT INTO users (email, full_name, username, password, created_at, updated_at)
 		VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING id, uuid, created_at, updated_at`)
 	// TODO: just use StructScan?  Or at least scan right into user.Id?
 	err := db.QueryRow(
-		query, u.Email, u.FirstName, u.LastName, u.Password).Scan(userId, guid, &createdAt, &updatedAt)
+		query, u.Email, u.FullName, u.Username, u.Password).Scan(userId, guid, &createdAt, &updatedAt)
 	if err != nil {
 		return err
 	}
@@ -94,11 +94,12 @@ func InsertUser(db *sqlx.DB, u *User) error {
 // Returns the same, unmodified User and errors on error
 func UpdateUser(db *sqlx.DB, u *User) error {
 	// TODO: TEST CASE
+	// TODO: maybe go to trigger for updated_at like https://stackoverflow.com/a/26284695
 	var updatedAt time.Time
-	query := db.Rebind(`UPDATE users SET email = ?, first_name = ?, last_name = ?, password = ?, updated_at = NOW()
+	query := db.Rebind(`UPDATE users SET email = ?, full_name = ?, username = ?, password = ?, updated_at = NOW()
 		WHERE id = ?) RETURNING updated_at`)
 	err := db.QueryRow(
-		query, u.Email, u.FirstName, u.LastName, u.Password, u.Id).Scan(&updatedAt)
+		query, u.Email, u.FullName, u.Username, u.Password, u.Id).Scan(&updatedAt)
 	if err != nil {
 		return err
 	}
@@ -142,7 +143,7 @@ func LookupUserByToken(tokenStr string, db *sqlx.DB) (User, error) {
 	// TODO: sqrl?
 	query := db.Rebind(
 		`SELECT t.id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, u.id "user.id", u.uuid "user.uuid",
-			u.first_name "user.first_name", u.last_name "user.last_name", u.email "user.email", u.created_at "user.created_at",
+			u.full_name "user.full_name", u.username "user.username", u.email "user.email", u.created_at "user.created_at",
 			u.updated_at "user.updated_at", u.password "user.password" FROM user_authtokens t
 			JOIN users u ON t.user_id = u.id
 			WHERE t.id = ? AND (t.expires_at IS NULL OR t.expires_at > ?)`)
@@ -184,7 +185,7 @@ func FindUser(params map[string]interface{}, db *sqlx.DB) (*User, error) {
 	// as in BatchesForUser, this now seems dumb
 	// queryCols := []string{"id", "name", "created_at", "updated_at", "user_id"}
 	// If I need this many places, maybe make a const
-	for _, k := range []string{"id", "uuid", "email", "first_name", "last_name", "password", "created_at", "updated_at"} {
+	for _, k := range []string{"id", "uuid", "email", "full_name", "username", "password", "created_at", "updated_at"} {
 		selectCols += fmt.Sprintf("u.%s, ", k)
 	}
 

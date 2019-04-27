@@ -85,7 +85,7 @@ func TestMeasurementSerializer(t *testing.T) {
 
 	// TODO: must be a good way to shorten this setup model creation... function which takes count of
 	// users to create, etc. I suppose.
-	user := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	user := worrywort.User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = user.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)
@@ -182,7 +182,7 @@ func TestMeasurementHandler(t *testing.T) {
 
 	// TODO: must be a good way to shorten this setup model creation... function which takes count of
 	// users to create, etc. I suppose.
-	user := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
+	user := worrywort.User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
 	err = user.Save(db)
 	if err != nil {
 		t.Fatalf("failed to insert user: %s", err)

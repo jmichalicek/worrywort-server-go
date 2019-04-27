@@ -183,8 +183,8 @@ var Schema = `
 
 	type User {
 		id: ID!
-		firstName: String!
-		lastName: String!
+		fullName: String!
+		username: String!
 		email: String!
 		createdAt: DateTime!
 		updatedAt: DateTime!
