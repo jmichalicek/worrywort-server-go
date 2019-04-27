@@ -557,7 +557,7 @@ func TestAuthTokenResolver(t *testing.T) {
 	u := worrywort.User{Id: &uId, Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort",
 		CreatedAt: time.Now(), UpdatedAt: time.Now()}
 
-	token := worrywort.NewToken("token", u, worrywort.TOKEN_SCOPE_ALL)
+	token := worrywort.NewLoginToken("token", u, worrywort.TOKEN_SCOPE_ALL)
 	token.Id = "tokenid"
 	r := authTokenResolver{t: token}
 

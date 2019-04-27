@@ -84,7 +84,7 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 
 	t.Run("TestLookupUserByToken", func(t *testing.T) {
 		tokenKey := "secret"
-		token := NewToken(tokenKey, user, TOKEN_SCOPE_ALL)
+		token := NewLoginToken(tokenKey, user, TOKEN_SCOPE_ALL)
 		token.Save(db)
 		tokenId := token.Id
 
@@ -134,7 +134,7 @@ func TestUserDatabaseFunctionality(t *testing.T) {
 		// TODO: MOVE THESE?  Technically auth token tests now?
 		t.Run("TestAuthenticateUserByToken", func(t *testing.T) {
 			tokenKey := "secret"
-			token := NewToken(tokenKey, user, TOKEN_SCOPE_ALL)
+			token := NewLoginToken(tokenKey, user, TOKEN_SCOPE_ALL)
 			token.Save(db)
 			tokenId := token.Id
 

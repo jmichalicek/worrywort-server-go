@@ -77,6 +77,8 @@ mutation logIn($username: String!, $password: String!) {
 * better/cleaner joins in sql - probably reusable functions to generate joins, column selects, etc. so that updates to columns do not need to happen in several places
 * nice way of handling/distributing migrations?
 * improve core worrywortd server code a bit to be more testable - main Server struct which has the routes, router, etc.
+* May move everything under main worrywort package and put models in worrywort.models?
+* Improve logging and crash reporting - add in a nice logger util which supports different stuff, structured logging, sentry, etc.
 
 
 ### Maybe TODO:

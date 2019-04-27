@@ -28,16 +28,28 @@ const (
 	TOKEN_SCOPE_READ_TEMPS
 )
 
+type AuthTokenType int
+
+const (
+	TOKEN_TYPE_LOGIN AuthTokenType = iota
+	TOKEN_TYPE_PERSONAL_ACCESS
+)
+
 // Simplified auth tokens.  May eventually be replaced with proper OAuth 2.
 type AuthToken struct {
 	// Can this just be a uuid type? Tried and it did not play nicely, but should be possible
+	// TODO: have UserId as just id
+	// TODO: For now we store both short lived login and long lived personal access tokens. Arguably the login tokens
+	// could be handled purely in memory JWT style, but couldn't easily expire them early then still to force a logout of just
+	// a single device/instance.
 	Id         string             `db:"id"`
 	Token      string             `db:"token"`
-	User       User               `db:"user,prefix=u."`
-	ExpiresAt  pq.NullTime        `db:"expires_at"`
+	User       User               `db:"user"`
+	ExpiresAt  pq.NullTime        `db:"expires_at"` // TODO: just make a *time.Time
 	CreatedAt  time.Time          `db:"created_at"`
 	UpdatedAt  time.Time          `db:"updated_at"`
 	Scope      AuthTokenScopeType `db:"scope"`
+	Type       AuthTokenType      `db:"type"`
 	fromString string             // usually empty, the string this token was generated from
 }
 
@@ -54,10 +66,10 @@ func (t *AuthToken) Save(db *sqlx.DB) error {
 	if t.Id != "" {
 		return nil
 	}
-	query := db.Rebind(`INSERT INTO user_authtokens (token, expires_at, updated_at, scope, user_id)
-		VALUES (?, ?, NOW(), ?, ?) RETURNING id, created_at, updated_at`)
+	query := db.Rebind(`INSERT INTO user_authtokens (token, expires_at, updated_at, scope, user_id, type)
+		VALUES (?, ?, NOW(), ?, ?, ?) RETURNING id, created_at, updated_at`)
 	err := db.QueryRow(
-		query, t.Token, t.ExpiresAt, t.Scope, t.User.Id).Scan(tokenId, createdAt, updatedAt)
+		query, t.Token, t.ExpiresAt, t.Scope, t.User.Id, t.Type).Scan(tokenId, createdAt, updatedAt)
 	if err == nil {
 		t.Id = *tokenId
 		t.CreatedAt = *createdAt
@@ -80,20 +92,22 @@ func MakeTokenHash(tokenStr string) string {
 	return token
 }
 
-// Returns an AuthToken with a hashed token for a given tokenId and token string
-func NewToken(token string, user User, scope AuthTokenScopeType) AuthToken {
-	// TODO: instead of taking hashCost, take a function which hashes the passwd
-	// for now use SHA512.  The token as a uuidv4 already has significant entropy, so salt is
-	// less necessary.  Users must already login with a slow hash before generating a token here,
-	// and for API usage on every request this token needs to be fast to calculate.
+// TODO: rename to NewAuthToken
+func NewToken(token string, user User, scope AuthTokenScopeType, t AuthTokenType) AuthToken {
 	tokenString := MakeTokenHash(token)
-	return AuthToken{Token: tokenString, User: user, Scope: scope, fromString: token}
+	return AuthToken{Token: tokenString, User: user, Scope: scope, fromString: token, Type: t}
+}
+
+// Returns an AuthToken with a hashed token for a given tokenId and token string
+func NewLoginToken(token string, user User, scope AuthTokenScopeType) AuthToken {
+	return NewToken(token, user, scope, TOKEN_TYPE_LOGIN)
 }
 
 // Generate a random auth token for a user with the given scope
 func GenerateTokenForUser(user User, scope AuthTokenScopeType) (AuthToken, error) {
 	// TODO: instead of taking hashCost, take a function which hashes the passwd - this could then do bcrypt at any cost,
 	// pbkdf2, or for testing situations a simple md5 or just leave alone.
+	// TODO: differentiate login token and personal access token to be able to generate both
 	token, err := uuid.NewRandom()
 	if err != nil {
 		return AuthToken{}, err
@@ -101,7 +115,7 @@ func GenerateTokenForUser(user User, scope AuthTokenScopeType) (AuthToken, error
 
 	// not sure there's much point to this, but it makes it nicer looking
 	tokenb64 := base64.URLEncoding.EncodeToString([]byte(token.String()))
-	return NewToken(tokenb64, user, scope), nil
+	return NewLoginToken(tokenb64, user, scope), nil
 }
 
 func AuthenticateUserByToken(tokenStr string, db *sqlx.DB) (AuthToken, error) {

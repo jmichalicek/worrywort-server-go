@@ -162,14 +162,14 @@ func TestLoginMutation(t *testing.T) {
 		tokenId := parts[0]
 		newToken := worrywort.AuthToken{}
 		query = db.Rebind(
-			`SELECT t.id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, u.id "user.id", u.uuid "user.uuid",
+			`SELECT t.id, t.token, t.scope, t.expires_at, t.created_at, t.updated_at, t.type, u.id "user.id", u.uuid "user.uuid",
 				u.full_name "user.full_name", u.username "user.username", u.email "user.email",
 				u.created_at "user.created_at", u.updated_at "user.updated_at", u.password "user.password"
 			 FROM user_authtokens t
 			 INNER JOIN users u ON t.user_id = u.id
-			 WHERE t.id = ?`)
+			 WHERE t.id = ? AND t.type = ?`)
 
-		err := db.Get(&newToken, query, tokenId)
+		err := db.Get(&newToken, query, tokenId, worrywort.TOKEN_TYPE_LOGIN)
 		if err != nil {
 			t.Errorf("Error looking up newly created token: %v", err)
 		}

@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS user_authtokens(
   user_id integer REFERENCES users (id) ON DELETE CASCADE,
   scope integer,
   expires_at timestamp with time zone DEFAULT NULL,
+  type integer,
+  last_used_at timestamp with time zone DEFAULT NULL,
 
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone
