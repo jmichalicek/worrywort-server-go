@@ -25,10 +25,6 @@ seed-dev:
 psql:
 	psql -U ${DATABASE_USER} -h ${DATABASE_HOST} ${DATABASE_NAME}
 
-# This is needed for hydra to work initially
-hydra-migrate:
-	docker-compose run hydra migrate sql postgres://developer:developer@database:5432/hydra?sslmode=disable
-
 setup-test-db:
 	dropdb -h ${DATABASE_HOST} -U ${DATABASE_USER} --if-exists ${DATABASE_NAME}_test
 	createdb -h ${DATABASE_HOST} -U ${DATABASE_USER} ${DATABASE_NAME}_test -O ${DATABASE_USER}
