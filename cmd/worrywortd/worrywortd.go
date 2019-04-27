@@ -8,7 +8,7 @@ import (
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
 	"github.com/jmichalicek/worrywort-server-go/graphql_api"
-	"github.com/jmichalicek/worrywort-server-go/restapi"
+	"github.com/jmichalicek/worrywort-server-go/rest_api"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -68,7 +68,7 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(tokenAuthHandler)
 	r.Handle("/graphql", &graphql_api.Handler{Db: db, Handler: &relay.Handler{Schema: schema}})
-	r.Method("POST", "/api/v1/measurement", authRequiredHandler(&restapi.MeasurementHandler{Db: db}))
+	r.Method("POST", "/api/v1/measurement", authRequiredHandler(&rest_api.MeasurementHandler{Db: db}))
 	// TODO: need to manually handle CORS? Chi has some cors stuff, yay
 	// https://github.com/graph-gophers/graphql-go/issues/74#issuecomment-289098639
 	uri, uriSet := os.LookupEnv("WORRYWORTD_HOST")
