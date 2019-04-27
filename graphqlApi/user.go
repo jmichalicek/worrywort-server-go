@@ -19,6 +19,8 @@ func (r *userResolver) ID() graphql.ID {
 		return graphql.ID(r.u.UUID)
 	}
 }
+
+// TODO: scrap first/last name... just store name. names are hard, not everyone has straight first and last.
 func (r *userResolver) FirstName() string   { return r.u.FirstName }
 func (r *userResolver) LastName() string    { return r.u.LastName }
 func (r *userResolver) Email() string       { return r.u.Email }
