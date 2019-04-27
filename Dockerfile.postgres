@@ -1,2 +1,0 @@
-FROM library/postgres
-COPY hydra_dev_init.sql /docker-entrypoint-initdb.d/

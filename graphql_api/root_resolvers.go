@@ -1,10 +1,10 @@
-package graphqlApi
+package graphql_api
 
 import (
 	"context"
 	// "fmt"
 	graphql "github.com/graph-gophers/graphql-go"
-	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
+	"github.com/jmichalicek/worrywort-server-go/middleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
 	"log"
@@ -50,11 +50,11 @@ func NewResolver(db *sqlx.DB) *Resolver {
 
 func (r *Resolver) CurrentUser(ctx context.Context) (*userResolver, error) {
 	// This ensures we have the right type from the context
-	// may change to just "authMiddleware" or something though so that
+	// may change to just "middleware" or something though so that
 	// a single function can exist to get user from any of the auth methods
-	// or just write a separate function for that here instead of using it from authMiddleware.
+	// or just write a separate function for that here instead of using it from middleware.
 	// TODO: should check errors
-	u, _ := authMiddleware.UserFromContext(ctx)
+	u, _ := middleware.UserFromContext(ctx)
 	if u == nil {
 		return nil, ErrUserNotAuthenticated
 	}
@@ -67,7 +67,7 @@ func (r *Resolver) CurrentUser(ctx context.Context) (*userResolver, error) {
 // func sig: func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*batchResolver, error) {
 func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*batchResolver, error) {
 	// TODO: panic on error, no user, etc.
-	u, _ := authMiddleware.UserFromContext(ctx)
+	u, _ := middleware.UserFromContext(ctx)
 	if u == nil {
 		return nil, ErrUserNotAuthenticated
 	}
@@ -101,7 +101,7 @@ func (r *Resolver) Batches(ctx context.Context, args struct {
 	First *int32
 	After *string
 }) (*batchConnection, error) {
-	u, _ := authMiddleware.UserFromContext(ctx)
+	u, _ := middleware.UserFromContext(ctx)
 	if u == nil {
 		return nil, ErrUserNotAuthenticated
 	}
@@ -168,7 +168,7 @@ func (r *Resolver) BatchSensorAssociations(ctx context.Context, args struct {
 	BatchId  *string
 	SensorId *string
 }) (*batchSensorAssociationConnection, error) {
-	u, _ := authMiddleware.UserFromContext(ctx)
+	u, _ := middleware.UserFromContext(ctx)
 	if u == nil {
 		return nil, ErrUserNotAuthenticated
 	}
@@ -238,13 +238,13 @@ func (r *Resolver) BatchSensorAssociations(ctx context.Context, args struct {
 }
 
 func (r *Resolver) Fermentor(ctx context.Context, args struct{ ID graphql.ID }) (*fermentorResolver, error) {
-	// authUser, _ := authMiddleware.UserFromContext(ctx)
+	// authUser, _ := middleware.UserFromContext(ctx)
 	// TODO: Implement correctly!  Look up the Fermentor with FindFermentor
 	return nil, errors.New("Not Implemented") // so that it is obvious this is no implemented
 }
 
 func (r *Resolver) Sensor(ctx context.Context, args struct{ ID graphql.ID }) (*sensorResolver, error) {
-	user, _ := authMiddleware.UserFromContext(ctx)
+	user, _ := middleware.UserFromContext(ctx)
 	if user == nil {
 		return nil, ErrUserNotAuthenticated
 	}
@@ -276,7 +276,7 @@ func (r *Resolver) Sensors(ctx context.Context, args struct {
 	First *int32
 	After *string
 }) (*sensorConnection, error) {
-	u, _ := authMiddleware.UserFromContext(ctx)
+	u, _ := middleware.UserFromContext(ctx)
 	if u == nil {
 		return nil, ErrUserNotAuthenticated
 	}
@@ -351,7 +351,7 @@ func (r *Resolver) Sensors(ctx context.Context, args struct {
 
 // Returns a single resolved TemperatureMeasurement by ID, owned by the authenticated user
 func (r *Resolver) TemperatureMeasurement(ctx context.Context, args struct{ ID graphql.ID }) (*temperatureMeasurementResolver, error) {
-	authUser, _ := authMiddleware.UserFromContext(ctx)
+	authUser, _ := middleware.UserFromContext(ctx)
 	if authUser == nil {
 		return nil, ErrUserNotAuthenticated
 	}
@@ -379,7 +379,7 @@ func (r *Resolver) TemperatureMeasurements(ctx context.Context, args struct {
 	SensorId *string
 	BatchId  *string
 }) (*temperatureMeasurementConnection, error) {
-	authUser, _ := authMiddleware.UserFromContext(ctx)
+	authUser, _ := middleware.UserFromContext(ctx)
 	if authUser == nil {
 		return nil, ErrUserNotAuthenticated
 	}
@@ -495,7 +495,7 @@ func (c createSensorPayload) Sensor() *sensorResolver {
 func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struct {
 	Input *createTemperatureMeasurementInput
 }) (*createTemperatureMeasurementPayload, error) {
-	u, _ := authMiddleware.UserFromContext(ctx)
+	u, _ := middleware.UserFromContext(ctx)
 	if u == nil {
 		return nil, ErrUserNotAuthenticated
 	}
@@ -555,7 +555,7 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 func (r *Resolver) CreateSensor(ctx context.Context, args *struct {
 	Input *createSensorInput
 }) (*createSensorPayload, error) {
-	u, _ := authMiddleware.UserFromContext(ctx)
+	u, _ := middleware.UserFromContext(ctx)
 	if u == nil {
 		return nil, ErrUserNotAuthenticated
 	}

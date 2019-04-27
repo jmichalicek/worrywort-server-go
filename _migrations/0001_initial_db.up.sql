@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS users(
   is_active boolean DEFAULT FALSE,
   is_admin boolean DEFAULT FALSE,
 
-  created_at timestamp with time zone DEFAULT (now() at time zone 'utc'),
+  created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone
 );
 CREATE INDEX IF NOT EXISTS users_email_lower_idx ON users ((lower(email)));
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS user_authtokens(
   scope integer,
   expires_at timestamp with time zone DEFAULT NULL,
 
-  created_at timestamp with time zone DEFAULT (now() at time zone 'utc'),
+  created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone
 );
 
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS batches(
   min_temperature double precision NOT NULL DEFAULT 0.0,
   average_temperature double precision NOT NULL DEFAULT 0.0,
 
-  created_at timestamp with time zone  DEFAULT (now() at time zone 'utc'),
+  created_at timestamp with time zone  DEFAULT now(),
   updated_at timestamp with time zone
 );
 CREATE INDEX IF NOT EXISTS batches_uuid_idx ON batches (uuid);
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS fermentors(
   is_active boolean DEFAULT FALSE,
   is_available boolean DEFAULT TRUE,
 
-  created_at timestamp with time zone DEFAULT (now() at time zone 'utc'),
+  created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone
 );
 CREATE INDEX IF NOT EXISTS fermentors_uuid_idx ON fermentors (uuid);
@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS sensors(
   name text NOT NULL DEFAULT '',
   description text NOT NULL DEFAULT '',
 
-  created_at timestamp with time zone DEFAULT (now() at time zone 'utc'),
+  created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone
 );
 CREATE INDEX IF NOT EXISTS sensors_uuid_idx ON sensors (uuid);
@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS batch_sensor_association(
   disassociated_at timestamp with time zone,
   description text NOT NULL DEFAULT '',
 
-  created_at timestamp with time zone DEFAULT (now() at time zone 'utc'),
+  created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone
 );
 CREATE INDEX IF NOT EXISTS batch_sensor_association_associated_at_index ON batch_sensor_association (associated_at);
@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS temperature_measurements(
   units integer NOT NULL DEFAULT 0,
   recorded_at timestamp with time zone,
 
-  created_at timestamp with time zone DEFAULT (now() at time zone 'utc'),
+  created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone
 );
 CREATE INDEX IF NOT EXISTS temperature_measurements_recorded_index ON temperature_measurements (recorded_at);

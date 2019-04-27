@@ -1,4 +1,4 @@
-package graphqlApi_test
+package graphql_api_test
 
 import (
 	"context"
@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/graph-gophers/graphql-go"
 	graphqlErrors "github.com/graph-gophers/graphql-go/errors"
-	"github.com/jmichalicek/worrywort-server-go/authMiddleware"
-	"github.com/jmichalicek/worrywort-server-go/graphqlApi"
+	"github.com/jmichalicek/worrywort-server-go/graphql_api"
+	"github.com/jmichalicek/worrywort-server-go/middleware"
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
 	"golang.org/x/crypto/bcrypt"
@@ -51,8 +51,8 @@ type connection struct {
 	Edges    []edge   `json:"Edges"`
 }
 
-var encodedOffset1 string = base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursorP(1)))
-var encodedOffset2 string = base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursorP(2)))
+var encodedOffset1 string = base64.StdEncoding.EncodeToString([]byte(graphql_api.MakeOffsetCursorP(1)))
+var encodedOffset2 string = base64.StdEncoding.EncodeToString([]byte(graphql_api.MakeOffsetCursorP(2)))
 
 func TestMain(m *testing.M) {
 	dbUser, _ := os.LookupEnv("DATABASE_USER")
@@ -110,7 +110,7 @@ func TestLoginMutation(t *testing.T) {
 	}
 	defer db.Close()
 
-	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	var worrywortSchema = graphql.MustParseSchema(graphql_api.Schema, graphql_api.NewResolver(db))
 	user := worrywort.User{Email: "user@example.com", FirstName: "Justin", LastName: "Michalicek"}
 	// This is the hash for the password `password`
 	// var hashedPassword string = "$2a$13$pPg7mwPA.VFf3W9AUZyMGO0Q2nhoh/979F/TZ8ED.iqVubLe.TDmi"
@@ -200,7 +200,7 @@ func TestCurrentUserQuery(t *testing.T) {
 
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, "db", db)
-	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	var worrywortSchema = graphql.MustParseSchema(graphql_api.Schema, graphql_api.NewResolver(db))
 	query := `
 		query currentUser {
 			currentUser {
@@ -212,7 +212,7 @@ func TestCurrentUserQuery(t *testing.T) {
 	operationName := ""
 
 	t.Run("Authenticated", func(t *testing.T) {
-		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
+		ctx := context.WithValue(ctx, middleware.DefaultUserKey, &u)
 		result := worrywortSchema.Exec(ctx, query, operationName, nil)
 		var expected interface{}
 		err = json.Unmarshal([]byte(fmt.Sprintf(`{"currentUser": {"__typename": "User", "id": "%s"}}`, u.UUID)), &expected)
@@ -232,7 +232,7 @@ func TestCurrentUserQuery(t *testing.T) {
 	})
 
 	t.Run("Unauthenticated", func(t *testing.T) {
-		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
+		ctx := context.WithValue(ctx, middleware.DefaultUserKey, nil)
 		result := worrywortSchema.Exec(ctx, query, operationName, nil)
 		var expected interface{}
 		err = json.Unmarshal([]byte(`{"currentUser": null}`), &expected)
@@ -273,10 +273,10 @@ func TestBatchQuery(t *testing.T) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, "db", db)
 	// TODO: use my middleware here to add the user to the context?
-	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
+	ctx = context.WithValue(ctx, middleware.DefaultUserKey, &u)
 
 	// TODO: Can this become global to these tests?
-	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	var worrywortSchema = graphql.MustParseSchema(graphql_api.Schema, graphql_api.NewResolver(db))
 
 	b := makeTestBatch(u, true)
 	err = b.Save(db)
@@ -351,7 +351,7 @@ func TestBatchQuery(t *testing.T) {
 	})
 
 	t.Run("Unauthenticated batch() returns null", func(t *testing.T) {
-		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
+		ctx := context.WithValue(ctx, middleware.DefaultUserKey, nil)
 		variables := map[string]interface{}{
 			"id": b.UUID,
 		}
@@ -383,8 +383,8 @@ func TestBatchQuery(t *testing.T) {
 		"pageInfo": {"hasNextPage": false, "hasPreviousPage": false},
 		"edges": [{"__typename": "BatchEdge", "cursor": "%s", "node": {"__typename":"Batch","id":"%s"}},
 					{"__typename": "BatchEdge", "cursor": "%s",  "node": {"__typename":"Batch","id":"%s"}}]}}`
-	after0cursor := fmt.Sprintf("%s", base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursorP(1))))
-	after1cursor := fmt.Sprintf("%s", base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursorP(2))))
+	after0cursor := fmt.Sprintf("%s", base64.StdEncoding.EncodeToString([]byte(graphql_api.MakeOffsetCursorP(1))))
+	after1cursor := fmt.Sprintf("%s", base64.StdEncoding.EncodeToString([]byte(graphql_api.MakeOffsetCursorP(2))))
 	var testargs = []struct {
 		Name      string
 		Variables map[string]interface{}
@@ -424,7 +424,7 @@ func TestBatchQuery(t *testing.T) {
 				}`
 			operationName := ""
 			ctx := context.Background()
-			ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
+			ctx = context.WithValue(ctx, middleware.DefaultUserKey, &u)
 			ctx = context.WithValue(ctx, "db", db)
 			resultData := worrywortSchema.Exec(ctx, query, operationName, qt.Variables)
 			var result interface{}
@@ -494,7 +494,7 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 	}
 
 	// TODO: Can this become global to these tests?
-	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	var worrywortSchema = graphql.MustParseSchema(graphql_api.Schema, graphql_api.NewResolver(db))
 	variables := map[string]interface{}{
 		"input": map[string]interface{}{
 			"sensorId":    strconv.Itoa(int(*sensor.Id)),
@@ -528,7 +528,7 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 	defer cleanMeasurements()
 	t.Run("Test measurement is created with valid data", func(t *testing.T) {
 		defer cleanMeasurements()
-		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
+		ctx := context.WithValue(ctx, middleware.DefaultUserKey, &u)
 		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
 
 		// Some structs so that the json can be unmarshalled
@@ -572,7 +572,7 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 	t.Run("Unauthenticated", func(t *testing.T) {
 		defer cleanMeasurements()
 		// cleanMeasurements()
-		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
+		ctx := context.WithValue(ctx, middleware.DefaultUserKey, nil)
 		result := worrywortSchema.Exec(ctx, query, operationName, variables)
 		var expected interface{}
 		err = json.Unmarshal([]byte(`{"createTemperatureMeasurement": null}`), &expected)
@@ -617,7 +617,7 @@ func TestSensorQuery(t *testing.T) {
 
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, "db", db)
-	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
+	ctx = context.WithValue(ctx, middleware.DefaultUserKey, &u)
 
 	u2 := worrywort.User{Email: "user2@example.com", FirstName: "Justin", LastName: "M"}
 	err = u2.Save(db)
@@ -626,7 +626,7 @@ func TestSensorQuery(t *testing.T) {
 	}
 
 	// TODO: Can this become global to these tests?
-	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	var worrywortSchema = graphql.MustParseSchema(graphql_api.Schema, graphql_api.NewResolver(db))
 	sensor1 := worrywort.Sensor{Name: "Sensor 1", UserId: u.Id}
 	if err := sensor1.Save(db); err != nil {
 		t.Fatalf("%v", err)
@@ -769,7 +769,7 @@ func TestSensorQuery(t *testing.T) {
 					}`
 				operationName := ""
 				ctx := context.Background()
-				ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
+				ctx = context.WithValue(ctx, middleware.DefaultUserKey, &u)
 				ctx = context.WithValue(ctx, "db", db)
 				resultData := worrywortSchema.Exec(ctx, query, operationName, tm.variables)
 
@@ -805,7 +805,7 @@ func TestSensorQuery(t *testing.T) {
 				}`
 			operationName := ""
 			ctx := context.Background()
-			ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
+			ctx = context.WithValue(ctx, middleware.DefaultUserKey, nil)
 			ctx = context.WithValue(ctx, "db", db)
 			result := worrywortSchema.Exec(ctx, query, operationName, nil)
 
@@ -844,7 +844,7 @@ func TestCreateBatchMutation(t *testing.T) {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	var worrywortSchema = graphql.MustParseSchema(graphql_api.Schema, graphql_api.NewResolver(db))
 	t.Run("Test batch is created with valid data", func(t *testing.T) {
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
@@ -865,7 +865,7 @@ func TestCreateBatchMutation(t *testing.T) {
 
 		operationName := ""
 		ctx := context.Background()
-		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
+		ctx = context.WithValue(ctx, middleware.DefaultUserKey, &u)
 		ctx = context.WithValue(ctx, "db", db)
 		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
 
@@ -925,7 +925,7 @@ func TestCreateBatchMutation(t *testing.T) {
 			}`
 		operationName := ""
 		ctx := context.Background()
-		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
+		ctx = context.WithValue(ctx, middleware.DefaultUserKey, nil)
 		ctx = context.WithValue(ctx, "db", db)
 		result := worrywortSchema.Exec(ctx, query, operationName, variables)
 
@@ -1016,10 +1016,10 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 
-	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	var worrywortSchema = graphql.MustParseSchema(graphql_api.Schema, graphql_api.NewResolver(db))
 	operationName := ""
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
+	ctx = context.WithValue(ctx, middleware.DefaultUserKey, &u)
 	ctx = context.WithValue(ctx, "db", db)
 
 	cleanAssociations := func() {
@@ -1191,7 +1191,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 	})
 
 	t.Run("Unauthenticated", func(t *testing.T) {
-		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
+		ctx := context.WithValue(ctx, middleware.DefaultUserKey, nil)
 		defer cleanAssociations()
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
@@ -1289,7 +1289,7 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	assoc2, _ := worrywort.AssociateBatchToSensor(&batch, &sensor2, "Description", nil, db)
 	assoc3, _ := worrywort.AssociateBatchToSensor(&batch2, &sensor, "Description", nil, db)
 
-	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	var worrywortSchema = graphql.MustParseSchema(graphql_api.Schema, graphql_api.NewResolver(db))
 
 	operationName := ""
 	ctx := context.Background()
@@ -1307,7 +1307,7 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 
 	// TODOL make a test table
 	t.Run("Update with description and disassociatedAt", func(t *testing.T) {
-		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
+		ctx := context.WithValue(ctx, middleware.DefaultUserKey, &u)
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
 				"id":              assoc1.Id,
@@ -1354,7 +1354,7 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	})
 
 	t.Run("Update with blank description and null disassociatedAt", func(t *testing.T) {
-		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
+		ctx := context.WithValue(ctx, middleware.DefaultUserKey, &u)
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
 				"id":              assoc1.Id,
@@ -1401,7 +1401,7 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	})
 
 	t.Run("Batch not owned by user", func(t *testing.T) {
-		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
+		ctx := context.WithValue(ctx, middleware.DefaultUserKey, &u)
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
 				"id":              assoc2.Id,
@@ -1427,7 +1427,7 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	})
 
 	t.Run("Sensor not owned by user", func(t *testing.T) {
-		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
+		ctx := context.WithValue(ctx, middleware.DefaultUserKey, &u)
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
 				"id":              assoc3.Id,
@@ -1453,7 +1453,7 @@ func TestUpdateBatchSensorAssociationMutation(t *testing.T) {
 	})
 
 	t.Run("Unauthenticated", func(t *testing.T) {
-		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
+		ctx := context.WithValue(ctx, middleware.DefaultUserKey, nil)
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
 				"id":              assoc3.Id,
@@ -1514,8 +1514,8 @@ func TestBatchSensorAssociationsQuery(t *testing.T) {
 
 	assoc1, _ := worrywort.AssociateBatchToSensor(&batch, &sensor, "Description", nil, db)
 	assoc2, _ := worrywort.AssociateBatchToSensor(&batch2, &sensor2, "Description", nil, db)
-	assoc1cursor := fmt.Sprintf("%s", base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursorP(1))))
-	assoc2cursor := fmt.Sprintf("%s", base64.StdEncoding.EncodeToString([]byte(graphqlApi.MakeOffsetCursorP(2))))
+	assoc1cursor := fmt.Sprintf("%s", base64.StdEncoding.EncodeToString([]byte(graphql_api.MakeOffsetCursorP(1))))
+	assoc2cursor := fmt.Sprintf("%s", base64.StdEncoding.EncodeToString([]byte(graphql_api.MakeOffsetCursorP(2))))
 
 	// if needed, make actual types for the returned structs to unmarshal to
 	var testargs = []struct {
@@ -1580,7 +1580,7 @@ func TestBatchSensorAssociationsQuery(t *testing.T) {
 				assoc1cursor, assoc2.Id))}, // cursor is badly named - if only assoc2 is returned, it has that cursor
 	}
 
-	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	var worrywortSchema = graphql.MustParseSchema(graphql_api.Schema, graphql_api.NewResolver(db))
 	query := strings.Trim(`
 			query getBatchSensorAssociations($first: Int $after: String $batchId: ID $sensorId: ID) {
 				batchSensorAssociations(first: $first after: $after batchId: $batchId sensorId: $sensorId) {
@@ -1600,7 +1600,7 @@ func TestBatchSensorAssociationsQuery(t *testing.T) {
 			if err != nil {
 				t.Errorf("%s", err)
 			}
-			ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
+			ctx := context.WithValue(ctx, middleware.DefaultUserKey, &u)
 			resultData := worrywortSchema.Exec(ctx, query, operationName, qt.Variables)
 			var result interface{}
 			err = json.Unmarshal(resultData.Data, &result)
@@ -1613,7 +1613,7 @@ func TestBatchSensorAssociationsQuery(t *testing.T) {
 		})
 	}
 	t.Run("Unauthenticated", func(t *testing.T) {
-		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
+		ctx := context.WithValue(ctx, middleware.DefaultUserKey, nil)
 		resultData := worrywortSchema.Exec(ctx, query, operationName, nil)
 		var result interface{}
 		err = json.Unmarshal(resultData.Data, &result)
@@ -1790,7 +1790,7 @@ func TestTemperatureMeasurementsQuery(t *testing.T) {
 		// // todo: add a batch_uuid test validating if the measurement is AFTER the disassociation
 	}
 
-	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	var worrywortSchema = graphql.MustParseSchema(graphql_api.Schema, graphql_api.NewResolver(db))
 	for _, tm := range testmatrix {
 		t.Run(tm.name, func(t *testing.T) {
 			query := strings.Trim(`
@@ -1804,7 +1804,7 @@ func TestTemperatureMeasurementsQuery(t *testing.T) {
 					}`, " ")
 			operationName := ""
 			ctx := context.Background()
-			ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
+			ctx = context.WithValue(ctx, middleware.DefaultUserKey, &u)
 			ctx = context.WithValue(ctx, "db", db)
 			resultData := worrywortSchema.Exec(ctx, query, operationName, tm.variables)
 
@@ -1836,7 +1836,7 @@ func TestCreateSensorMutation(t *testing.T) {
 		t.Fatalf("failed to insert user: %s", err)
 	}
 
-	var worrywortSchema = graphql.MustParseSchema(graphqlApi.Schema, graphqlApi.NewResolver(db))
+	var worrywortSchema = graphql.MustParseSchema(graphql_api.Schema, graphql_api.NewResolver(db))
 	// Some structs so that the json can be unmarshalled.
 	type payload struct {
 		Typename string `json:"__typename"`
@@ -1868,7 +1868,7 @@ func TestCreateSensorMutation(t *testing.T) {
 	ctx = context.WithValue(ctx, "db", db)
 
 	t.Run("Test sensor is created with valid data", func(t *testing.T) {
-		ctx := context.WithValue(ctx, authMiddleware.DefaultUserKey, &u)
+		ctx := context.WithValue(ctx, middleware.DefaultUserKey, &u)
 		resultData := worrywortSchema.Exec(ctx, query, operationName, variables)
 		var result createSensor
 		err = json.Unmarshal(resultData.Data, &result)
@@ -1898,7 +1898,7 @@ func TestCreateSensorMutation(t *testing.T) {
 	})
 
 	t.Run("Unauthenticated", func(t *testing.T) {
-		ctx = context.WithValue(ctx, authMiddleware.DefaultUserKey, nil)
+		ctx = context.WithValue(ctx, middleware.DefaultUserKey, nil)
 		result := worrywortSchema.Exec(ctx, query, operationName, variables)
 
 		// TODO: Make this error checking reusable
