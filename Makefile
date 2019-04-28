@@ -1,13 +1,36 @@
+# not a fan of mixed stuff to run IN the dev container and stuff to run outside of it, but whatever
+PRODUCTION_REPO	:= worrywort/worrywort-server
+COMMIT_SHA	:= $$(git rev-parse --short HEAD)
+BRANCH_NAME := $$(git branch | grep \* | cut -d ' ' -f2)
+PRODUCTION_IMG	:= ${PRODUCTION_REPO}:${BRANCH_NAME}_${COMMIT_SHA}
 
+# ugh. none of this works from windows
+# Production docker image build
+docker-image:
+	docker build -t ${PRODUCTION_IMG} .
+
+production-image:
+	docker build -t ${PRODUCTION_IMG} .
+	docker tag ${PRODUCTION_IMG} ${PRODUCTION_REPO}:latest
+
+push-prod-image:
+	docker push ${PRODUCTION_IMG}
+	docker push ${PRODUCTION_REPO}:latest
+
+# End production docker image
+
+# Commands for outside of docker image/container
+# //bin/bash is windows msys make hack
+dev:
+	docker-compose run --service-ports --rm worrywortd //bin/bash
+# end outside of dev container
+
+# Development tools in dev image
 worrywortd: worrywortd-gen
 	go build ./cmd/worrywortd
 
 worrywortd-gen:
 	go generate ./...
-
-# //bin/bash is windows msys make hack
-dev:
-	docker-compose run --service-ports --rm worrywortd //bin/bash
 
 migrate-up:
 	migrate -source file://./_migrations -database postgres://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:5432/${DATABASE_NAME}?sslmode=disable up ${migrate_to}

@@ -1,6 +1,6 @@
 # codeship yml is more or less a docker-compose.yml
 database:
-  image: "postgres:9.6.2"
+  image: "postgres:11.2"
   # image: healthcheck/postgres:alpine
   environment:
       - POSTGRES_PASSWORD=developer
@@ -12,7 +12,7 @@ database:
     - worrywort_db:/var/lib/postgresql/data
 worrywortd:
   user: root
-  # image: worrywort-server-dev  # I should just build and maintain the image separately, would speed this up.
+  # image: worrywort/worrywort-api-server-dev:latest  # I should just build and maintain the image separately, would speed this up.
   encrypted_env_file: codeship.env.encrypted
   depends_on:
     - database
@@ -21,7 +21,7 @@ worrywortd:
   cached: true
   build:
     context: .
-    dockerfile: Dockerfile
+    dockerfile: Dockerfile.dev
   environment:
     DATABASE_HOST: database
     DATABASE_NAME: worrywort

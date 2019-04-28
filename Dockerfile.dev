@@ -1,0 +1,21 @@
+# Less than ideal codeship specific Dockerfile for running tests.
+# Codeship Pro does not seem to support the `target` parameter in codeship-services.yml.
+# Using separately maintained dev image built from this and used a base for the rest
+# codeship can build that, test, and eventually will push it, do full build, etc.
+FROM golang:1.12.4-stretch as base
+LABEL maintainer="Justin Michalicek <jmichalicek@gmail.com>"
+
+RUN apt-get update && apt-get install -y wget ca-certificates sudo vim && apt-get autoremove && apt-get clean
+RUN echo 'deb http://apt.postgresql.org/pub/repos/apt/ stretch-pgdg main' >> /etc/apt/sources.list.d/pgdg.list
+RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
+RUN apt-get update && apt-get install -y postgresql-client-11
+RUN wget -qO- https://github.com/golang-migrate/migrate/releases/download/v4.3.1/migrate.linux-amd64.tar.gz | tar -zxv -C /go/bin/ --transform='s/migrate.linux-amd64/migrate/'
+RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+RUN go get golang.org/x/tools/cmd/stringer
+RUN chmod a+x /go/bin/migrate
+
+RUN useradd -ms /bin/bash developer && echo "developer ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+USER developer
+RUN mkdir -p /go/src/github.com/jmichalicek/worrywort-server-go
+WORKDIR /go/src/github.com/jmichalicek/worrywort-server-go
+EXPOSE 8080
