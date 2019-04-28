@@ -131,7 +131,7 @@ func TestLoginMutation(t *testing.T) {
 		query := `
 			mutation Login($username: String!, $password: String!) {
 				login(username: $username, password: $password) {
-					token
+					token { token } user { id }
 				}
 			}
 		`
@@ -142,8 +142,17 @@ func TestLoginMutation(t *testing.T) {
 		// example:
 		// {"login":{"token":"c9d103e1-8320-45fd-8ac6-245d59c01b3d:HRXG69cqTv1kyG6zmsJo0tJNsEKmeCqWH5WeH3H-_IyTHZ46ivz0KyTTfUgun1CNCV3n1HLwizvAET1I2DwJiA=="}}
 		// the hash, the part of the token after the colon, is a base64 encoded sha512 sum
-		type loginPayload struct {
+		type payloadToken struct {
 			Token string `json:"token"`
+		}
+
+		type payloadUser struct {
+			Id string `json:"id"`
+		}
+
+		type loginPayload struct {
+			Token payloadToken `json:"token"`
+			User payloadUser `json:"user"`
 		}
 
 		type loginResponse struct {
@@ -158,7 +167,7 @@ func TestLoginMutation(t *testing.T) {
 		}
 
 		// Make sure that the token really was inserted into the db
-		parts := strings.Split(result.Login.Token, ":")
+		parts := strings.Split(result.Login.Token.Token, ":")
 		tokenId := parts[0]
 		newToken := worrywort.AuthToken{}
 		query = db.Rebind(
@@ -181,6 +190,10 @@ func TestLoginMutation(t *testing.T) {
 		if !cmp.Equal(newToken.User, user) {
 			t.Errorf("Expected: - | Got +\n%s", cmp.Diff(newToken.User, user))
 			// t.Fatalf("Expected: %s\nGot: %s", spew.Sdump(expected), spew.Sdump(actual))
+		}
+
+		if user.UUID != result.Login.User.Id {
+			t.Errorf("Expected User.Id %s but got %s", user.UUID, result.Login.User.Id)
 		}
 	})
 }
