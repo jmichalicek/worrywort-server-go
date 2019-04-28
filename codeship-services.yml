@@ -1,6 +1,6 @@
 # codeship yml is more or less a docker-compose.yml
 database:
-  image: "postgres:9.6.2"
+  image: "postgres:11.2"
   # image: healthcheck/postgres:alpine
   environment:
       - POSTGRES_PASSWORD=developer
@@ -22,6 +22,7 @@ worrywortd:
   build:
     context: .
     dockerfile: Dockerfile
+    target: base
   environment:
     DATABASE_HOST: database
     DATABASE_NAME: worrywort

@@ -1,7 +1,7 @@
-version: '3'
+version: '3.7'
 services:
   database:
-    image: "postgres:9.6.2"
+    image: "postgres:11.2"
     environment:
         - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-developer}
         - POSTGRES_USER=${POSTGRES_USER:-developer}
@@ -17,18 +17,20 @@ services:
         - worrywort_redis:/data
   worrywortd:
     image: worrywort-server:dev
-    command: /bin/bash
+    # image: worrywortd:latest
+    # command: /bin/bash
     user: developer
     stdin_open: true
     tty: true
     depends_on:
       - database
       - redis
-    working_dir: /go/src/github.com/jmichalicek/worrywort-server-go
+    # working_dir: /go/src/github.com/jmichalicek/worrywort-server-go
     # command: /home/developer/docker_entrypoints/dev_entrypoint.sh
     build:
       context: .
       dockerfile: Dockerfile
+      target: base
     environment:
       DATABASE_HOST: database
       DATABASE_NAME: ${POSTGRES_DB:-worrywort}
