@@ -488,6 +488,20 @@ func (c createSensorPayload) Sensor() *sensorResolver {
 	return c.s
 }
 
+type loginPayload struct {
+	t *worrywort.AuthToken
+	u *worrywort.User
+	//ue *[]*userErrors
+}
+
+func (p *loginPayload) Token() *authTokenResolver {
+	return &authTokenResolver{t: *p.t}
+}
+
+func (p *loginPayload) User() *userResolver {
+	return &userResolver{u: p.u}
+}
+
 // Mutations
 
 // Create a temperature measurementId
@@ -585,7 +599,7 @@ func (r *Resolver) CreateSensor(ctx context.Context, args *struct {
 func (r *Resolver) Login(args *struct {
 	Username string
 	Password string
-}) (*authTokenResolver, error) {
+}) (*loginPayload, error) {
 	user, err := worrywort.AuthenticateLogin(args.Username, args.Password, r.db)
 	// TODO: Check for errors which should not be exposed?  Or for known good errors to expose
 	// and return something more generic + log if unexpected?
@@ -605,6 +619,7 @@ func (r *Resolver) Login(args *struct {
 		log.Printf("%s", err)
 		return nil, err
 	}
-	atr := authTokenResolver{t: token}
-	return &atr, err
+	// TODO: should use tokenPtr.User and have THAT be a pointer to User
+	payload := &loginPayload{t: tokenPtr, u: user}
+	return payload, err
 }
