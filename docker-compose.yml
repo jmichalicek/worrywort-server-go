@@ -16,7 +16,7 @@ services:
     volumes:
         - worrywort_redis:/data
   worrywortd:
-    image: worrywort-server:dev
+    image: worrywort/worrywort-api-server-dev:latest
     # image: worrywortd:latest
     # command: /bin/bash
     user: developer
@@ -29,7 +29,7 @@ services:
     # command: /home/developer/docker_entrypoints/dev_entrypoint.sh
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
       target: base
     environment:
       DATABASE_HOST: database
