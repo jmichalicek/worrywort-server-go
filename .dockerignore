@@ -1,0 +1,10 @@
+.git
+**/.git
+**/.envrc
+**/vendor
+coverage.out
+codeship.aes
+codeship.env
+codeship.env.encrypted
+docker-compose.yml
+codeship*

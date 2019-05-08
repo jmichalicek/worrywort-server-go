@@ -20,6 +20,7 @@ FROM worrywort/worrywort-api-server-dev as builder
 LABEL maintainer="Justin Michalicek <jmichalicek@gmail.com>"
 COPY --chown=developer . /go/src/github.com/jmichalicek/worrywort-server-go/
 WORKDIR /go/src/github.com/jmichalicek/worrywort-server-go
+RUN dep ensure
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o ./dist/worrywortd ./cmd/worrywortd
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o ./dist/wortuser ./cmd/wortuser
 
