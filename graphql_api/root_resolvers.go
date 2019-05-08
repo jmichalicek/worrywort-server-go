@@ -12,7 +12,6 @@ import (
 	"database/sql"
 	"errors"
 	"github.com/davecgh/go-spew/spew"
-	"strconv"
 	"time"
 )
 
@@ -534,8 +533,7 @@ func (r *Resolver) CreateTemperatureMeasurement(ctx context.Context, args *struc
 		unitType = worrywort.CELSIUS
 	}
 
-	sensorId, err := strconv.ParseInt(string(input.SensorId), 10, 32)
-	sensorPtr, err := worrywort.FindSensor(map[string]interface{}{"id": sensorId, "user_id": u.Id}, db)
+	sensorPtr, err := worrywort.FindSensor(map[string]interface{}{"uuid": input.SensorId, "user_id": u.Id}, db)
 	if err != nil {
 		// TODO: Probably need a friendlier error here or for our payload to have a shopify style userErrors
 		// and then not ever return nil from this either way...maybe
