@@ -11,7 +11,6 @@ import (
 	"github.com/jmichalicek/worrywort-server-go/worrywort"
 	"github.com/jmoiron/sqlx"
 	"log"
-	"strconv"
 	"time"
 )
 
@@ -142,8 +141,7 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 	}
 
 	// TODO!: Make sure the sensor is not already associated with a batch
-	tempSensorId, err := strconv.ParseInt(string(input.SensorId), 10, 0)
-	sensorPtr, err := worrywort.FindSensor(map[string]interface{}{"id": tempSensorId, "user_id": *u.Id}, db)
+	sensorPtr, err := worrywort.FindSensor(map[string]interface{}{"uuid": input.SensorId, "user_id": *u.Id}, db)
 	if err != nil || sensorPtr == nil {
 		// TODO: Probably need a friendlier error here or for our payload to have a shopify style userErrors
 		// and then not ever return nil from this either way...maybe
@@ -158,7 +156,7 @@ func (r *Resolver) AssociateSensorToBatch(ctx context.Context, args *struct {
 	// TODO: Is this correct?  Maybe I really want to associate a sensor with 2 batches, such as for
 	// ambient air temperature. Maybe this should only ensure it's not associated with the same batch twice.
 	_, err = worrywort.FindBatchSensorAssociation(
-		map[string]interface{}{"sensor_id": tempSensorId, "disassociated_at": nil, "user_id": *u.Id}, db)
+		map[string]interface{}{"sensor_id": *sensorPtr.Id, "disassociated_at": nil, "user_id": *u.Id}, db)
 
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("%v", err)

@@ -19,7 +19,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"golang.org/x/crypto/bcrypt"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -510,7 +509,7 @@ func TestCreateTemperatureMeasurementMutation(t *testing.T) {
 	var worrywortSchema = graphql.MustParseSchema(graphql_api.Schema, graphql_api.NewResolver(db))
 	variables := map[string]interface{}{
 		"input": map[string]interface{}{
-			"sensorId":    strconv.Itoa(int(*sensor.Id)),
+			"sensorId":    sensor.UUID,
 			"units":       "FAHRENHEIT",
 			"temperature": 70.0,
 			"recordedAt":  "2018-10-14T15:26:00+00:00",
@@ -1049,7 +1048,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
 				"batchId":     batch.UUID,
-				"sensorId":    strconv.Itoa(int(*sensor.Id)),
+				"sensorId":    sensor.UUID,
 				"description": "It is associated",
 			},
 		}
@@ -1097,7 +1096,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
 				"batchId":     batch.UUID,
-				"sensorId":    strconv.Itoa(int(*sensor.Id)),
+				"sensorId":    sensor.UUID,
 				"description": "It is associated",
 			},
 		}
@@ -1133,7 +1132,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
 				"batchId":     batch.UUID,
-				"sensorId":    strconv.Itoa(int(*sensor.Id)),
+				"sensorId":    sensor.UUID,
 				"description": "It is associated",
 			},
 		}
@@ -1158,7 +1157,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
 				"batchId":     batch2.UUID,
-				"sensorId":    strconv.Itoa(int(*sensor.Id)),
+				"sensorId":    sensor.UUID,
 				"description": "It is associated",
 			},
 		}
@@ -1183,7 +1182,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
 				"batchId":     batch.UUID,
-				"sensorId":    strconv.Itoa(int(*sensor2.Id)),
+				"sensorId":    sensor2.UUID,
 				"description": "It is associated",
 			},
 		}
@@ -1209,7 +1208,7 @@ func TestAssociateSensorToBatchMutation(t *testing.T) {
 		variables := map[string]interface{}{
 			"input": map[string]interface{}{
 				"batchId":     batch.UUID,
-				"sensorId":    strconv.Itoa(int(*sensor2.Id)),
+				"sensorId":    sensor2.UUID,
 				"description": "It is associated",
 			},
 		}
