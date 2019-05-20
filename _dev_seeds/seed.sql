@@ -1,7 +1,12 @@
 /* Create a fake user with the password 'password' */
+-- temporarily need to manually set auto increments after running this.
+-- ALTER SEQUENCE "seq_users_id"  RESTART WITH 2 etc.
 INSERT INTO users (id, full_name, username, email, password, is_active, is_admin, updated_at)
   VALUES (1, 'First McLast', 'worrywort', 'user@example.org', '$2a$13$ziIoEVxTifUjLqxgQr6p/OyVlfKqdET9m/t5rDEzXmRcaJNjPCINW', 't', 'f', now())
   ON CONFLICT DO NOTHING;
+
+-- TODO: make this pl/sql and use the autoinsert ids
+-- https://www.howto-guides.com/2018/10/how-to-assign-value-to-variable-from-select-statement-in-pl-sql.html
 
 INSERT INTO batches (id, user_id, name, tasting_notes, brewed_date, bottled_date, volume_boiled, volume_in_fermentor, volume_units, original_gravity, final_gravity, updated_at)
   VALUES (1, 1, 'Seeded Brew', 'Tastes good', now() - interval '24 hours', now() - interval '1 hour', 2, 2, 1, 1.060, 1.020, now())
