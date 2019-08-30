@@ -1,0 +1,53 @@
+# For more Go information and examples, see
+# https://docs.semaphoreci.com/article/86-language-golang
+version: v1.0
+name: Hello Semaphore
+agent:
+  machine:
+    type: e1-standard-2
+    os_image: ubuntu1804
+blocks:
+  - name: Install dependencies
+    task:
+      prologue:
+        commands:
+          - sem-version go 1.12
+          - export "SEMAPHORE_GIT_DIR=$(go env GOPATH)/src/github.com/${SEMAPHORE_PROJECT_NAME}"
+          - export "PATH=$(go env GOPATH)/bin:${PATH}"
+          - mkdir -vp "${SEMAPHORE_GIT_DIR}" "$(go env GOPATH)/bin"
+          - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+          - checkout
+          - go version
+      jobs:
+        - name: dep ensure
+          commands:
+            - dep ensure -v
+            - cache store deps-$SEMAPHORE_GIT_BRANCH-$(checksum Gopkg.lock) vendor
+
+  - name: Tests
+    task:
+      prologue:
+        commands:
+          - sem-version go 1.12
+          - export "SEMAPHORE_GIT_DIR=$(go env GOPATH)/src/github.com/${SEMAPHORE_PROJECT_NAME}"
+          - export "PATH=$(go env GOPATH)/bin:${PATH}"
+          - export "DATABASE_HOST=0.0.0.0"
+          - export "DATABASE_USER=postgres"
+          - export "DATABASE_NAME=worrywort"
+          - mkdir -vp "${SEMAPHORE_GIT_DIR}" "$(go env GOPATH)/bin"
+          - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+          - wget -qO- https://github.com/golang-migrate/migrate/releases/download/v4.3.1/migrate.linux-amd64.tar.gz | tar -zxv -C $(go env GOPATH)/bin/ --transform='s/migrate.linux-amd64/migrate/'
+          - chmod a+x $(go env GOPATH)/bin/migrate
+          - checkout
+          - cache restore deps-$SEMAPHORE_GIT_BRANCH-$(checksum Gopkg.lock),deps-$SEMAPHORE_GIT_BRANCH,deps-master
+          - go version
+      jobs:
+        - name: Go Vet
+          commands:
+            - go vet ./...
+        - name: Run tests
+          commands:
+            # not really codeship here.. but I think it still does what I want
+            - sem-service start postgres 11
+            - make setup-test-db
+            - make codeship-test
