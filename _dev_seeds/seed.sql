@@ -1,6 +1,6 @@
 /* Create a fake user with the password 'password' */
 -- temporarily need to manually set auto increments after running this.
--- ALTER SEQUENCE "seq_users_id"  RESTART WITH 2 etc.
+-- ALTER SEQUENCE "users_id_seq"  RESTART WITH 2; etc.
 INSERT INTO users (id, full_name, username, email, password, is_active, is_admin, updated_at)
   VALUES (1, 'First McLast', 'worrywort', 'user@example.org', '$2a$13$ziIoEVxTifUjLqxgQr6p/OyVlfKqdET9m/t5rDEzXmRcaJNjPCINW', 't', 'f', now())
   ON CONFLICT DO NOTHING;
