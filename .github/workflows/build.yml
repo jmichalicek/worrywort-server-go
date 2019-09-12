@@ -1,0 +1,97 @@
+name: build
+on: push
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:11.5
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: worrywort_test
+        ports:
+        - 5432:5432
+        # needed because the postgres container does not provide a healthcheck
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+
+    - name: Set up Go 1.12
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.12
+      id: go
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v1
+
+    - name: Get dependencies
+      env:
+        GOPATH: /home/runner/go
+        GOBIN: /home/runner/go/bin
+      # was getting an error about this dir needing to exist... this doesn't seem like the right answer, but if it works, it works.
+      # may have to use go get rather than their installer
+      # none of the gopath stuff is set up right by default, dep cannot run because not in $GOPATH/src/ subdir by default... muck about
+      # making it all work.
+      run: |
+        mkdir -p $GOBIN
+        go get -v -t -d ./...
+        cd $GOPATH/src/github.com/jmichalicek/worrywort-server-go
+        if [ -f Gopkg.toml ]; then
+            curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+            $GOBIN/dep ensure
+        fi
+    - name: Vet
+      env:
+        GOPATH: /home/runner/go
+        GOBIN: /home/runner/go/bin
+      run: |
+        cd $GOPATH/src/github.com/jmichalicek/worrywort-server-go
+        go vet ./...
+
+    - name: Test
+      run: |
+        wget -qO- https://github.com/golang-migrate/migrate/releases/download/v4.3.1/migrate.linux-amd64.tar.gz | tar -zxv -C $GOBIN/ --transform='s/migrate.linux-amd64/migrate/'
+        chmod a+x $GOBIN/migrate
+        cd $GOPATH/src/github.com/jmichalicek/worrywort-server-go
+        $GOBIN/migrate -source file://./_migrations -database postgres://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:5432/${DATABASE_NAME}?sslmode=disable up
+        bash ./codecovtest.sh
+      env:
+        GOPATH: /home/runner/go
+        GOBIN: /home/runner/go/bin
+        # or host becomes postgres if I run this as a container-job rather than right on vm, as I understand it
+        # dbport: ${{ job.services.postgres.ports[5432] }} but I seem to have excluded
+        # used https://github.com/actions/example-services/blob/master/.github/workflows/postgres-service.yml for
+        # examples
+        DATABASE_HOST: localhost
+        DATABASE_PORT: ${{ job.services.postgres.ports[5432] }}
+        DATABASE_NAME: worrywort_test
+        DATABASE_PASSWORD: postgres
+        DATABASE_USER: postgres
+        REDIS_HOST: redis
+        PGPASSWORD: postgres
+        PGUSER: postgres
+        PGDATABASE: worrywort_test
+        PGHOST: localhost
+        PGPORT: ${{ job.services.postgres.ports[5432] }}
+    - name: Build
+      env:
+        GOPATH: /home/runner/go
+        GOBIN: /home/runner/go/bin
+      # TODO: build osx, linux, and windows versions and save artifacts?
+      # TODO: make docker image and push
+      # TODO: upload stats to codecov
+      # tar -cvzf worrywort.linux-amd64.tar.gz ./dist/worrywort
+      run: |
+        cd $GOPATH/src/github.com/jmichalicek/worrywort-server-go
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o ./dist/worrywort/worrywortd ./cmd/worrywortd
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o ./dist/worrywort/wortuser ./cmd/wortuser
+    - name: Save Artifacts - Linux amd64
+      env:
+        GOPATH: /home/runner/go
+        GOBIN: /home/runner/go/bin
+      uses: actions/upload-artifact@v1
+      with:
+        name: worrywort-linux-amd64
+        path: /home/runner/go/src/github.com/jmichalicek/worrywort-server-go/dist/worrywort
