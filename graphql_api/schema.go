@@ -39,6 +39,7 @@ var Schema = `
 		createBatch(input: CreateBatchInput!): CreateBatchPayload
 		createSensor(input: CreateSensorInput!): CreateSensorPayload
 		updateBatchSensorAssociation(input: UpdateBatchSensorAssociationInput!): UpdateBatchSensorAssociationPayload
+		updateSensor(input: UpdateSensorInput!): UpdateSensorPayload
 	}
 
 	enum VolumeUnit {
@@ -195,6 +196,13 @@ var Schema = `
 		updatedAt: DateTime!
 	}
 
+	# Data returned by UpdateSensor mutation
+	type UpdateSensorPayload {
+		# Updated Sensor returned by UpdateSensor
+		sensor: Sensor
+		userErrors: [UserError!]
+	}
+
 	type UserError {
 		field: [String!]
 		error: String!
@@ -242,6 +250,13 @@ var Schema = `
 		batchId: ID!
 		description: String
 		sensorId: ID!
+	}
+
+	# Input data to update an existing Sensor
+	input UpdateSensorInput {
+		# A useful name for the sensor. Optional because there will be other updateable properties.
+		name: String
+		id: ID!
 	}
 
 	# Update a batchSensorAssociation to match the given input

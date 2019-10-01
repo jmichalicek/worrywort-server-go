@@ -24,16 +24,22 @@ type Sensor struct {
 
 func buildSensorsQuery(params map[string]interface{}, db *sqlx.DB) *sqrl.SelectBuilder {
 	query := sqrl.Select().From("sensors s")
-	for _, k := range []string{"id", "user_id", "uuid"} {
+	// TODO: test for filter by name... or make a more generic setup which just accepts anything
+	// or a variadic list of sqrl stuff or a new type with name, comparison, value...
+	// or maybe can leverage sqrl for that somehow?
+	for _, k := range []string{"id", "user_id", "uuid", "name"} {
 		// TODO: return error if not ok?
 		if v, ok := params[k]; ok {
 			query = query.Where(sqrl.Eq{fmt.Sprintf("s.%s", k): v})
 		}
 	}
 
-	// Careful here - user_id is nullable but that will cause this to not return those sensors.
-	// In all cases of user oriented queries that is desired, but for an admin type lookup it might not be.
-	query = query.Join("users u ON s.user_id = u.id")
+	// TODO: nice API around letting this be optional? Leaning towards functions like
+	// FindSensor and FindSensors should return the query or an object which has the query
+	// plus ability to execute, allowing joins to be done later if desired rather than forcing.
+	// But keep it simple and what I need 99% of the time for now.
+	// TODO: related to above TODO, consider functional options - https://dave.cheney.net/2014/10/17/functional-options-for-friendly-apis
+	query = query.LeftJoin("users u ON s.user_id = u.id")
 
 	for _, k := range []string{"id", "uuid", "name", "created_at", "updated_at", "user_id"} {
 		query = query.Column(fmt.Sprintf("s.%s", k))
@@ -59,6 +65,10 @@ func buildSensorsQuery(params map[string]interface{}, db *sqlx.DB) *sqrl.SelectB
 // Look up a single temperature sensor
 // returns the first match, like .first() in Django
 func FindSensor(params map[string]interface{}, db *sqlx.DB) (*Sensor, error) {
+	// TODO: tempted to return the value rather than pointer to Sensor
+	// was using nil return to know it was not found, but could use error
+	// and a sensor with all zero values returned but this provides better consistency
+	// with the plural FindFoo() stuff which returns a slice of pointers.
 	sensor := new(Sensor)
 	query, values, err := buildSensorsQuery(params, db).ToSql()
 	if err == nil {
@@ -68,6 +78,7 @@ func FindSensor(params map[string]interface{}, db *sqlx.DB) (*Sensor, error) {
 }
 
 func FindSensors(params map[string]interface{}, db *sqlx.DB) ([]*Sensor, error) {
+	// TODO:
 	sensors := new([]*Sensor)
 	query, values, err := buildSensorsQuery(params, db).ToSql()
 	if err == nil {
