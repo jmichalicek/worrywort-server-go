@@ -1890,7 +1890,7 @@ func TestCreateSensorMutation(t *testing.T) {
 
 		// Test the returned graphql types
 		if result.CreateSensor.Typename != "CreateSensorPayload" {
-			t.Errorf("createBatch returned unexpected type: %s", result.CreateSensor.Typename)
+			t.Errorf("createSensor returned unexpected type: %s", result.CreateSensor.Typename)
 		}
 
 		if result.CreateSensor.Sensor.Typename != "Sensor" {
@@ -1939,4 +1939,110 @@ func TestCreateSensorMutation(t *testing.T) {
 		}
 
 	})
+}
+
+func TestUpdateSensorMutation(t *testing.T) {
+	db, err := setUpTestDb()
+	if err != nil {
+		t.Fatalf("Got error setting up database: %s", err)
+	}
+	defer db.Close()
+
+	u := worrywort.User{Email: "user@example.com", FullName: "Justin Michalicek", Username: "worrywort"}
+	if err := u.Save(db); err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	u2 := worrywort.User{Email: "user2@example.com", FullName: "Justin Michalicek", Username: "worrywort2"}
+	if err := u2.Save(db); err != nil {
+		t.Fatalf("failed to insert user: %s", err)
+	}
+
+	sensor := worrywort.Sensor{UserId: u.Id, Name: "Test Sensor", CreatedBy: &u}
+	if err := sensor.Save(db); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	var worrywortSchema = graphql.MustParseSchema(graphql_api.Schema, graphql_api.NewResolver(db))
+	// Some structs so that the json can be unmarshalled.
+
+	type nodeWithName struct {
+		node
+		Name string
+	}
+
+	type payload struct {
+		Typename string `json:"__typename"`
+		Sensor   nodeWithName   `json:"sensor"`
+	}
+
+	type updateSensor struct {
+		UpdateSensor *payload `json:"updateSensor"`
+	}
+
+	variables := map[string]interface{}{
+		"input": map[string]interface{}{
+			"name": "My Sensor",
+			"id": sensor.UUID,
+		},
+	}
+	query := `
+		mutation updateSensor($input: UpdateSensorInput!) {
+			updateSensor(input: $input) {
+				__typename
+				sensor {
+					__typename
+					id
+					name
+				}
+			}
+		}`
+
+	operationName := ""
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "db", db)
+
+	var testmatrix = []struct {
+		name      string
+		user *worrywort.User
+		variables map[string]interface{}
+		expected  *updateSensor
+	}{
+		{name: "Valid update", user: &u, variables: variables,
+		 expected: &updateSensor{
+			 UpdateSensor: &payload{Typename: "UpdateSensorPayload", Sensor: nodeWithName{
+					 node: node{Typename: "Sensor", Id: sensor.UUID}, Name: "My Sensor"} }}},
+		{name: "Unauthenticated", user: nil, variables: variables, expected: new(updateSensor)},
+		{name: "User does not own sensor", user: &u2, variables: variables, expected: new(updateSensor)},
+		// TODO: test cases for invalid values such as name
+	}
+
+	// empty updateSensor for cmpOpts because we can't rely on result
+	// because the value we need to reference can be null and then cmp blows up
+	e := updateSensor{&payload{}}
+	cmpOpts := []cmp.Option{
+		cmp.AllowUnexported(e.UpdateSensor.Sensor),
+	}
+	for _, tm := range testmatrix {
+		t.Run(tm.name, func(t *testing.T) {
+				ctx := context.WithValue(ctx, middleware.DefaultUserKey, tm.user)
+				resultData := worrywortSchema.Exec(ctx, query, operationName, tm.variables)
+				result := new(updateSensor)
+				if err := json.Unmarshal(resultData.Data, result); err != nil {
+					t.Fatalf("%v: %v", err, resultData)
+				}
+
+				if !cmp.Equal(tm.expected, result, cmpOpts...) {
+					t.Errorf("Expected: - | Got +\n%s", cmp.Diff(tm.expected, result, cmpOpts...))
+				}
+
+				if result.UpdateSensor != nil {
+					sensorId := result.UpdateSensor.Sensor.Id
+					s, err := worrywort.FindSensor(map[string]interface{}{"user_id": *u.Id, "uuid": sensorId, "name": "My Sensor"}, db)
+					if err != nil {
+						t.Errorf("Error: %v and Sensor: %v", err, s)
+					}
+				}
+		})
+	}
 }

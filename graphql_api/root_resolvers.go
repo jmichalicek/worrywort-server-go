@@ -31,6 +31,7 @@ type pageInfo struct {
 func (r pageInfo) HASNEXTPAGE() bool     { return r.HasNextPage }
 func (r pageInfo) HASPREVIOUSPAGE() bool { return r.HasPreviousPage }
 
+// TODO: call tis struct RootResolver?
 type Resolver struct {
 	// todo: should be Db?
 	// do not really need this now that it is coming in on context so code is inconsistent.
@@ -70,17 +71,11 @@ func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*ba
 	if u == nil {
 		return nil, ErrUserNotAuthenticated
 	}
-	var err error
+
 	batchArgs := make(map[string]interface{})
 	// TODO: Or if batch is publicly readable by anyone?
 	batchArgs["user_id"] = u.Id
 	batchArgs["uuid"] = args.ID
-	// batchArgs["id"], err = strconv.ParseInt(string(args.ID), 10, 0)
-
-	if err != nil {
-		log.Printf("%v", err)
-		return nil, nil
-	}
 
 	batchPtr, err := worrywort.FindBatch(batchArgs, r.db)
 	if err != nil {
@@ -88,6 +83,7 @@ func (r *Resolver) Batch(ctx context.Context, args struct{ ID graphql.ID }) (*ba
 		if err != sql.ErrNoRows {
 			log.Printf("%v", err)
 		}
+		// TODO: return a useful error
 		return nil, nil
 	}
 	if batchPtr == nil {
@@ -470,6 +466,11 @@ type createSensorInput struct {
 	Name string
 }
 
+type updateSensorInput struct {
+	Name *string
+	ID   graphql.ID
+}
+
 // Mutation Payloads
 type createTemperatureMeasurementPayload struct {
 	t *temperatureMeasurementResolver
@@ -486,6 +487,14 @@ type createSensorPayload struct {
 func (c createSensorPayload) Sensor() *sensorResolver {
 	return c.s
 }
+
+type updateSensorPayload struct {
+	sensor     *sensorResolver
+	userErrors []*userErrorResolver
+}
+
+func (p updateSensorPayload) Sensor() *sensorResolver { return p.sensor }
+func (p updateSensorPayload) UserErrors() *[]*userErrorResolver { return &p.userErrors }
 
 type loginPayload struct {
 	t *worrywort.AuthToken
@@ -592,6 +601,57 @@ func (r *Resolver) CreateSensor(ctx context.Context, args *struct {
 	sr := sensorResolver{s: &s}
 	result := createSensorPayload{s: &sr}
 	return &result, nil
+}
+
+func (r *Resolver) UpdateSensor(ctx context.Context, args *struct {
+	Input *updateSensorInput
+}) (*updateSensorPayload, error) {
+	user, _ := middleware.UserFromContext(ctx)
+	if user == nil {
+		return nil, ErrUserNotAuthenticated
+	}
+
+	db, ok := ctx.Value("db").(*sqlx.DB)
+	if !ok {
+		// TODO: logging with stack info?
+		log.Printf("No database in context")
+		return nil, ErrServerError
+	}
+
+	var inputPtr *updateSensorInput = args.Input
+	// TODO: make sure input was not nil. Technically the schema does this for us
+	// but might be safer to handle here, too, or at least have a test case for it.
+	var input updateSensorInput = *inputPtr
+
+	// TODO: MAGIC NUMBERS!!! Make this a const and/or a setting somewhere for max sensor name length
+	if input.Name != nil && (len(*input.Name) < 1 || len(*input.Name) > 25) {
+		e := &userErrorResolver{f: []string{"Name"}, err: "Name must be between 1 and 25 characters."}
+		return &updateSensorPayload{sensor: nil, userErrors: []*userErrorResolver{e}}, nil
+	}
+
+	sensor, err := worrywort.FindSensor(map[string]interface{}{"uuid": string(input.ID), "user_id": *user.Id}, db)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			log.Printf("%v", err)
+		}
+		return nil, nil // maybe error should be returned
+	} else if sensor != nil && sensor.UUID == "" {
+		// TODO: check for UUID is a hack because I need to rework FindSensor to return nil
+		// if it did not find a sensor
+		return nil, nil
+	}
+
+	sensor.Name = *input.Name
+	if err := sensor.Save(db); err != nil {
+		log.Printf("Failed to save Sensor: %v\n", err)
+		// TODO: This is NOT the error which should be returned on the API. Need to check it, log it,
+		// and return something more generic like a general server error type deal or figure out how to
+		// return an http 500 error.
+		return nil, err
+	}
+	sr := &sensorResolver{s: sensor}
+	result := &updateSensorPayload{sensor: sr}
+	return result, nil
 }
 
 func (r *Resolver) Login(args *struct {
