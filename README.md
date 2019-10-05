@@ -1,3 +1,5 @@
+[![Actions Status](https://github.com/jmichalicek/worrywort-server-go/workflows/build/badge.svg)](https://github.com/jmichalicek/worrywort-server-go/actions)
+
 [![Build Status](https://travis-ci.org/jmichalicek/worrywort-server-go.svg?branch=master)](https://travis-ci.org/jmichalicek/worrywort-server-go)
 
 # WorryWort
