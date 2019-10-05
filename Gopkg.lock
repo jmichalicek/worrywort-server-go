@@ -2,12 +2,12 @@
 
 
 [[projects]]
-  digest = "1:130f8f62c61c865b2240edaca8c14d1a77f331fb3a8d6a715e40506cfab41a66"
+  digest = "1:7bcfb62ff852134771c94a9f9a972ab40c327b3d11bcaa232fcda2d4f3674dee"
   name = "github.com/DATA-DOG/go-txdb"
   packages = ["."]
   pruneopts = ""
-  revision = "98b2c9b21b660ca7c8a1ceb4deed9fd5a14e5cd8"
-  version = "v0.1.2"
+  revision = "6ca798a10f4408c9d8c74527ff93da373e521ebf"
+  version = "v0.1.3"
 
 [[projects]]
   digest = "1:0deddd908b6b4b768cfc272c16ee61e7088a60f7fe2f06c547bd3d8e1f8b8e77"
@@ -19,16 +19,19 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:68e7bc676f9ede4faeee8d297465ec04abf2147ebdea5d6903554b5b1c504ebf"
+  digest = "1:7eccf6c9b303ae21c69d63c67b30374fd3cd78f3574f13972813b18ac82c311c"
   name = "github.com/elgris/sqrl"
   packages = ["."]
   pruneopts = ""
-  revision = "90ecf730640af15b296b0613b5d74848b3675e53"
+  revision = "5a439265eeec01f5df2303153aa0c444c050709a"
 
 [[projects]]
   digest = "1:55d7786e315a68ad27227a9800ebed9c48a23379de13358ab9a331ae8fe39283"
   name = "github.com/go-chi/chi"
-  packages = ["."]
+  packages = [
+    ".",
+    "middleware",
+  ]
   pruneopts = ""
   revision = "da24bba8dcd4021cafac38724bf10dccc97c3e36"
   version = "v4.0.2"
@@ -57,7 +60,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:91180eace75aa36c1d6194c3d2870f08d8aec37cf816bce48285e01411c64608"
+  digest = "1:9ded2fdbaa5f30dfe7adcd622ab3da77b9d0b9a11610d7361395db0f8063e8f5"
   name = "github.com/graph-gophers/graphql-go"
   packages = [
     ".",
@@ -76,21 +79,21 @@
     "trace",
   ]
   pruneopts = ""
-  revision = "3e8838d4614c12ab337e796548521744f921e05d"
+  revision = "38a077bc812da9a60fd1885e68206c59b24c858e"
 
 [[projects]]
   branch = "master"
-  digest = "1:77e5b0973a79680fad4df957518d6585d5ce3e7f5731661698c53df74c070603"
+  digest = "1:0320ee3b5a34b1dfbea723b37a8a6e4c7cf9857851e56f646d9b20a0e05d86b3"
   name = "github.com/jmoiron/sqlx"
   packages = [
     ".",
     "reflectx",
   ]
   pruneopts = ""
-  revision = "1d3423c595d749e4613fce663591b44ae539d377"
+  revision = "d7d95172beb5a538ff08c50a6e98aee6e7c41f40"
 
 [[projects]]
-  digest = "1:364ac8e42128f8c9b7642e54b15ca43d1d808eaf99e2caf15ed7eb7351df25aa"
+  digest = "1:f4216047c24ab66fb757045febd7dac4edc6f4ad9f6c0063d0755d654d04f25e"
   name = "github.com/lib/pq"
   packages = [
     ".",
@@ -98,8 +101,8 @@
     "scram",
   ]
   pruneopts = ""
-  revision = "51e2106eed1cea199c802d2a49e91e2491b02056"
-  version = "v1.1.0"
+  revision = "3427c32cb71afc948325f299f040e53c1dd78979"
+  version = "v1.2.0"
 
 [[projects]]
   digest = "1:1fc4897d3cc482d070651563c16a51489296cd9150e6d53fb7ff4d59a24334bc"
@@ -115,14 +118,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:cebc91a148c3d35354b53496d684130b149b607a4ba4feb035a0eb591284a96a"
+  digest = "1:b4305df2444548cf8f171cd377e19bc7021eaa195aaa78367b3a371d2d6b9ae1"
   name = "golang.org/x/crypto"
   packages = [
     "bcrypt",
     "blowfish",
   ]
   pruneopts = ""
-  revision = "df01cb2cc480549d72034218dd98bf97671450ac"
+  revision = "34f69633bfdcf9db92f698f8487115767eebef81"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -132,6 +135,7 @@
     "github.com/davecgh/go-spew/spew",
     "github.com/elgris/sqrl",
     "github.com/go-chi/chi",
+    "github.com/go-chi/chi/middleware",
     "github.com/google/go-cmp/cmp",
     "github.com/google/go-cmp/cmp/cmpopts",
     "github.com/google/uuid",
